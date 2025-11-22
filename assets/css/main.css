@@ -1117,7 +1117,8 @@ button {
 .header-actions {
   display: flex;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
 }
 
 .chat-header-toggle {
@@ -1538,6 +1539,8 @@ button {
   .header-actions {
     width: auto;
     justify-content: flex-end;
+    flex-shrink: 0;
+    gap: 0.5rem;
   }
   
   .header-actions .theme-toggle {
