@@ -3,11 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CIDIRILK — electronic music navigator</title>
+    <title>Cidirilk</title>
     <meta
       name="description"
-      content="CIDIRILK crafts radio shows, performances, and research rooted in techno futurism, rave memory, and experimental DSP."
+      content="CIDIRILK crafts radio shows, performances, and research rooted in techno futurism, rave memory, and experimental DSP. Based in Basel, broadcasting on LiveSets."
     />
+    <meta name="keywords" content="CIDIRILK, electronic music, techno, radio shows, live DJ, Basel, experimental music, DSP, LiveSets, ChaCha" />
+    <meta name="author" content="Kliridis Charalampos" />
+    <meta name="theme-color" content="#c174ff" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cidirilk.github.io/" />
+    <meta property="og:title" content="CIDIRILK — Electronic Music Navigator" />
+    <meta property="og:description" content="Radio shows, performances, and collaborations rooted in techno futurism and experimental sound design." />
+    <meta property="og:image" content="https://cidirilk.github.io/assets/social-preview.jpg" />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://cidirilk.github.io/" />
+    <meta property="twitter:title" content="CIDIRILK — Electronic Music Navigator" />
+    <meta property="twitter:description" content="Radio shows, performances, and collaborations rooted in techno futurism and experimental sound design." />
+    <meta property="twitter:image" content="https://cidirilk.github.io/assets/social-preview.jpg" />
+    
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -15,23 +33,59 @@
       rel="stylesheet"
     />
     <link
-      rel="stylesheet"
+      rel="preload"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
+      as="style"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous"
+        referrerpolicy="no-referrer"
+      />
+    </noscript>
     <link rel="stylesheet" href="./assets/css/main.css" />
     <link
       rel="icon"
       type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='6' fill='%23004290'/%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Ccircle cx='10' cy='10' r='6' fill='%23c174ff'/%3E%3C/svg%3E"
     />
     <script>
       (function () {
-        const savedTheme = localStorage.getItem('theme') || 'light';
+        const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
       })();
+    </script>
+    
+    <!-- Structured Data for SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": "Kliridis Charalampos",
+      "alternateName": "CIDIRILK",
+      "url": "https://cidirilk.github.io",
+      "jobTitle": "Electronic Music Artist & DJ",
+      "description": "Electronic music navigator crafting radio shows, performances, and research rooted in techno futurism and experimental DSP.",
+      "sameAs": [
+        "https://soundcloud.com/cidirilk",
+        "https://www.facebook.com/cidirilk",
+        "https://www.instagram.com/cidirilk",
+        "https://ra.co/dj/cidirilk"
+      ],
+      "knowsAbout": ["Electronic Music", "Techno", "Experimental Music", "DSP", "Live Performance", "Radio Broadcasting"],
+      "performerIn": {
+        "@type": "MusicEvent",
+        "name": "LiveSets Radio Residency",
+        "location": {
+          "@type": "VirtualLocation",
+          "url": "https://livesets.com/cidirilk/live"
+        }
+      }
+    }
     </script>
   </head>
   <body>
@@ -52,16 +106,17 @@
     </div>
     <header class="site-header" id="siteHeader">
       <div class="header-bar">
-        <a class="logo" href="#home" aria-label="CIDIRILK home">CIDIRILK</a>
+        <a class="logo" href="/" aria-label="CIDIRILK home">CIDIRILK</a>
         <a
           class="live-mobile-link"
-          href="https://livesets.com/cidirilk/live"
+          href="https://livesets.com/cidirilk/sessions"
           target="_blank"
           rel="noopener"
           aria-label="LiveSets status"
+          data-live-mobile-link
         >
           <span class="live-mobile-dot" data-live-indicator></span>
-          <span class="live-mobile-text">Live</span>
+          <span class="live-mobile-text" data-live-mobile-text>Offline</span>
         </a>
         <div class="header-actions">
           <button class="icon-button theme-toggle" type="button" aria-label="Toggle theme">
@@ -81,12 +136,12 @@
             <p class="eyebrow">CIDIRILK — if you can't pronounce it, read it backwards</p>
             <h1>Signal work tracing the fragile line between control and surrender.</h1>
             <p class="lede">
-              Kliridis Charalampos (CIDIRILK) builds radio shows, performances, and collaborations that value presence over perfection.
-              Since 2017 the project has been a loop of learning, unlearning, and rediscovering meaning through sound.
+              Kliridis Charalampos (CIDIRILK) crafts radio shows, live performances, and sonic experiments that embrace presence over perfection.
+              Since 2017, the project has been a continuous loop—learning, unlearning, and rediscovering meaning through sound.
             </p>
             <p>
-              LiveSets hosts the residency broadcasts, ChaCha expands the research as a duo, and every past event leaves a fragment for the next story.
-              Expect glitch, care, and curiosity stitched together.
+              LiveSets hosts the residency broadcasts. ChaCha expands the research as a duo. Every past event leaves fragments for the next chapter.
+              Expect glitch, care, and curiosity stitched together with intention.
             </p>
           </div>
           <div class="profile-cards reveal-on-load" data-card-tabs>
@@ -116,12 +171,41 @@
               </article>
               <article class="info-card tab-panel" data-panel="events" role="tabpanel" hidden>
                 <h3>Past events</h3>
-                <ul>
-                  <li><a href="https://ra.co/events/1507204" target="_blank" rel="noopener">Signal Klub · Basel — RA1507204</a></li>
-                  <li><a href="https://ra.co/events/1583001" target="_blank" rel="noopener">ChaCha Premiere — RA1583001</a></li>
-                  <li><a href="https://ra.co/events/1885354" target="_blank" rel="noopener">Infra Bloom Live — RA1885354</a></li>
-                  <li><a href="https://ra.co/events/1815030" target="_blank" rel="noopener">ChaCha Night Cycle — RA1815030</a></li>
-                </ul>
+                <div class="carousel" data-carousel>
+                  <div class="carousel-track" data-carousel-track>
+                    <div class="carousel-slide">
+                      <a href="https://ra.co/events/1507204" target="_blank" rel="noopener" class="event-link">
+                        <span class="event-name">Signal Klub · Basel</span>
+                        <span class="event-id">RA1507204</span>
+                      </a>
+                    </div>
+                    <div class="carousel-slide">
+                      <a href="https://ra.co/events/1583001" target="_blank" rel="noopener" class="event-link">
+                        <span class="event-name">ChaCha Premiere</span>
+                        <span class="event-id">RA1583001</span>
+                      </a>
+                    </div>
+                    <div class="carousel-slide">
+                      <a href="https://ra.co/events/1885354" target="_blank" rel="noopener" class="event-link">
+                        <span class="event-name">Infra Bloom Live</span>
+                        <span class="event-id">RA1885354</span>
+                      </a>
+                    </div>
+                    <div class="carousel-slide">
+                      <a href="https://ra.co/events/1815030" target="_blank" rel="noopener" class="event-link">
+                        <span class="event-name">ChaCha Night Cycle</span>
+                        <span class="event-id">RA1815030</span>
+                      </a>
+                    </div>
+                  </div>
+                  <button class="carousel-btn carousel-prev" data-carousel-prev aria-label="Previous event">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <button class="carousel-btn carousel-next" data-carousel-next aria-label="Next event">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                  <div class="carousel-dots" data-carousel-dots></div>
+                </div>
               </article>
               <article class="info-card tab-panel" data-panel="collab" role="tabpanel" hidden>
                 <h3>Collaborations</h3>
@@ -151,11 +235,8 @@
     </main>
 
     <footer class="site-footer">
-      <span>&copy; <span id="year"></span> CIDIRILK. All rights reserved.</span>
-      <p>
-        Built by
-        <a href="https://kliridic.com/" target="_blank" rel="noopener">Kliridic</a>
-      </p>
+      <p>&copy; CIDIRILK. All rights reserved.</p>
+      <p>Built by <a href="https://kliridic.com/" target="_blank" rel="noopener">Kliridic</a></p>
     </footer>
 
     <div class="live-popup" data-live-banner>
@@ -172,25 +253,37 @@
     <button class="chat-toggle" type="button" aria-label="Open chat" data-chat-toggle>
       <i class="fa-solid fa-comments"></i>
     </button>
-    <section class="chat-panel" aria-live="polite" data-chat-panel>
-      <header class="chat-header">
-        <div>
-          <p class="label">Free chat</p>
-          <h3>hack.chat / cidirilk</h3>
+    
+    <!-- Custom Nickname Prompt -->
+    <div class="chat-nickname-overlay" data-nickname-overlay hidden>
+      <div class="nickname-card">
+        <div class="nickname-header">
+          <div class="nickname-icon">
+            <i class="fa-solid fa-user-astronaut"></i>
+          </div>
+          <h3>Join the Conversation</h3>
+          <p class="nickname-subtitle">Choose your cosmic identity</p>
         </div>
-        <button class="icon-button chat-close" type="button" aria-label="Close chat" data-chat-close>
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </header>
-      <iframe
-        title="hack.chat cidirilk room"
-        src="https://hack.chat/?cidirilk"
-        loading="lazy"
-        referrerpolicy="no-referrer"
-      ></iframe>
-      <p class="chat-helper">Hosted on hack.chat — no login required. If the embed fails, open the room directly.</p>
-      <a class="btn ghost compact" href="https://hack.chat/?cidirilk" target="_blank" rel="noopener">Open hack.chat</a>
-    </section>
+        <form class="nickname-form" data-nickname-form>
+          <label for="chatNickname">Your Nickname</label>
+          <input 
+            type="text" 
+            id="chatNickname" 
+            name="nickname" 
+            placeholder="Enter your alias..."
+            maxlength="24"
+            required
+            autocomplete="off"
+          />
+          <div class="nickname-actions">
+            <button type="button" class="btn ghost compact" data-nickname-cancel>Cancel</button>
+            <button type="submit" class="btn compact">Enter Chat</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <section class="chat-panel" aria-live="polite" data-chat-panel>
 
     <script src="./assets/js/script.js" defer></script>
   </body>
