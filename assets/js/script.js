@@ -17,11 +17,11 @@ const pageLoader = document.querySelector('[data-page-loader]');
 const loaderEnter = document.querySelector('[data-loader-enter]');
 const loaderMessage = document.querySelector('[data-loader-message]');
 const loaderMessages = [
-  'Click anywhere to enter.',
+  'Click anywhere to enter',
   'Scanning rave memory...',
-  'Syncing LiveSets telemetry...',
-  'Tuning DSP ghosts...',
-  'Warming transceivers...'
+  'Calibrating rhythm engines...',
+  'Warning dark matter...',
+  "Rendering cosmos..."
 ];
 let loaderMessageTimer = null;
 let ticking = false;
@@ -328,11 +328,17 @@ const updateLiveIndicator = (isLive) => {
   });
   
   mobileLiveTexts.forEach((text) => {
-    text.textContent = state ? 'LIVE NOW' : 'Offline';
+    text.textContent = state ? 'LIVE NOW' : 'Sessions';
   });
   
   getLiveLabels().forEach((label) => {
     label.textContent = state ? 'LIVE NOW' : 'Offline';
+  });
+  
+  // Show/hide "Open radio" button in desktop popup
+  const liveRadioBtns = document.querySelectorAll('[data-live-radio-btn]');
+  liveRadioBtns.forEach((btn) => {
+    btn.style.display = state ? 'flex' : 'none';
   });
 };
 
@@ -488,9 +494,321 @@ const initCarousel = () => {
   updateCarousel();
 };
 
+// Collaborations Carousel functionality
+const initCollabCarousel = () => {
+  const carousel = document.querySelector('[data-carousel-collab]');
+  if (!carousel) return;
+
+  const track = carousel.querySelector('[data-carousel-track-collab]');
+  const slides = Array.from(track.children);
+  const prevBtn = carousel.querySelector('[data-carousel-prev-collab]');
+  const nextBtn = carousel.querySelector('[data-carousel-next-collab]');
+  const dotsContainer = carousel.querySelector('[data-carousel-dots-collab]');
+
+  let currentIndex = 0;
+
+  // Create dots
+  slides.forEach((_, index) => {
+    const dot = document.createElement('button');
+    dot.classList.add('carousel-dot');
+    dot.setAttribute('aria-label', `Go to collaboration ${index + 1}`);
+    if (index === 0) dot.classList.add('active');
+    dot.addEventListener('click', () => goToSlide(index));
+    dotsContainer.appendChild(dot);
+  });
+
+  const dots = Array.from(dotsContainer.children);
+
+  const updateCarousel = () => {
+    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    
+    // Update dots
+    dots.forEach((dot, index) => {
+      dot.classList.toggle('active', index === currentIndex);
+    });
+
+    // Update button states
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex === slides.length - 1;
+  };
+
+  const goToSlide = (index) => {
+    currentIndex = Math.max(0, Math.min(index, slides.length - 1));
+    updateCarousel();
+  };
+
+  prevBtn.addEventListener('click', () => {
+    if (currentIndex > 0) {
+      currentIndex--;
+      updateCarousel();
+    }
+  });
+
+  nextBtn.addEventListener('click', () => {
+    if (currentIndex < slides.length - 1) {
+      currentIndex++;
+      updateCarousel();
+    }
+  });
+
+  // Keyboard navigation
+  carousel.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      prevBtn.click();
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      nextBtn.click();
+    }
+  });
+
+  // Touch swipe support
+  let touchStartX = 0;
+  let touchEndX = 0;
+
+  carousel.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+  }, { passive: true });
+
+  carousel.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    handleSwipe();
+  }, { passive: true });
+
+  const handleSwipe = () => {
+    const swipeThreshold = 50;
+    const diff = touchStartX - touchEndX;
+
+    if (Math.abs(diff) > swipeThreshold) {
+      if (diff > 0) {
+        nextBtn.click();
+      } else {
+        prevBtn.click();
+      }
+    }
+  };
+
+  updateCarousel();
+};
+
+// Collaboration Modal functionality
+const initCollabModal = () => {
+  const modal = document.querySelector('[data-collab-modal]');
+  const overlay = document.querySelector('[data-collab-modal-overlay]');
+  const closeBtn = document.querySelector('[data-collab-modal-close]');
+  const modalIcon = document.querySelector('[data-collab-modal-icon]');
+  const modalTitle = document.querySelector('[data-collab-modal-title]');
+  const modalBody = document.querySelector('[data-collab-modal-body]');
+  const collabCards = document.querySelectorAll('[data-collab-id]');
+
+  if (!modal || !collabCards.length) return;
+
+  // Collaboration data
+  const collabData = {
+    chacha: {
+      icon: 'fa-users',
+      title: 'ChaCha',
+      content: `
+        <h3>About ChaCha</h3>
+        <p>ChaCha is an artist project that explores the space between techno, electronica, and experimental sound design, creating immersive sonic landscapes that balance structure with spontaneity.</p>
+        
+        <h3>Musical Approach</h3>
+        <p>The project emphasizes <strong>textural depth</strong> and <strong>rhythmic exploration</strong>, weaving together hypnotic patterns with unexpected sonic moments. ChaCha's sets range from introspective ambient passages to driving techno rhythms.</p>
+        
+        <h3>Performance Style</h3>
+        <ul>
+          <li>Live hardware-based performances with modular synthesis</li>
+          <li>Real-time manipulation of sound and texture</li>
+          <li>Improvised sequences and generative patterns</li>
+          <li>Focus on creating immersive, evolving soundscapes</li>
+        </ul>
+        
+        <h3>Links</h3>
+        <p>More info: <a href="https://ra.co/dj/chacha/biography" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+      `
+    },
+    synesthesia: {
+      icon: 'fa-brain',
+      title: 'SYNESTHESIA',
+      content: `
+        <h3>About SYNESTHESIA</h3>
+        <p>SYNESTHESIA is a cutting-edge collective focused on merging electronic music with multisensory experiences, creating events that blur the boundaries between sound, vision, and sensation.</p>
+        
+        <h3>Philosophy</h3>
+        <p>The collective explores how different sensory inputs can enhance and transform the music experience, creating environments where attendees don't just hear the music—they feel it on multiple levels.</p>
+        
+        <h3>Events & Performances</h3>
+        <ul>
+          <li>Immersive audiovisual showcases</li>
+          <li>Underground warehouse parties with spatial audio</li>
+          <li>Experimental electronic music lineups</li>
+          <li>Collaborative performances with visual artists</li>
+        </ul>
+        
+        <h3>Links</h3>
+        <p>More info: <a href="https://ra.co/promoters/115743" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+      `
+    },
+    mindriot: {
+      icon: 'fa-bolt',
+      title: 'Mind The Riot',
+      content: `
+        <h3>About Mind The Riot</h3>
+        <p>Mind The Riot is a dynamic promoter collective bringing high-energy techno and underground electronic music to unconventional spaces, fostering a community of passionate music lovers.</p>
+        
+        <h3>Mission</h3>
+        <p>Creating memorable nights that challenge the status quo, Mind The Riot focuses on showcasing both established and emerging talent in raw, authentic environments.</p>
+        
+        <h3>Event Focus</h3>
+        <ul>
+          <li>Underground techno and hard groove</li>
+          <li>Industrial and warehouse venues</li>
+          <li>Local and international artist bookings</li>
+          <li>Community-driven music culture</li>
+        </ul>
+        
+        <h3>Links</h3>
+        <p>More info: <a href="https://ra.co/promoters/106564" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+      `
+    },
+    boilerhouse: {
+      icon: 'fa-fire',
+      title: 'Boiler House',
+      content: `
+        <h3>About Boiler House</h3>
+        <p>Boiler House is a respected promoter known for curating forward-thinking electronic music events, featuring everything from deep house to experimental techno in carefully selected venues.</p>
+        
+        <h3>Event Curation</h3>
+        <p>With a focus on quality over quantity, Boiler House creates intimate yet powerful experiences, bringing together diverse sounds and talented selectors for nights that stay with you.</p>
+        
+        <h3>Musical Range</h3>
+        <ul>
+          <li>Deep house and melodic techno</li>
+          <li>Experimental electronic soundscapes</li>
+          <li>Carefully curated DJ lineups</li>
+          <li>Emphasis on dancefloor energy and musicality</li>
+        </ul>
+        
+        <h3>Links</h3>
+        <p>More info: <a href="https://ra.co/promoters/102310" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+      `
+    },
+    indigo: {
+      icon: 'fa-circle-half-stroke',
+      title: 'Indigo',
+      content: `
+        <h3>About Indigo</h3>
+        <p>Indigo is a forward-thinking collective that champions progressive electronic music, creating atmospheric events that emphasize musical journey and emotional depth.</p>
+        
+        <h3>Vision</h3>
+        <p>Named after the color between blue and violet, Indigo represents the liminal space in electronic music—the transition between moods, genres, and energies throughout a night.</p>
+        
+        <h3>Event Style</h3>
+        <ul>
+          <li>Progressive and melodic techno</li>
+          <li>Deep and hypnotic house music</li>
+          <li>Focus on musical narrative and flow</li>
+          <li>Intimate venue selections with quality sound systems</li>
+        </ul>
+        
+        <h3>Links</h3>
+        <p>More info: <a href="https://ra.co/promoters/129207" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+      `
+    }
+  };
+
+  // Open modal function
+  const openModal = (collabId) => {
+    const data = collabData[collabId];
+    if (!data) return;
+
+    // Update modal content
+    modalIcon.innerHTML = `<i class="fa-solid ${data.icon}"></i>`;
+    modalTitle.textContent = data.title;
+    modalBody.innerHTML = data.content;
+
+    // Show modal
+    modal.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+    
+    // Focus the close button for accessibility
+    setTimeout(() => closeBtn?.focus(), 100);
+  };
+
+  // Close modal function
+  const closeModal = () => {
+    modal.setAttribute('hidden', '');
+    document.body.style.overflow = '';
+  };
+
+  // Add click listeners to collab cards
+  collabCards.forEach(card => {
+    card.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const collabId = card.getAttribute('data-collab-id');
+      openModal(collabId);
+    });
+    
+    // Add keyboard support
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const collabId = card.getAttribute('data-collab-id');
+        openModal(collabId);
+      }
+    });
+  });
+
+  // Close button
+  closeBtn?.addEventListener('click', closeModal);
+
+  // Overlay click
+  overlay?.addEventListener('click', closeModal);
+
+  // ESC key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hasAttribute('hidden')) {
+      closeModal();
+    }
+  });
+};
+
+// Check and hide expired events
+const checkEventExpiry = () => {
+  const eventContainer = document.querySelector('[data-next-event-container]');
+  const eventCard = document.querySelector('[data-event-end]');
+  
+  if (!eventContainer || !eventCard) return;
+  
+  const endDate = eventCard.getAttribute('data-event-end');
+  
+  if (!endDate) return;
+  
+  const eventEndTime = new Date(endDate);
+  const now = new Date();
+  
+  // Hide the entire event container if the event has ended
+  if (now > eventEndTime) {
+    eventContainer.style.display = 'none';
+  }
+  // Otherwise, ensure it's visible (remove any display style)
+  else {
+    eventContainer.style.display = 'block';
+  }
+};
+
 // Initialize carousel after DOM is loaded
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initCarousel);
+  document.addEventListener('DOMContentLoaded', () => {
+    initCarousel();
+    initCollabCarousel();
+    initCollabModal();
+    checkEventExpiry();
+  });
 } else {
   initCarousel();
+  initCollabCarousel();
+  initCollabModal();
+  checkEventExpiry();
 }
