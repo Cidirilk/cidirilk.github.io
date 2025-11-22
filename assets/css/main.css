@@ -83,6 +83,16 @@ html {
   overflow-x: hidden;
 }
 
+html[data-theme] {
+  transition: none;
+}
+
+html[data-theme] * {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
 html::-webkit-scrollbar {
   width: 10px;
   height: 10px;

@@ -151,14 +151,26 @@ const setTheme = (mode) => {
   root.setAttribute('data-theme', mode);
   localStorage.setItem('theme', mode);
   syncThemeIcon();
+  
+  // Force repaint on mobile
+  document.body.style.display = 'none';
+  document.body.offsetHeight; // Trigger reflow
+  document.body.style.display = '';
 };
 
 const initTheme = () => {
   const stored = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+  
   if (stored) {
     root.setAttribute('data-theme', stored);
-  } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+  } else if (prefersLight) {
+    // Only use light if user explicitly prefers it
     root.setAttribute('data-theme', 'light');
+  } else {
+    // Default to dark for everyone else
+    root.setAttribute('data-theme', 'dark');
   }
   syncThemeIcon();
 };
