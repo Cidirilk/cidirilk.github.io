@@ -26,6 +26,14 @@ const loaderMessages = [
 let loaderMessageTimer = null;
 let ticking = false;
 
+// Prevent scroll restoration on Android
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
+// Ensure starting at top
+window.scrollTo(0, 0);
+
 const markBodyLoaded = () => document.body?.classList.add('is-loaded');
 
 const completeLoader = () => {
@@ -37,6 +45,12 @@ const completeLoader = () => {
     clearInterval(loaderMessageTimer);
     loaderMessageTimer = null;
   }
+  
+  // Ensure page starts at top (fixes Android scroll issue)
+  setTimeout(() => {
+    window.scrollTo(0, 0);
+    document.querySelector('main')?.scrollTo(0, 0);
+  }, 50);
 };
 
 const handleLoaderEnter = () => {

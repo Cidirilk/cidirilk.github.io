@@ -373,6 +373,14 @@ body.loader-complete .page-loader {
   pointer-events: none;
 }
 
+body.loader-complete {
+  overflow-y: visible;
+}
+
+body.loader-complete main {
+  scroll-behavior: smooth;
+}
+
 .reveal-on-load {
   opacity: 0;
   transform: translateY(28px);
