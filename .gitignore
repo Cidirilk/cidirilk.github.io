@@ -13,3 +13,7 @@ npm-debug.log*
 # OS / editor cruft
 .DS_Store
 Thumbs.db
+
+# Editor / local AI tooling config (not part of the site)
+.vscode/
+.cursor/
