@@ -28,12 +28,24 @@
  */
 
 const UPSTREAM = 'https://livesets.com/app/polling/live/42069';
-const ALLOWED_ORIGIN = 'https://cidirilk.github.io';
+// The site is served from both the GitHub Pages domain and the custom domain.
+// A CORS response can only name one origin, so reflect whichever one matches.
+const ALLOWED_ORIGINS = [
+  'https://cidirilk.com',
+  'https://www.cidirilk.com',
+  'https://cidirilk.github.io',
+];
 
 export default {
   async fetch(request) {
+    const requestOrigin = request.headers.get('Origin') || '';
+    const allowOrigin = ALLOWED_ORIGINS.includes(requestOrigin)
+      ? requestOrigin
+      : ALLOWED_ORIGINS[0];
+
     const corsHeaders = {
-      'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+      'Access-Control-Allow-Origin': allowOrigin,
+      'Vary': 'Origin',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Accept, Content-Type',
     };
