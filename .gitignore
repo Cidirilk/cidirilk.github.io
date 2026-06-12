@@ -1,0 +1,15 @@
+# Wrangler / Cloudflare local state (contains account id, cache, logs)
+.wrangler/
+.dev.vars
+wrangler.toml.bak
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db

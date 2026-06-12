@@ -8,8 +8,11 @@ const header = document.getElementById('siteHeader');
 const themeToggle = document.querySelector('.theme-toggle');
 const yearEl = document.getElementById('year');
 const LIVESETS_STATUS_ENDPOINT = 'https://livesets.com/app/polling/live/42069';
-const LIVESETS_PROXY = 'https://corsproxy.io/?';
 const LIVESETS_POLL_INTERVAL = 15000;
+// Preferred proxy: your own Cloudflare Worker (see livesets-proxy-worker.js).
+// Once deployed, set this to the worker URL, e.g. 'https://livesets-proxy.<you>.workers.dev/'.
+// The worker is the durable long-term path; public proxies below are only fallbacks.
+const LIVESETS_PROXY_WORKER = 'https://livesets-proxy.cidirilk.workers.dev/';
 const chatToggles = document.querySelectorAll('[data-chat-toggle]');
 const chatPanel = document.querySelector('[data-chat-panel]');
 const chatClose = document.querySelector('[data-chat-close]');
@@ -368,24 +371,92 @@ const parseLiveStatus = (payload) => {
   return false;
 };
 
-const buildLiveStatusUrl = () => {
-  const bust = Date.now();
-  return `${LIVESETS_PROXY}${encodeURIComponent(`${LIVESETS_STATUS_ENDPOINT}?t=${bust}`)}`;
+// Ordered list of ways to reach the LiveSets endpoint. The first that succeeds
+// is remembered and reused, so a single proxy outage no longer breaks the badge.
+// `extract` normalizes each proxy's response shape back to the raw status payload.
+const buildLiveStatusStrategies = () => {
+  const target = `${LIVESETS_STATUS_ENDPOINT}?t=${Date.now()}`;
+  const encoded = encodeURIComponent(target);
+  const strategies = [];
+
+  if (LIVESETS_PROXY_WORKER) {
+    const base = LIVESETS_PROXY_WORKER.endsWith('/')
+      ? LIVESETS_PROXY_WORKER
+      : `${LIVESETS_PROXY_WORKER}/`;
+    strategies.push({
+      name: 'worker',
+      url: `${base}?t=${Date.now()}`,
+      extract: (payload) => payload,
+    });
+  }
+
+  strategies.push(
+    {
+      name: 'allorigins',
+      url: `https://api.allorigins.win/get?url=${encoded}`,
+      // allorigins wraps the upstream body as a JSON string in `contents`.
+      extract: (payload) => {
+        if (payload && typeof payload.contents === 'string') {
+          try {
+            return JSON.parse(payload.contents);
+          } catch (err) {
+            return null;
+          }
+        }
+        return payload;
+      },
+    },
+    {
+      name: 'codetabs',
+      url: `https://api.codetabs.com/v1/proxy/?quest=${encoded}`,
+      extract: (payload) => payload,
+    },
+  );
+
+  return strategies;
+};
+
+// Remember which strategy last worked to avoid retrying dead proxies every poll.
+let preferredLiveStrategy = null;
+
+const fetchLiveStatusVia = async (strategy) => {
+  const response = await fetch(strategy.url, {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(`${strategy.name} status ${response.status}`);
+  const payload = await response.json();
+  const status = strategy.extract(payload);
+  if (status == null) throw new Error(`${strategy.name} returned no usable payload`);
+  return status;
 };
 
 const checkLiveStatus = async () => {
   if (!hasLiveTargets()) return;
-  try {
-    const response = await fetch(buildLiveStatusUrl(), {
-      headers: { Accept: 'application/json' },
-      cache: 'no-store',
-    });
-    if (!response.ok) throw new Error(`Status ${response.status}`);
-    const payload = await response.json();
-    updateLiveIndicator(parseLiveStatus(payload));
-  } catch (error) {
-    console.warn('Unable to fetch LiveSets status', error);
+
+  const strategies = buildLiveStatusStrategies();
+  // Try the last known-good strategy first, then the rest.
+  const ordered = preferredLiveStrategy
+    ? [
+        ...strategies.filter((s) => s.name === preferredLiveStrategy),
+        ...strategies.filter((s) => s.name !== preferredLiveStrategy),
+      ]
+    : strategies;
+
+  for (const strategy of ordered) {
+    try {
+      const status = await fetchLiveStatusVia(strategy);
+      preferredLiveStrategy = strategy.name;
+      updateLiveIndicator(parseLiveStatus(status));
+      return;
+    } catch (error) {
+      // Try the next proxy in the chain.
+      continue;
+    }
   }
+
+  preferredLiveStrategy = null;
+  console.warn('Unable to fetch LiveSets status from any proxy');
 };
 
 initTheme();
