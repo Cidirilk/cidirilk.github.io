@@ -2871,10 +2871,6 @@ body.is-loaded .socials-card .social-links a:nth-child(4) { animation-delay: 0.4
 }
 
 /* Logo subtle 3D tilt response (driven by JS pointer vars) */
-.logo {
-  will-change: transform;
-}
-
 /* Smoother carousel slide content lift */
 .carousel-slide .event-link,
 .carousel-slide .collab-card {

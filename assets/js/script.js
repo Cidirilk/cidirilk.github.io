@@ -946,7 +946,7 @@ const checkEventExpiry = () => {
   }
 };
 
-// Pointer-aware micro-interactions (spotlight on cards + subtle logo tilt).
+// Pointer-aware micro-interactions (spotlight on glass cards).
 // Kept lightweight: only on fine pointers and when motion is allowed.
 const initInteractions = () => {
   const prefersReducedMotion = window.matchMedia(
@@ -971,29 +971,6 @@ const initInteractions = () => {
       });
     });
   });
-
-  // Subtle 3D tilt on the wordmark.
-  const logo = document.querySelector('.logo');
-  if (logo) {
-    const header = document.getElementById('siteHeader');
-    let frame = null;
-    const resetLogo = () => {
-      logo.style.transform = '';
-    };
-    header?.addEventListener('pointermove', (event) => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        const rect = logo.getBoundingClientRect();
-        const dx = (event.clientX - (rect.left + rect.width / 2)) / rect.width;
-        const dy = (event.clientY - (rect.top + rect.height / 2)) / rect.height;
-        logo.style.transform = `perspective(500px) rotateX(${(-dy * 8).toFixed(
-          2
-        )}deg) rotateY(${(dx * 10).toFixed(2)}deg)`;
-        frame = null;
-      });
-    });
-    header?.addEventListener('pointerleave', resetLogo);
-  }
 };
 
 // Initialize carousel after DOM is loaded
