@@ -922,27 +922,90 @@ const initCollabModal = () => {
   });
 };
 
-// Check and hide expired events
+// Build an archive carousel slide from the expired "next event" card so the
+// past-events list stays current without manual edits once the date passes.
+const buildArchiveSlideFromNextEvent = (eventCard, eventEndTime) => {
+  const link =
+    eventCard.querySelector('.upcoming-event-footer a[href]')?.getAttribute('href') ||
+    '';
+  if (!link) return null;
+
+  const raId = (link.match(/events\/(\d+)/) || [])[1] || '';
+  const tagText = eventCard.querySelector('.upcoming-event-tag')?.textContent.trim() || '';
+  const isChaCha = tagText.toLowerCase().includes('chacha');
+  const name = eventCard.querySelector('.upcoming-event-title')?.textContent.trim() || '';
+  const venueHTML = eventCard.querySelector('.upcoming-event-venue')?.innerHTML.trim() || '';
+
+  const day = eventCard.querySelector('.date-day')?.textContent.trim() || '';
+  const monthRaw = eventCard.querySelector('.date-month')?.textContent.trim() || '';
+  const month = monthRaw
+    ? monthRaw.charAt(0).toUpperCase() + monthRaw.slice(1).toLowerCase()
+    : '';
+  const year = eventEndTime.getFullYear();
+  const dateText = [day, month, year].filter(Boolean).join(' ');
+
+  const slide = document.createElement('div');
+  slide.className = 'carousel-slide';
+  if (raId) slide.dataset.archivedFrom = `RA${raId}`;
+  slide.innerHTML = `
+    <a href="${link}" target="_blank" rel="noopener" class="event-link">
+      <span class="event-top">
+        <span class="event-tag${isChaCha ? ' chacha' : ''}">${tagText}</span>
+        <span class="event-date">${dateText}</span>
+      </span>
+      <span class="event-name">${name}</span>
+      <span class="event-venue">${venueHTML}</span>
+      ${raId ? `<span class="event-id">RA${raId}</span>` : ''}
+    </a>
+  `;
+  return slide;
+};
+
+// Check and hide expired events. Once the next event's date passes, hide the
+// "Next Event" block and move that event to the top of the past-events archive.
 const checkEventExpiry = () => {
   const eventContainer = document.querySelector('[data-next-event-container]');
   const eventCard = document.querySelector('[data-event-end]');
-  
+  const socialHeading = document.querySelector('[data-social-heading]');
+  const socialLinks = document.querySelector('.socials-card .social-links');
+
   if (!eventContainer || !eventCard) return;
-  
+
   const endDate = eventCard.getAttribute('data-event-end');
-  
+
   if (!endDate) return;
-  
+
   const eventEndTime = new Date(endDate);
   const now = new Date();
-  
-  // Hide the entire event container if the event has ended
+
   if (now > eventEndTime) {
     eventContainer.style.display = 'none';
-  }
-  // Otherwise, ensure it's visible (remove any display style)
-  else {
+    // With no upcoming event to anchor the panel, label the social row and
+    // expand it into a vertical list with each platform name shown.
+    if (socialHeading) socialHeading.hidden = false;
+    if (socialLinks) socialLinks.classList.add('is-stacked');
+
+    // Promote the finished event into the archive carousel (deduped by RA id).
+    const track = document.querySelector('[data-carousel-track]');
+    if (track) {
+      const raId = (
+        eventCard
+          .querySelector('.upcoming-event-footer a[href]')
+          ?.getAttribute('href')
+          .match(/events\/(\d+)/) || []
+      )[1];
+      const alreadyArchived = Array.from(track.querySelectorAll('.event-id')).some(
+        (el) => raId && el.textContent.trim() === `RA${raId}`
+      );
+      if (!alreadyArchived) {
+        const slide = buildArchiveSlideFromNextEvent(eventCard, eventEndTime);
+        if (slide) track.insertBefore(slide, track.firstElementChild);
+      }
+    }
+  } else {
     eventContainer.style.display = 'block';
+    if (socialHeading) socialHeading.hidden = true;
+    if (socialLinks) socialLinks.classList.remove('is-stacked');
   }
 };
 
@@ -976,16 +1039,16 @@ const initInteractions = () => {
 // Initialize carousel after DOM is loaded
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
+    checkEventExpiry();
     initCarousel();
     initCollabCarousel();
     initCollabModal();
-    checkEventExpiry();
     initInteractions();
   });
 } else {
+  checkEventExpiry();
   initCarousel();
   initCollabCarousel();
   initCollabModal();
-  checkEventExpiry();
   initInteractions();
 }

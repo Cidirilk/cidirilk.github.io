@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -51,7 +51,10 @@
       rel="preload"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
       as="style"
-      onload="this.onload=null;this.rel='stylesheet'"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
     />
     <noscript>
       <link
@@ -282,7 +285,18 @@
                   </div>
                 </div>
 
+                <h3 data-social-heading hidden>Social links</h3>
                 <div class="social-links" aria-label="Social links">
+                  <a
+                    href="https://livesets.com/cidirilk/sessions"
+                    target="_blank"
+                    rel="noopener"
+                    aria-label="LiveSets Sessions"
+                    title="LiveSets Sessions"
+                  >
+                    <i class="fa-solid fa-record-vinyl" aria-hidden="true"></i>
+                    <span class="sr-only">Sessions</span>
+                  </a>
                   <a
                     href="https://soundcloud.com/cidirilk"
                     target="_blank"
@@ -452,7 +466,8 @@
                           Cidirilk</span
                         >
                         <span class="event-venue">
-                          <i class="fa-solid fa-location-dot"></i> S//IP · Cyprus
+                          <i class="fa-solid fa-location-dot"></i> S//IP ·
+                          Cyprus
                         </span>
                         <span class="event-id">RA1885354</span>
                       </a>
@@ -472,8 +487,8 @@
                           >Boiler House present RAVEN (Rekids/Exhale)</span
                         >
                         <span class="event-venue">
-                          <i class="fa-solid fa-location-dot"></i> Central Club ·
-                          Cyprus
+                          <i class="fa-solid fa-location-dot"></i> Central Club
+                          · Cyprus
                         </span>
                         <span class="event-id">RA1815030</span>
                       </a>
@@ -493,8 +508,8 @@
                           >Techno Habits with Rødhåd</span
                         >
                         <span class="event-venue">
-                          <i class="fa-solid fa-location-dot"></i> Ktima Wishes ·
-                          Cyprus
+                          <i class="fa-solid fa-location-dot"></i> Ktima Wishes
+                          · Cyprus
                         </span>
                         <span class="event-id">RA1583001</span>
                       </a>
