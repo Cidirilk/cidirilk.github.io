@@ -1,5 +1,7 @@
 # CIDIRILK
 
+🔗 **Live Site**: [https://cidirilk.com/](https://cidirilk.com/)
+
 Electronic music navigator portfolio site for CIDIRILK (Kliridis Charalampos). A modern, responsive single-page application featuring radio shows, live performances, and sonic experiments.
 
 ## Features
