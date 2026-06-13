@@ -94,7 +94,46 @@ const getCookie = (name) =>
     .map((row) => row.split('='))
     .reduce((acc, [key, val]) => (key === name ? decodeURIComponent(val) : acc), null);
 
-const setActiveTab = (target, persist = true) => {
+const tabPanelsWrap = tabPanels[0]?.closest('.tab-panels') || null;
+const tabReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let tabHeightTimer = null;
+
+// Smoothly morph the panel container between the old and new panel heights so
+// switching tabs never jumps abruptly or flashes the column scrollbar.
+const animatePanelHeight = (fromHeight) => {
+  if (!tabPanelsWrap || tabReducedMotion || fromHeight == null) return;
+  const toHeight = tabPanelsWrap.offsetHeight;
+  if (Math.round(fromHeight) === Math.round(toHeight)) return;
+
+  if (tabHeightTimer) {
+    clearTimeout(tabHeightTimer);
+    tabHeightTimer = null;
+  }
+
+  const cleanup = () => {
+    tabPanelsWrap.style.transition = '';
+    tabPanelsWrap.style.height = '';
+    tabPanelsWrap.style.overflow = '';
+    tabPanelsWrap.removeEventListener('transitionend', onEnd);
+  };
+  const onEnd = (event) => {
+    if (event.propertyName === 'height') cleanup();
+  };
+
+  tabPanelsWrap.style.overflow = 'hidden';
+  tabPanelsWrap.style.height = `${fromHeight}px`;
+  // Force reflow so the starting height is committed before transitioning.
+  void tabPanelsWrap.offsetHeight;
+  tabPanelsWrap.style.transition = 'height 0.35s cubic-bezier(0.22, 0.61, 0.36, 1)';
+  tabPanelsWrap.style.height = `${toHeight}px`;
+  tabPanelsWrap.addEventListener('transitionend', onEnd);
+  tabHeightTimer = setTimeout(cleanup, 500);
+};
+
+const setActiveTab = (target, persist = true, animate = false) => {
+  const fromHeight =
+    animate && tabPanelsWrap && !tabReducedMotion ? tabPanelsWrap.offsetHeight : null;
+
   tabButtons.forEach((btn) => {
     const match = btn.getAttribute('data-tab') === target;
     btn.classList.toggle('active', match);
@@ -108,6 +147,8 @@ const setActiveTab = (target, persist = true) => {
   if (persist) {
     setCookie(TAB_COOKIE, target);
   }
+
+  animatePanelHeight(fromHeight);
 };
 
 if (tabButtons.length && tabPanels.length) {
@@ -118,7 +159,7 @@ if (tabButtons.length && tabPanels.length) {
   tabButtons.forEach((button, index) => {
     button.addEventListener('click', () => {
       const target = button.getAttribute('data-tab');
-      setActiveTab(target);
+      setActiveTab(target, true, true);
     });
     
     // Add keyboard navigation for tabs
@@ -143,7 +184,7 @@ if (tabButtons.length && tabPanels.length) {
       
       tabButtons[newIndex].focus();
       const target = tabButtons[newIndex].getAttribute('data-tab');
-      setActiveTab(target);
+      setActiveTab(target, true, true);
     });
   });
 }
@@ -509,7 +550,18 @@ const initCarousel = () => {
 
   const updateCarousel = () => {
     track.style.transform = `translateX(-${currentIndex * 100}%)`;
-    
+
+    // Only the current slide is interactive; neighbours are inert so a single
+    // tap can never open more than one link.
+    slides.forEach((slide, index) => {
+      const isCurrent = index === currentIndex;
+      slide.classList.toggle('is-current', isCurrent);
+      slide.setAttribute('aria-hidden', String(!isCurrent));
+      slide.querySelectorAll('a, button, [tabindex]').forEach((el) => {
+        el.tabIndex = isCurrent ? 0 : -1;
+      });
+    });
+
     // Update dots
     dots.forEach((dot, index) => {
       dot.classList.toggle('active', index === currentIndex);
@@ -606,7 +658,18 @@ const initCollabCarousel = () => {
 
   const updateCarousel = () => {
     track.style.transform = `translateX(-${currentIndex * 100}%)`;
-    
+
+    // Only the current slide is interactive; neighbours are inert so a single
+    // tap can never open more than one link.
+    slides.forEach((slide, index) => {
+      const isCurrent = index === currentIndex;
+      slide.classList.toggle('is-current', isCurrent);
+      slide.setAttribute('aria-hidden', String(!isCurrent));
+      slide.querySelectorAll('a, button, [tabindex]').forEach((el) => {
+        el.tabIndex = isCurrent ? 0 : -1;
+      });
+    });
+
     // Update dots
     dots.forEach((dot, index) => {
       dot.classList.toggle('active', index === currentIndex);
@@ -883,6 +946,56 @@ const checkEventExpiry = () => {
   }
 };
 
+// Pointer-aware micro-interactions (spotlight on cards + subtle logo tilt).
+// Kept lightweight: only on fine pointers and when motion is allowed.
+const initInteractions = () => {
+  const prefersReducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  ).matches;
+  const finePointer = window.matchMedia('(pointer: fine)').matches;
+  if (prefersReducedMotion || !finePointer) return;
+
+  // Cursor-following spotlight on glass cards.
+  const cards = document.querySelectorAll('.info-card');
+  cards.forEach((card) => {
+    let frame = null;
+    card.addEventListener('pointermove', (event) => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        const rect = card.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        card.style.setProperty('--mx', `${x}%`);
+        card.style.setProperty('--my', `${y}%`);
+        frame = null;
+      });
+    });
+  });
+
+  // Subtle 3D tilt on the wordmark.
+  const logo = document.querySelector('.logo');
+  if (logo) {
+    const header = document.getElementById('siteHeader');
+    let frame = null;
+    const resetLogo = () => {
+      logo.style.transform = '';
+    };
+    header?.addEventListener('pointermove', (event) => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        const rect = logo.getBoundingClientRect();
+        const dx = (event.clientX - (rect.left + rect.width / 2)) / rect.width;
+        const dy = (event.clientY - (rect.top + rect.height / 2)) / rect.height;
+        logo.style.transform = `perspective(500px) rotateX(${(-dy * 8).toFixed(
+          2
+        )}deg) rotateY(${(dx * 10).toFixed(2)}deg)`;
+        frame = null;
+      });
+    });
+    header?.addEventListener('pointerleave', resetLogo);
+  }
+};
+
 // Initialize carousel after DOM is loaded
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
@@ -890,10 +1003,12 @@ if (document.readyState === 'loading') {
     initCollabCarousel();
     initCollabModal();
     checkEventExpiry();
+    initInteractions();
   });
 } else {
   initCarousel();
   initCollabCarousel();
   initCollabModal();
   checkEventExpiry();
+  initInteractions();
 }
