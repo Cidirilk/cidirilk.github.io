@@ -75,6 +75,11 @@
       (function () {
         const savedTheme = localStorage.getItem("theme") || "dark";
         document.documentElement.setAttribute("data-theme", savedTheme);
+        try {
+          if (localStorage.getItem("loaderSeen") === "1") {
+            document.documentElement.classList.add("loader-skip");
+          }
+        } catch (e) {}
       })();
     </script>
 
@@ -114,6 +119,11 @@
     </script>
   </head>
   <body>
+    <div class="bg-fx" aria-hidden="true">
+      <span class="bg-fx-noise"></span>
+      <span class="bg-fx-bloom"></span>
+      <span class="bg-fx-fog"></span>
+    </div>
     <div
       class="page-loader"
       data-page-loader
@@ -177,22 +187,17 @@
         <div class="profile-layout">
           <div class="profile-text reveal-on-load">
             <p class="eyebrow">if you can't pronounce it, read it backwards</p>
-            <h1>
-              Signal work tracing the fragile line between control and
-              surrender.
-            </h1>
+            <h1>Human After All. Looking for Something Real.</h1>
             <p class="lede">
-              Kliridis Charalampos (CIDIRILK) crafts radio shows, live
-              performances, and sonic experiments that embrace presence over
-              perfection. Since 2017, the project has been a continuous
-              loop-learning, unlearning, and rediscovering meaning through
-              sound.
+              In a world full of noise, Cidirilk is an attempt to listen a
+              little closer. Since 2017, the project has followed curiosity
+              through sound, collecting fragments of experience, emotion, and
+              change along the way.
             </p>
             <p>
-              LiveSets hosts the residency broadcasts. ChaCha expands the
-              research as a duo. Every past event leaves fragments for the next
-              chapter. Expect glitch, care, and curiosity stitched together with
-              intention.
+              Not every question needs an answer. Not every journey needs a
+              destination. Sometimes the most meaningful things are found while
+              searching for something else entirely.
             </p>
           </div>
           <div class="profile-cards reveal-on-load" data-card-tabs>
@@ -431,6 +436,25 @@
                     </div>
                     <div class="carousel-slide">
                       <a
+                        href="https://beonix.art/artists/chacha"
+                        target="_blank"
+                        rel="noopener"
+                        class="event-link"
+                      >
+                        <span class="event-top">
+                          <span class="event-tag chacha">ChaCha</span>
+                          <span class="event-date">21 Sep 2025</span>
+                        </span>
+                        <span class="event-name">BEONIX 2025</span>
+                        <span class="event-venue">
+                          <i class="fa-solid fa-location-dot"></i> ETKO,
+                          Tsiflikoudia · Limassol, Cyprus
+                        </span>
+                        <span class="event-id">BEONIX</span>
+                      </a>
+                    </div>
+                    <div class="carousel-slide">
+                      <a
                         href="https://ra.co/events/2133867"
                         target="_blank"
                         rel="noopener"
@@ -448,6 +472,25 @@
                           Park · Cyprus
                         </span>
                         <span class="event-id">RA2133867</span>
+                      </a>
+                    </div>
+                    <div class="carousel-slide">
+                      <a
+                        href="https://beonix.art/el/artists/chachaakachaptoandcidirilik"
+                        target="_blank"
+                        rel="noopener"
+                        class="event-link"
+                      >
+                        <span class="event-top">
+                          <span class="event-tag chacha">ChaCha</span>
+                          <span class="event-date">21 Sep 2024</span>
+                        </span>
+                        <span class="event-name">BEONIX 2024</span>
+                        <span class="event-venue">
+                          <i class="fa-solid fa-location-dot"></i> ETKO,
+                          Tsiflikoudia · Limassol, Cyprus
+                        </span>
+                        <span class="event-id">BEONIX</span>
                       </a>
                     </div>
                     <div class="carousel-slide">
@@ -752,8 +795,8 @@
         <span class="live-banner-text" data-live-label>Offline</span>
       </div>
       <p class="live-popup-copy">
-        LiveSets radio turns on whenever this badge glows red. Tap to join in
-        real time.
+        LiveSets radio turns on whenever this badge pulses violet. Tap to join
+        in real time.
       </p>
       <div class="live-popup-actions">
         <a

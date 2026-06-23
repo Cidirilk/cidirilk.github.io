@@ -39,8 +39,15 @@ window.scrollTo(0, 0);
 
 const markBodyLoaded = () => document.body?.classList.add('is-loaded');
 
+const rememberLoaderSeen = () => {
+  try {
+    localStorage.setItem('loaderSeen', '1');
+  } catch (e) {}
+};
+
 const completeLoader = () => {
   if (document.body?.classList.contains('loader-complete')) return;
+  rememberLoaderSeen();
   markBodyLoaded();
   document.body?.classList.add('loader-complete');
   pageLoader?.setAttribute('aria-hidden', 'true');
@@ -68,8 +75,13 @@ const handleLoaderOverlayClick = (event) => {
   handleLoaderEnter();
 };
 
-loaderEnter?.addEventListener('click', handleLoaderEnter);
-pageLoader?.addEventListener('click', handleLoaderOverlayClick);
+const loaderAlreadySeen = (() => {
+  try {
+    return localStorage.getItem('loaderSeen') === '1';
+  } catch (e) {
+    return false;
+  }
+})();
 
 const startLoaderMessages = () => {
   if (!loaderMessage || loaderMessages.length <= 1) return;
@@ -81,7 +93,14 @@ const startLoaderMessages = () => {
   }, 2600);
 };
 
-startLoaderMessages();
+if (loaderAlreadySeen) {
+  // Returning visitor: skip the intro gate entirely.
+  completeLoader();
+} else {
+  loaderEnter?.addEventListener('click', handleLoaderEnter);
+  pageLoader?.addEventListener('click', handleLoaderOverlayClick);
+  startLoaderMessages();
+}
 
 const setCookie = (name, value, days = 60) => {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
