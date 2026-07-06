@@ -115,6 +115,7 @@ const getCookie = (name) =>
 
 const tabPanelsWrap = tabPanels[0]?.closest('.tab-panels') || null;
 const tabReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const tabMobileQuery = window.matchMedia('(max-width: 640px)');
 let tabHeightTimer = null;
 
 // Smoothly morph the panel container between the old and new panel heights so
@@ -146,12 +147,25 @@ const animatePanelHeight = (fromHeight) => {
   tabPanelsWrap.style.transition = 'height 0.35s cubic-bezier(0.22, 0.61, 0.36, 1)';
   tabPanelsWrap.style.height = `${toHeight}px`;
   tabPanelsWrap.addEventListener('transitionend', onEnd);
-  tabHeightTimer = setTimeout(cleanup, 500);
+  tabHeightTimer = setTimeout(cleanup, 700);
+};
+
+const scrollTabPanelIntoView = () => {
+  if (!tabPanelsWrap || !tabMobileQuery.matches) return;
+
+  requestAnimationFrame(() => {
+    tabPanelsWrap.scrollIntoView({
+      behavior: tabReducedMotion ? 'auto' : 'smooth',
+      block: 'start'
+    });
+  });
 };
 
 const setActiveTab = (target, persist = true, animate = false) => {
+  const shouldAnimateHeight =
+    animate && tabPanelsWrap && !tabReducedMotion && !tabMobileQuery.matches;
   const fromHeight =
-    animate && tabPanelsWrap && !tabReducedMotion ? tabPanelsWrap.offsetHeight : null;
+    shouldAnimateHeight ? tabPanelsWrap.offsetHeight : null;
 
   tabButtons.forEach((btn) => {
     const match = btn.getAttribute('data-tab') === target;
@@ -168,6 +182,9 @@ const setActiveTab = (target, persist = true, animate = false) => {
   }
 
   animatePanelHeight(fromHeight);
+  if (animate) {
+    scrollTabPanelIntoView();
+  }
 };
 
 if (tabButtons.length && tabPanels.length) {
@@ -405,7 +422,7 @@ const updateLiveIndicator = (isLive) => {
   });
   
   mobileLiveTexts.forEach((text) => {
-    text.textContent = state ? 'LIVE NOW' : 'Sessions';
+    text.textContent = state ? 'LIVE NOW' : 'Go to Sessions';
   });
   
   getLiveLabels().forEach((label) => {
@@ -767,6 +784,9 @@ const initCollabModal = () => {
   const modalTitle = document.querySelector('[data-collab-modal-title]');
   const modalBody = document.querySelector('[data-collab-modal-body]');
   const collabCards = document.querySelectorAll('[data-collab-id]');
+  const modalReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const modalCloseDuration = 320;
+  let modalCloseTimer = null;
 
   if (!modal || !collabCards.length) return;
 
@@ -889,12 +909,18 @@ const initCollabModal = () => {
     const data = collabData[collabId];
     if (!data) return;
 
+    if (modalCloseTimer) {
+      clearTimeout(modalCloseTimer);
+      modalCloseTimer = null;
+    }
+
     // Update modal content
     modalIcon.innerHTML = `<i class="fa-solid ${data.icon}"></i>`;
     modalTitle.textContent = data.title;
     modalBody.innerHTML = data.content;
 
     // Show modal
+    modal.classList.remove('is-closing');
     modal.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
     
@@ -904,8 +930,22 @@ const initCollabModal = () => {
 
   // Close modal function
   const closeModal = () => {
-    modal.setAttribute('hidden', '');
-    document.body.style.overflow = '';
+    if (modal.hasAttribute('hidden') || modal.classList.contains('is-closing')) return;
+
+    const hideModal = () => {
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-closing');
+      document.body.style.overflow = '';
+      modalCloseTimer = null;
+    };
+
+    if (modalReducedMotion) {
+      hideModal();
+      return;
+    }
+
+    modal.classList.add('is-closing');
+    modalCloseTimer = setTimeout(hideModal, modalCloseDuration);
   };
 
   // Add click listeners to collab cards
