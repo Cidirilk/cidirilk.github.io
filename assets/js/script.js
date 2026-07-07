@@ -151,7 +151,7 @@ const animatePanelHeight = (fromHeight) => {
 };
 
 const scrollTabPanelIntoView = () => {
-  if (!tabPanelsWrap || !tabMobileQuery.matches) return;
+  if (!tabPanelsWrap || tabMobileQuery.matches) return;
 
   requestAnimationFrame(() => {
     tabPanelsWrap.scrollIntoView({
@@ -162,8 +162,10 @@ const scrollTabPanelIntoView = () => {
 };
 
 const setActiveTab = (target, persist = true, animate = false) => {
+  if (tabMobileQuery.matches) return;
+
   const shouldAnimateHeight =
-    animate && tabPanelsWrap && !tabReducedMotion && !tabMobileQuery.matches;
+    animate && tabPanelsWrap && !tabReducedMotion;
   const fromHeight =
     shouldAnimateHeight ? tabPanelsWrap.offsetHeight : null;
 
@@ -187,10 +189,46 @@ const setActiveTab = (target, persist = true, animate = false) => {
   }
 };
 
+const showMobileTabSections = () => {
+  tabButtons.forEach((btn) => {
+    btn.classList.remove('active');
+    btn.setAttribute('aria-selected', 'false');
+  });
+  tabPanels.forEach((panel) => {
+    panel.removeAttribute('hidden');
+    panel.classList.add('active');
+  });
+  if (tabPanelsWrap) {
+    tabPanelsWrap.style.transition = '';
+    tabPanelsWrap.style.height = '';
+    tabPanelsWrap.style.overflow = '';
+  }
+};
+
+const syncTabLayoutForViewport = () => {
+  if (!tabButtons.length || !tabPanels.length) return;
+
+  if (tabMobileQuery.matches) {
+    showMobileTabSections();
+    return;
+  }
+
+  const current =
+    [...tabButtons].find((button) => button.classList.contains('active'))?.getAttribute('data-tab') ||
+    getCookie(TAB_COOKIE) ||
+    'social';
+  const hasPanel = [...tabPanels].some((panel) => panel.getAttribute('data-panel') === current);
+  setActiveTab(hasPanel ? current : 'social', false);
+};
+
 if (tabButtons.length && tabPanels.length) {
   const saved = getCookie(TAB_COOKIE);
   const defaultTab = saved && [...tabPanels].some((panel) => panel.getAttribute('data-panel') === saved) ? saved : 'social';
-  setActiveTab(defaultTab, false);
+  if (tabMobileQuery.matches) {
+    showMobileTabSections();
+  } else {
+    setActiveTab(defaultTab, false);
+  }
   
   tabButtons.forEach((button, index) => {
     button.addEventListener('click', () => {
@@ -223,6 +261,12 @@ if (tabButtons.length && tabPanels.length) {
       setActiveTab(target, true, true);
     });
   });
+
+  if (typeof tabMobileQuery.addEventListener === 'function') {
+    tabMobileQuery.addEventListener('change', syncTabLayoutForViewport);
+  } else {
+    tabMobileQuery.addListener(syncTabLayoutForViewport);
+  }
 }
 
 subscribeForm?.addEventListener('submit', (event) => {
