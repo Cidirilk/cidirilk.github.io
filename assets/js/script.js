@@ -412,21 +412,25 @@ const updateLiveIndicator = (isLive) => {
   const mobileLiveTexts = document.querySelectorAll('[data-live-mobile-text]');
   
   mobileLiveLinks.forEach((link) => {
+    link.classList.toggle('is-live', state);
     if (state) {
       link.href = 'https://livesets.com/cidirilk/live';
+      link.setAttribute('aria-label', 'Listen Live on LiveSets');
       link.classList.remove('offline');
     } else {
       link.href = 'https://livesets.com/cidirilk/sessions';
+      link.setAttribute('aria-label', 'Go to LiveSets Sessions');
       link.classList.add('offline');
     }
   });
   
   mobileLiveTexts.forEach((text) => {
-    text.textContent = state ? 'LIVE NOW' : 'Sessions';
+    text.textContent = state ? 'Listen Live' : 'Sessions';
   });
 
   document.querySelectorAll('[data-live-sessions-link]').forEach((link) => {
-    link.textContent = 'Sessions';
+    const label = link.querySelector('[data-live-sessions-text]');
+    if (label) label.textContent = 'Sessions';
   });
   
   getLiveLabels().forEach((label) => {
@@ -437,7 +441,8 @@ const updateLiveIndicator = (isLive) => {
   const liveRadioBtns = document.querySelectorAll('[data-live-radio-btn]');
   liveRadioBtns.forEach((btn) => {
     btn.style.display = state ? 'flex' : 'none';
-    btn.textContent = 'Listen Live';
+    const label = btn.querySelector('[data-live-radio-text]');
+    if (label) label.textContent = 'Listen Live';
   });
 };
 

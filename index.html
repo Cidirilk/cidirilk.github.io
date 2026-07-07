@@ -187,14 +187,15 @@
       </div>
     </header>
     <a
-      class="live-mobile-link"
+      class="live-mobile-link offline"
       href="https://livesets.com/cidirilk/sessions"
       target="_blank"
       rel="noopener"
       aria-label="Go to LiveSets Sessions"
       data-live-mobile-link
     >
-      <span class="live-mobile-dot" data-live-indicator></span>
+      <i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i>
+      <i class="fa-solid fa-folder-open live-sessions-icon" aria-hidden="true"></i>
       <span class="live-mobile-text" data-live-mobile-text>Sessions</span>
     </a>
 
@@ -315,7 +316,7 @@
                     aria-label="LiveSets Sessions"
                     title="LiveSets Sessions"
                   >
-                    <i class="fa-solid fa-record-vinyl" aria-hidden="true"></i>
+                    <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
                     <span class="sr-only">Sessions</span>
                   </a>
                   <a
@@ -822,7 +823,8 @@
           rel="noopener"
           data-live-radio-btn
           style="display: none"
-          >Listen Live</a
+          ><i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i
+          ><span data-live-radio-text>Listen Live</span></a
         >
         <a
           class="btn compact ghost"
@@ -830,7 +832,8 @@
           target="_blank"
           rel="noopener"
           data-live-sessions-link
-          >Sessions</a
+          ><i class="fa-solid fa-folder-open live-sessions-icon" aria-hidden="true"></i
+          ><span data-live-sessions-text>Sessions</span></a
         >
       </div>
     </div>
