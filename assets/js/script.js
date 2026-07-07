@@ -16,6 +16,8 @@ const LIVESETS_PROXY_WORKER = 'https://livesets-proxy.cidirilk.workers.dev/';
 const chatToggles = document.querySelectorAll('[data-chat-toggle]');
 const chatPanel = document.querySelector('[data-chat-panel]');
 const chatClose = document.querySelector('[data-chat-close]');
+const mobileRadioToggle = document.querySelector('[data-mobile-radio-toggle]');
+const mobileRadioPopover = document.querySelector('[data-mobile-radio-popover]');
 const pageLoader = document.querySelector('[data-page-loader]');
 const loaderEnter = document.querySelector('[data-loader-enter]');
 const loaderMessage = document.querySelector('[data-loader-message]');
@@ -442,6 +444,63 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(handleScroll, 150);
 }, { passive: true });
 
+const setMobileRadioToggleLabel = () => {
+  if (!mobileRadioToggle) return;
+  const expanded = mobileRadioToggle.getAttribute('aria-expanded') === 'true';
+  const isLive = mobileRadioToggle.classList.contains('is-live');
+  const stateText = isLive ? 'LiveSets radio is live' : 'LiveSets radio is offline';
+  mobileRadioToggle.setAttribute('aria-label', `${expanded ? 'Close' : 'Open'} radio popup. ${stateText}.`);
+};
+
+const openMobileRadioPopover = () => {
+  if (!mobileRadioToggle || !mobileRadioPopover) return;
+  mobileRadioPopover.removeAttribute('hidden');
+  mobileRadioToggle.setAttribute('aria-expanded', 'true');
+  setMobileRadioToggleLabel();
+};
+
+const closeMobileRadioPopover = () => {
+  if (!mobileRadioToggle || !mobileRadioPopover) return;
+  mobileRadioPopover.setAttribute('hidden', '');
+  mobileRadioToggle.setAttribute('aria-expanded', 'false');
+  setMobileRadioToggleLabel();
+};
+
+const toggleMobileRadioPopover = () => {
+  if (!mobileRadioToggle || !mobileRadioPopover) return;
+  if (mobileRadioPopover.hasAttribute('hidden')) {
+    openMobileRadioPopover();
+  } else {
+    closeMobileRadioPopover();
+  }
+};
+
+mobileRadioToggle?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  toggleMobileRadioPopover();
+});
+
+mobileRadioPopover?.addEventListener('click', (event) => {
+  event.stopPropagation();
+});
+
+mobileRadioPopover?.querySelectorAll('a').forEach((link) => {
+  link.addEventListener('click', closeMobileRadioPopover);
+});
+
+document.addEventListener('click', () => {
+  if (!mobileRadioPopover || mobileRadioPopover.hasAttribute('hidden')) return;
+  closeMobileRadioPopover();
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeMobileRadioPopover();
+});
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 640) closeMobileRadioPopover();
+}, { passive: true });
+
 const getLiveIndicators = () => document.querySelectorAll('[data-live-indicator]');
 const getLiveLabels = () => document.querySelectorAll('[data-live-label]');
 const hasLiveTargets = () => getLiveIndicators().length || document.querySelector('[data-live-banner]');
@@ -450,27 +509,12 @@ const updateLiveIndicator = (isLive) => {
   const state = Boolean(isLive);
   getLiveIndicators().forEach((indicator) => indicator.classList.toggle('is-live', state));
   document.querySelectorAll('[data-live-banner]').forEach((banner) => banner.classList.toggle('is-live', state));
-  
-  // Update mobile live link
-  const mobileLiveLinks = document.querySelectorAll('[data-live-mobile-link]');
-  const mobileLiveTexts = document.querySelectorAll('[data-live-mobile-text]');
-  
-  mobileLiveLinks.forEach((link) => {
-    link.classList.toggle('is-live', state);
-    if (state) {
-      link.href = 'https://livesets.com/cidirilk/live';
-      link.setAttribute('aria-label', 'Listen Live on LiveSets');
-      link.classList.remove('offline');
-    } else {
-      link.href = 'https://livesets.com/cidirilk/sessions';
-      link.setAttribute('aria-label', 'Go to LiveSets Sessions');
-      link.classList.add('offline');
-    }
+
+  document.querySelectorAll('[data-live-mobile-toggle]').forEach((button) => {
+    button.classList.toggle('is-live', state);
+    button.classList.toggle('offline', !state);
   });
-  
-  mobileLiveTexts.forEach((text) => {
-    text.textContent = state ? 'Listen Live' : 'Sessions';
-  });
+  setMobileRadioToggleLabel();
 
   document.querySelectorAll('[data-live-sessions-link]').forEach((link) => {
     const label = link.querySelector('[data-live-sessions-text]');

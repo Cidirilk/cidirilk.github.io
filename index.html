@@ -169,6 +169,18 @@
         </a>
         <div class="header-actions">
           <button
+            class="icon-button mobile-radio-toggle desktop-hidden offline"
+            type="button"
+            aria-label="Open LiveSets radio status"
+            aria-expanded="false"
+            aria-controls="mobileRadioPopover"
+            data-mobile-radio-toggle
+            data-live-mobile-toggle
+          >
+            <i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i>
+            <span class="mobile-radio-status-dot" data-live-indicator aria-hidden="true"></span>
+          </button>
+          <button
             class="icon-button theme-toggle"
             type="button"
             aria-label="Toggle theme"
@@ -184,20 +196,44 @@
             <i class="fa-solid fa-comments"></i>
           </button>
         </div>
+        <div
+          class="mobile-radio-popover"
+          id="mobileRadioPopover"
+          data-mobile-radio-popover
+          data-live-banner
+          hidden
+        >
+          <div class="live-popup-status">
+            <span class="dot" data-live-indicator></span>
+            <span class="live-banner-text" data-live-label>Offline</span>
+          </div>
+          <p class="live-popup-copy">
+            LiveSets radio turns on whenever the header badge pulses violet.
+          </p>
+          <div class="live-popup-actions">
+            <a
+              class="btn compact live-radio-btn"
+              href="https://livesets.com/cidirilk/live"
+              target="_blank"
+              rel="noopener"
+              data-live-radio-btn
+              style="display: none"
+              ><i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i
+              ><span data-live-radio-text>Listen Live</span></a
+            >
+            <a
+              class="btn compact ghost"
+              href="https://livesets.com/cidirilk/sessions"
+              target="_blank"
+              rel="noopener"
+              data-live-sessions-link
+              ><i class="fa-solid fa-folder-open live-sessions-icon" aria-hidden="true"></i
+              ><span data-live-sessions-text>Sessions</span></a
+            >
+          </div>
+        </div>
       </div>
     </header>
-    <a
-      class="live-mobile-link offline"
-      href="https://livesets.com/cidirilk/sessions"
-      target="_blank"
-      rel="noopener"
-      aria-label="Go to LiveSets Sessions"
-      data-live-mobile-link
-    >
-      <i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i>
-      <i class="fa-solid fa-folder-open live-sessions-icon" aria-hidden="true"></i>
-      <span class="live-mobile-text" data-live-mobile-text>Sessions</span>
-    </a>
 
     <main>
       <section id="home" class="section profile">
