@@ -422,7 +422,11 @@ const updateLiveIndicator = (isLive) => {
   });
   
   mobileLiveTexts.forEach((text) => {
-    text.textContent = state ? 'LIVE NOW' : 'Go to Sessions';
+    text.textContent = state ? 'LIVE NOW' : 'Sessions';
+  });
+
+  document.querySelectorAll('[data-live-sessions-link]').forEach((link) => {
+    link.textContent = 'Sessions';
   });
   
   getLiveLabels().forEach((label) => {
@@ -433,6 +437,7 @@ const updateLiveIndicator = (isLive) => {
   const liveRadioBtns = document.querySelectorAll('[data-live-radio-btn]');
   liveRadioBtns.forEach((btn) => {
     btn.style.display = state ? 'flex' : 'none';
+    btn.textContent = 'Listen Live';
   });
 };
 
