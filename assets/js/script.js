@@ -779,6 +779,7 @@ const initCollabCarousel = () => {
 const initCollabModal = () => {
   const modal = document.querySelector('[data-collab-modal]');
   const overlay = document.querySelector('[data-collab-modal-overlay]');
+  const modalContent = document.querySelector('.collab-modal-content');
   const closeBtn = document.querySelector('[data-collab-modal-close]');
   const modalIcon = document.querySelector('[data-collab-modal-icon]');
   const modalTitle = document.querySelector('[data-collab-modal-title]');
@@ -789,6 +790,22 @@ const initCollabModal = () => {
   let modalCloseTimer = null;
 
   if (!modal || !collabCards.length) return;
+
+  const resetModalScroll = () => {
+    [modal, modalContent, modalBody].forEach((element) => {
+      if (!element) return;
+      element.scrollTop = 0;
+      element.scrollLeft = 0;
+    });
+  };
+
+  const focusCloseButton = () => {
+    try {
+      closeBtn?.focus({ preventScroll: true });
+    } catch (e) {
+      closeBtn?.focus();
+    }
+  };
 
   // Collaboration data
   const collabData = {
@@ -918,14 +935,16 @@ const initCollabModal = () => {
     modalIcon.innerHTML = `<i class="fa-solid ${data.icon}"></i>`;
     modalTitle.textContent = data.title;
     modalBody.innerHTML = data.content;
+    resetModalScroll();
 
     // Show modal
     modal.classList.remove('is-closing');
     modal.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
+    requestAnimationFrame(resetModalScroll);
     
     // Focus the close button for accessibility
-    setTimeout(() => closeBtn?.focus(), 100);
+    setTimeout(focusCloseButton, 100);
   };
 
   // Close modal function
