@@ -136,6 +136,12 @@ Brevo and fails closed (rejects with `failed_captcha` if the token is missing or
 the secret is unset). Set the secret before deploying, or subscriptions will be
 blocked.
 
+For local browser previews on `localhost`, `127.0.0.1`, `0.0.0.0`, or `::1`,
+the site renders Cloudflare's public always-pass test sitekey to avoid launching
+real production challenges during development. End-to-end local subscription
+tests require a local Worker using Cloudflare's matching test secret key; the
+deployed production Worker will reject dummy Turnstile tokens.
+
 ## Browser Support
 
 - Chrome/Edge 90+

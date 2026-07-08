@@ -376,8 +376,15 @@ subscribeForm?.addEventListener('submit', async (event) => {
 // Turnstile: render explicitly so the widget theme follows the site's dark/light
 // toggle instead of the visitor's OS preference.
 let turnstileWidgetId = null;
+const TURNSTILE_TEST_SITEKEY = '1x00000000000000000000AA';
 const TURNSTILE_MIN_WIDTH = 300; // "flexible" widget can't render narrower than this.
 const TURNSTILE_SIDE_INSET = 6; // px narrower than the input/button on each side.
+const LOCAL_TURNSTILE_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
+
+const getTurnstileSitekey = (el) =>
+  LOCAL_TURNSTILE_HOSTS.has(window.location.hostname)
+    ? TURNSTILE_TEST_SITEKEY
+    : el.dataset.sitekey;
 
 // Match the input/button width but pull in a few px on each side, centered.
 // When the card is too narrow for the 300px minimum, scale the widget to fit.
@@ -415,7 +422,7 @@ const renderTurnstile = () => {
     turnstileWidgetId = null;
   }
   turnstileWidgetId = window.turnstile.render(el, {
-    sitekey: el.dataset.sitekey,
+    sitekey: getTurnstileSitekey(el),
     action: el.dataset.action,
     theme: root.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
     size: 'flexible',
@@ -427,6 +434,7 @@ const renderTurnstile = () => {
 
 // Cloudflare's api.js invokes this once it has finished loading.
 window.onloadTurnstile = renderTurnstile;
+renderTurnstile();
 
 const syncThemeIcon = () => {
   const themeIcon = document.querySelector('.theme-icon');
