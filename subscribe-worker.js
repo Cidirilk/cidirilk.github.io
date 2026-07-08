@@ -30,13 +30,18 @@ const ALLOWED_ORIGINS = [
   'https://www.cidirilk.com',
   'https://cidirilk.github.io',
 ];
+// Local dev servers (Live Server, http-server, vite, etc.) on any port.
+const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LEN = 254;
 const TURNSTILE_VERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
+const isAllowedOrigin = (origin) =>
+  ALLOWED_ORIGINS.includes(origin) || LOCAL_ORIGIN_RE.test(origin);
+
 const cors = (origin) => {
-  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const allow = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allow,
     Vary: 'Origin',
@@ -65,7 +70,7 @@ export default {
     if (request.method !== 'POST') {
       return json({ ok: false, error: 'method_not_allowed' }, 405, origin);
     }
-    if (origin && !ALLOWED_ORIGINS.includes(origin)) {
+    if (origin && !isAllowedOrigin(origin)) {
       return json({ ok: false, error: 'forbidden' }, 403, origin);
     }
 
@@ -119,6 +124,7 @@ export default {
       });
       const verify = await verifyResp.json();
       if (!verify.success) {
+        console.error('turnstile_failed', JSON.stringify(verify['error-codes'] || []));
         return json({ ok: false, error: 'failed_captcha' }, 403, origin);
       }
     } catch (err) {

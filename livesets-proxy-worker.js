@@ -35,11 +35,15 @@ const ALLOWED_ORIGINS = [
   'https://www.cidirilk.com',
   'https://cidirilk.github.io',
 ];
+// Local dev servers (Live Server, http-server, vite, etc.) on any port.
+const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const isAllowedOrigin = (origin) =>
+  ALLOWED_ORIGINS.includes(origin) || LOCAL_ORIGIN_RE.test(origin);
 
 export default {
   async fetch(request) {
     const requestOrigin = request.headers.get('Origin') || '';
-    const allowOrigin = ALLOWED_ORIGINS.includes(requestOrigin)
+    const allowOrigin = isAllowedOrigin(requestOrigin)
       ? requestOrigin
       : ALLOWED_ORIGINS[0];
 
