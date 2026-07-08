@@ -17,8 +17,12 @@
  *   BREVO_LIST_ID          (var)     numeric id of the target contact list
  *   BREVO_DOI_TEMPLATE_ID  (var)     numeric id of the DOI confirmation template
  *   DOI_REDIRECT_URL       (var)     where Brevo sends users after confirming
+ *   TURNSTILE_SECRET_KEY   (secret)  Cloudflare Turnstile secret key
  * Optional:
  *   RATE_LIMIT             (KV)      enables per-IP rate limiting when bound
+ *
+ * Set the Turnstile secret:
+ *   wrangler secret put TURNSTILE_SECRET_KEY -c subscribe-worker.toml
  */
 
 const ALLOWED_ORIGINS = [
@@ -28,6 +32,8 @@ const ALLOWED_ORIGINS = [
 ];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LEN = 254;
+const TURNSTILE_VERIFY_URL =
+  'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 const cors = (origin) => {
   const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
@@ -92,6 +98,32 @@ export default {
         return json({ ok: false, error: 'rate_limited' }, 429, origin);
       }
       await env.RATE_LIMIT.put(key, String(count + 1), { expirationTtl: 60 });
+    }
+
+    // Cloudflare Turnstile: verify the challenge token server-side before doing
+    // anything with the email. Fails closed (no secret or bad token => reject).
+    const token = data && typeof data.token === 'string' ? data.token : '';
+    if (!token || !env.TURNSTILE_SECRET_KEY) {
+      return json({ ok: false, error: 'failed_captcha' }, 403, origin);
+    }
+    try {
+      const verifyBody = new URLSearchParams();
+      verifyBody.append('secret', env.TURNSTILE_SECRET_KEY);
+      verifyBody.append('response', token);
+      const clientIp = request.headers.get('CF-Connecting-IP');
+      if (clientIp) verifyBody.append('remoteip', clientIp);
+
+      const verifyResp = await fetch(TURNSTILE_VERIFY_URL, {
+        method: 'POST',
+        body: verifyBody,
+      });
+      const verify = await verifyResp.json();
+      if (!verify.success) {
+        return json({ ok: false, error: 'failed_captcha' }, 403, origin);
+      }
+    } catch (err) {
+      console.error('turnstile_exception', err && err.message);
+      return json({ ok: false, error: 'failed_captcha' }, 403, origin);
     }
 
     try {

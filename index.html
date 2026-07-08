@@ -41,6 +41,12 @@
       content="https://cidirilk.github.io/assets/social-preview.jpg"
     />
 
+    <script
+      src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstile"
+      async
+      defer
+    ></script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -178,6 +184,7 @@
             data-live-mobile-toggle
           >
             <i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i>
+            <span class="mobile-radio-live-badge" aria-hidden="true">live</span>
             <span class="mobile-radio-status-dot" data-live-indicator aria-hidden="true"></span>
           </button>
           <button
@@ -392,7 +399,7 @@
                     aria-label="Resident Advisor"
                     title="Resident Advisor"
                   >
-                    <span class="ra-mark" aria-hidden="true">RA</span>
+                    <i class="fa-solid fa-user" aria-hidden="true"></i>
                     <span class="sr-only">Resident Advisor</span>
                   </a>
                 </div>
@@ -834,6 +841,13 @@
                       tabindex="-1"
                       autocomplete="off"
                     />
+                  </div>
+                  <div class="subscribe-turnstile">
+                    <div
+                      id="subscribeTurnstile"
+                      data-sitekey="0x4AAAAAADyDZpoRf8iOyjNx"
+                      data-action="turnstile-spin-v1"
+                    ></div>
                   </div>
                   <button
                     class="btn compact"

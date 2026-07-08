@@ -302,6 +302,7 @@ subscribeForm?.addEventListener('submit', async (event) => {
   const formData = new FormData(subscribeForm);
   const email = String(formData.get('subEmail') || '').trim();
   const honeypot = String(formData.get('company') || '').trim();
+  const turnstileToken = String(formData.get('cf-turnstile-response') || '');
 
   // Bot filled the hidden field: pretend success, do nothing.
   if (honeypot) {
@@ -315,6 +316,10 @@ subscribeForm?.addEventListener('submit', async (event) => {
   }
   if (email.length > 254 || !SUBSCRIBE_EMAIL_RE.test(email)) {
     setSubscribeStatus('That email does not look right. Please check it.', 'error');
+    return;
+  }
+  if (!turnstileToken) {
+    setSubscribeStatus('Please complete the verification challenge.', 'error');
     return;
   }
 
@@ -331,7 +336,7 @@ subscribeForm?.addEventListener('submit', async (event) => {
     const resp = await fetch(SUBSCRIBE_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, company: honeypot }),
+      body: JSON.stringify({ email, company: honeypot, token: turnstileToken }),
     });
     const result = await resp.json().catch(() => ({}));
 
@@ -341,6 +346,8 @@ subscribeForm?.addEventListener('submit', async (event) => {
       trackSubscribe('success');
     } else if (resp.status === 429) {
       setSubscribeStatus('Too many attempts. Please try again in a minute.', 'error');
+    } else if (result.error === 'failed_captcha') {
+      setSubscribeStatus('Verification failed. Please try the challenge again.', 'error');
     } else if (result.error === 'invalid_email') {
       setSubscribeStatus('That email does not look right. Please check it.', 'error');
     } else {
@@ -357,8 +364,69 @@ subscribeForm?.addEventListener('submit', async (event) => {
       subscribeSubmit.removeAttribute('aria-busy');
     }
     if (subscribeLabel) subscribeLabel.textContent = 'Join the log';
+    // Turnstile tokens are single-use; reset so the next attempt gets a fresh one.
+    if (window.turnstile && turnstileWidgetId !== null) {
+      try {
+        window.turnstile.reset(turnstileWidgetId);
+      } catch (e) {}
+    }
   }
 });
+
+// Turnstile: render explicitly so the widget theme follows the site's dark/light
+// toggle instead of the visitor's OS preference.
+let turnstileWidgetId = null;
+const TURNSTILE_MIN_WIDTH = 300; // "flexible" widget can't render narrower than this.
+const TURNSTILE_SIDE_INSET = 6; // px narrower than the input/button on each side.
+
+// Match the input/button width but pull in a few px on each side, centered.
+// When the card is too narrow for the 300px minimum, scale the widget to fit.
+const fitTurnstile = () => {
+  const wrap = document.querySelector('.subscribe-turnstile');
+  const inner = document.getElementById('subscribeTurnstile');
+  if (!wrap || !inner) return;
+  inner.style.transform = '';
+  inner.style.width = '100%';
+  inner.style.margin = '';
+  wrap.style.height = '';
+  const avail = wrap.clientWidth;
+  if (avail <= 0) return;
+  const target = Math.max(0, avail - TURNSTILE_SIDE_INSET * 2);
+  if (target >= TURNSTILE_MIN_WIDTH) {
+    inner.style.width = target + 'px';
+    inner.style.margin = '0 auto';
+  } else {
+    const scale = target / TURNSTILE_MIN_WIDTH;
+    inner.style.width = TURNSTILE_MIN_WIDTH + 'px';
+    inner.style.transformOrigin = 'top left';
+    inner.style.transform = 'scale(' + scale + ')';
+    inner.style.marginLeft = (avail - target) / 2 + 'px';
+    wrap.style.height = inner.offsetHeight * scale + 'px';
+  }
+};
+
+const renderTurnstile = () => {
+  const el = document.getElementById('subscribeTurnstile');
+  if (!el || !window.turnstile) return;
+  if (turnstileWidgetId !== null) {
+    try {
+      window.turnstile.remove(turnstileWidgetId);
+    } catch (e) {}
+    turnstileWidgetId = null;
+  }
+  turnstileWidgetId = window.turnstile.render(el, {
+    sitekey: el.dataset.sitekey,
+    action: el.dataset.action,
+    theme: root.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
+    size: 'flexible',
+  });
+  fitTurnstile();
+  // The widget iframe sizes itself shortly after render; refit once it's ready.
+  setTimeout(fitTurnstile, 300);
+};
+
+// Cloudflare's api.js invokes this once it has finished loading.
+window.onloadTurnstile = renderTurnstile;
 
 const syncThemeIcon = () => {
   const themeIcon = document.querySelector('.theme-icon');
@@ -371,6 +439,8 @@ const setTheme = (mode) => {
   root.setAttribute('data-theme', mode);
   localStorage.setItem('theme', mode);
   syncThemeIcon();
+  // Turnstile can't restyle live, so re-render it to match the new theme.
+  renderTurnstile();
   
   // Force repaint on mobile
   document.body.style.display = 'none';
@@ -521,7 +591,11 @@ window.addEventListener('scroll', handleScroll, { passive: true });
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(handleScroll, 150);
+  resizeTimer = setTimeout(() => {
+    handleScroll();
+    // Keep the widget scaled to the current card width.
+    if (turnstileWidgetId !== null) fitTurnstile();
+  }, 150);
 }, { passive: true });
 
 const setMobileRadioToggleLabel = () => {
@@ -686,8 +760,16 @@ const fetchLiveStatusVia = async (strategy) => {
   return status;
 };
 
+// When set to true/false via the console, this pins the live state and stops
+// the poll from overriding it. Set back to null to resume automatic polling.
+let liveManualOverride = null;
+
 const checkLiveStatus = async () => {
   if (!hasLiveTargets()) return;
+  if (liveManualOverride !== null) {
+    updateLiveIndicator(liveManualOverride);
+    return;
+  }
 
   const strategies = buildLiveStatusStrategies();
   // Try the last known-good strategy first, then the rest.
@@ -712,6 +794,18 @@ const checkLiveStatus = async () => {
 
   preferredLiveStrategy = null;
   console.warn('Unable to fetch LiveSets status from any proxy');
+};
+
+// Debug helper: run cidirilkLive(true) / cidirilkLive(false) in the console to
+// force the live state, or cidirilkLive(null) to resume automatic polling.
+window.cidirilkLive = (state = true) => {
+  liveManualOverride = state === null ? null : Boolean(state);
+  if (liveManualOverride === null) {
+    checkLiveStatus();
+  } else {
+    updateLiveIndicator(liveManualOverride);
+  }
+  return liveManualOverride;
 };
 
 initTheme();

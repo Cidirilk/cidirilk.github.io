@@ -119,7 +119,22 @@ go through Brevo's double opt-in (they must confirm via email before being added
 6. Set `SUBSCRIBE_ENDPOINT` in `assets/js/script.js` to that URL.
 
 Security features: origin allow-list + CORS, server-side email validation,
-honeypot spam trap, optional rate limiting, and no secrets in the client.
+honeypot spam trap, Cloudflare Turnstile (server-side siteverify in the Worker),
+optional rate limiting, and no secrets in the client.
+
+### Turnstile setup
+
+The subscribe form is protected by [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/).
+The widget site key is embedded in `index.html`; the secret is a Worker secret:
+
+```bash
+wrangler secret put TURNSTILE_SECRET_KEY -c subscribe-worker.toml
+```
+
+The Worker verifies the `cf-turnstile-response` token server-side before calling
+Brevo and fails closed (rejects with `failed_captcha` if the token is missing or
+the secret is unset). Set the secret before deploying, or subscriptions will be
+blocked.
 
 ## Browser Support
 

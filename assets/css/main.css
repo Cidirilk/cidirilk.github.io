@@ -1552,8 +1552,12 @@ button {
 }
 
 .mobile-radio-toggle .live-listen-icon {
-  color: var(--muted);
+  color: #ffffff;
   font-size: 0.95rem;
+}
+
+[data-theme='light'] .mobile-radio-toggle .live-listen-icon {
+  color: #000000;
 }
 
 .mobile-radio-status-dot {
@@ -1564,21 +1568,68 @@ button {
   height: 8px;
   border: 1px solid color-mix(in srgb, var(--bg) 65%, transparent);
   border-radius: 50%;
-  background: var(--muted);
+  background: #ffffff;
   transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
-.mobile-radio-toggle.is-live .mobile-radio-status-dot {
-  background: var(--color-primary);
-  box-shadow: 0 0 10px rgba(193, 116, 255, 0.9);
-  animation: livePulse 1.6s ease-in-out infinite;
+[data-theme='light'] .mobile-radio-status-dot {
+  background: #000000;
 }
 
-.mobile-radio-toggle[aria-expanded='true'] {
-  border-color: #d59bff;
-  color: var(--tab-text);
-  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 10px 30px rgba(137, 69, 255, 0.42),
-    0 0 24px rgba(193, 116, 255, 0.28);
+.mobile-radio-toggle.is-live .mobile-radio-status-dot {
+  background: #d59bff;
+  box-shadow: 0 0 10px rgba(213, 155, 255, 0.9);
+  animation: liveDotPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes liveDotPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 6px rgba(213, 155, 255, 0.6);
+  }
+  50% {
+    transform: scale(1.18);
+    box-shadow: 0 0 14px rgba(213, 155, 255, 0.95);
+  }
+}
+
+.mobile-radio-live-badge {
+  display: none;
+}
+
+.mobile-radio-toggle.is-live .live-listen-icon {
+  transform: translateY(-3px);
+}
+
+.mobile-radio-toggle.is-live .mobile-radio-live-badge {
+  display: block;
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  border-radius: 6px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--color-primary);
+  box-shadow: 0 0 6px rgba(193, 116, 255, 0.7);
+  animation: liveBadgePulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes liveBadgePulse {
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(193, 116, 255, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(193, 116, 255, 0.95);
+  }
 }
 
 .mobile-radio-popover[hidden] {
@@ -2468,6 +2519,7 @@ button {
 }
 .subscribe-card .subscribe-box {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
 }
 
@@ -2550,6 +2602,16 @@ button {
   color: var(--muted);
   opacity: 0.85;
   margin-top: 0.1rem;
+}
+
+/* Turnstile widget: flexible bar sized/centered by script.js so it never
+   overflows narrow cards. */
+.subscribe-turnstile {
+  width: 100%;
+  max-width: 100%;
+  min-height: 65px;
+  margin: 0.15rem 0;
+  overflow: hidden;
 }
 
 .subscribe-card .btn[aria-busy='true'] {
@@ -2739,8 +2801,7 @@ button {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .mobile-radio-toggle:hover,
-  .mobile-radio-toggle[aria-expanded='true'] {
+  .mobile-radio-toggle:hover {
     border-color: #d59bff;
     color: var(--tab-text);
     box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 10px 30px rgba(137, 69, 255, 0.42),
@@ -2749,6 +2810,27 @@ button {
 }
 
 @media (hover: none), (pointer: coarse) {
+  .icon-button:hover {
+    transform: none;
+    background: rgba(20, 15, 38, 0.55);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.15), 0 8px 24px rgba(137, 69, 255, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .icon-button:hover::before {
+    opacity: 0;
+  }
+
+  [data-theme='light'] .icon-button:hover,
+  [data-theme='light'] .chat-toggle:hover {
+    background: #ffffff;
+    color: #000000;
+    border-color: var(--color-primary);
+    box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 6px 16px rgba(123, 45, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+
   .theme-toggle:hover {
     transform: none;
     background: rgba(20, 15, 38, 0.55);
@@ -2877,6 +2959,13 @@ button {
     justify-content: center;
     gap: 0;
   }
+
+  /* Mobile order: Sessions, SoundCloud, Resident Advisor, Spotify, YouTube */
+  .social-links a:nth-child(1) { order: 1; }
+  .social-links a:nth-child(2) { order: 2; }
+  .social-links a:nth-child(3) { order: 4; }
+  .social-links a:nth-child(4) { order: 5; }
+  .social-links a:nth-child(5) { order: 3; }
 
   .social-links.is-stacked a i {
     width: auto;
