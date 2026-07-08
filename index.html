@@ -810,20 +810,48 @@
                   Get short notes about live broadcasts, collaborations, and
                   upcoming shows.
                 </p>
-                <form class="subscribe-box" data-subscribe-inline>
-                  <label>
+                <form class="subscribe-box" data-subscribe-inline novalidate>
+                  <label for="subEmail">
                     Email
                     <input
                       type="email"
+                      id="subEmail"
                       name="subEmail"
                       placeholder="you@email.com"
+                      autocomplete="email"
+                      inputmode="email"
+                      maxlength="254"
                       required
+                      aria-describedby="subscribeStatus"
                     />
                   </label>
-                  <button class="btn compact" type="submit">
-                    Join the log
+                  <div class="subscribe-hp" aria-hidden="true">
+                    <label for="subCompany">Company (leave blank)</label>
+                    <input
+                      type="text"
+                      id="subCompany"
+                      name="company"
+                      tabindex="-1"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <button
+                    class="btn compact"
+                    type="submit"
+                    data-subscribe-submit
+                  >
+                    <span data-subscribe-label>Join the log</span>
                   </button>
-                  <p class="subscribe-inline-status" aria-live="polite"></p>
+                  <p
+                    class="subscribe-inline-status"
+                    id="subscribeStatus"
+                    role="status"
+                    aria-live="polite"
+                  ></p>
+                  <p class="subscribe-consent">
+                    By subscribing you agree to receive occasional email updates
+                    from CIDIRILK. Unsubscribe anytime.
+                  </p>
                 </form>
               </article>
             </div>

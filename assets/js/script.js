@@ -1,5 +1,10 @@
 const subscribeForm = document.querySelector('[data-subscribe-inline]');
 const subscribeStatus = document.querySelector('.subscribe-inline-status');
+// Cloudflare Worker that proxies Brevo (keeps the API key server-side).
+// After deploying subscribe-worker.js, set this to the worker URL, e.g.
+// 'https://cidirilk-subscribe.<you>.workers.dev/'.
+const SUBSCRIBE_ENDPOINT = 'https://cidirilk-subscribe.cidirilk.workers.dev/';
+const SUBSCRIBE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const tabButtons = document.querySelectorAll('[data-tab]');
 const tabPanels = document.querySelectorAll('[data-panel]');
 const TAB_COOKIE = 'cidirilkActiveTab';
@@ -271,13 +276,88 @@ if (tabButtons.length && tabPanels.length) {
   }
 }
 
-subscribeForm?.addEventListener('submit', (event) => {
+const subscribeSubmit = subscribeForm?.querySelector('[data-subscribe-submit]');
+const subscribeLabel = subscribeForm?.querySelector('[data-subscribe-label]');
+let subscribeBusy = false;
+
+const setSubscribeStatus = (msg, type) => {
+  if (!subscribeStatus) return;
+  subscribeStatus.textContent = msg;
+  subscribeStatus.classList.toggle('is-error', type === 'error');
+  subscribeStatus.classList.toggle('is-success', type === 'success');
+};
+
+// Safe no-op unless GA/GTM is added later.
+const trackSubscribe = (action) => {
+  try {
+    if (typeof window.gtag === 'function') window.gtag('event', 'subscribe_' + action);
+    if (Array.isArray(window.dataLayer)) window.dataLayer.push({ event: 'subscribe_' + action });
+  } catch (e) {}
+};
+
+subscribeForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (subscribeBusy) return; // duplicate-request protection
+
   const formData = new FormData(subscribeForm);
-  const email = formData.get('subEmail');
-  if (!email) return;
-  subscribeStatus.textContent = 'Thanks! I will send notes soon.';
-  subscribeForm.reset();
+  const email = String(formData.get('subEmail') || '').trim();
+  const honeypot = String(formData.get('company') || '').trim();
+
+  // Bot filled the hidden field: pretend success, do nothing.
+  if (honeypot) {
+    setSubscribeStatus('Thanks!', 'success');
+    subscribeForm.reset();
+    return;
+  }
+  if (!email) {
+    setSubscribeStatus('Please enter your email address.', 'error');
+    return;
+  }
+  if (email.length > 254 || !SUBSCRIBE_EMAIL_RE.test(email)) {
+    setSubscribeStatus('That email does not look right. Please check it.', 'error');
+    return;
+  }
+
+  subscribeBusy = true;
+  if (subscribeSubmit) {
+    subscribeSubmit.disabled = true;
+    subscribeSubmit.setAttribute('aria-busy', 'true');
+  }
+  if (subscribeLabel) subscribeLabel.textContent = 'Joining...';
+  setSubscribeStatus('Sending...', null);
+  trackSubscribe('submit');
+
+  try {
+    const resp = await fetch(SUBSCRIBE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, company: honeypot }),
+    });
+    const result = await resp.json().catch(() => ({}));
+
+    if (resp.ok && result.ok) {
+      setSubscribeStatus('Almost there - check your inbox to confirm.', 'success');
+      subscribeForm.reset();
+      trackSubscribe('success');
+    } else if (resp.status === 429) {
+      setSubscribeStatus('Too many attempts. Please try again in a minute.', 'error');
+    } else if (result.error === 'invalid_email') {
+      setSubscribeStatus('That email does not look right. Please check it.', 'error');
+    } else {
+      setSubscribeStatus('Something went wrong. Please try again later.', 'error');
+      trackSubscribe('error');
+    }
+  } catch (err) {
+    setSubscribeStatus('Network error. Please try again.', 'error');
+    trackSubscribe('error');
+  } finally {
+    subscribeBusy = false;
+    if (subscribeSubmit) {
+      subscribeSubmit.disabled = false;
+      subscribeSubmit.removeAttribute('aria-busy');
+    }
+    if (subscribeLabel) subscribeLabel.textContent = 'Join the log';
+  }
 });
 
 const syncThemeIcon = () => {

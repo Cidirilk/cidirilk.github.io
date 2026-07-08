@@ -90,6 +90,37 @@ cidirilk.github.io/
 2. Add `CNAME` record: `www` → `cidirilk.github.io`
 3. In Pages settings, add custom domain and enforce HTTPS
 
+## Email Subscription
+
+The Subscribe tab is backed by a Cloudflare Worker (`subscribe-worker.js`) that
+proxies the [Brevo](https://www.brevo.com/) API. The Brevo API key stays a
+server-side secret, so the static site never exposes any credential. Subscribers
+go through Brevo's double opt-in (they must confirm via email before being added).
+
+### One-time setup
+
+1. In Brevo: create a contact list (note its id), create a Double Opt-In
+   confirmation email template (note its id), and generate an API key.
+2. In `subscribe-worker.toml`, set `BREVO_LIST_ID`, `BREVO_DOI_TEMPLATE_ID`, and
+   `DOI_REDIRECT_URL` (e.g. `https://cidirilk.com/?subscribed=1`).
+3. Store the API key as a secret:
+   ```bash
+   wrangler secret put BREVO_API_KEY -c subscribe-worker.toml
+   ```
+4. (Optional) Enable per-IP rate limiting:
+   ```bash
+   wrangler kv namespace create RATE_LIMIT
+   ```
+   Paste the id into `subscribe-worker.toml` and uncomment the `[[kv_namespaces]]` block.
+5. Deploy and copy the worker URL:
+   ```bash
+   wrangler deploy -c subscribe-worker.toml
+   ```
+6. Set `SUBSCRIBE_ENDPOINT` in `assets/js/script.js` to that URL.
+
+Security features: origin allow-list + CORS, server-side email validation,
+honeypot spam trap, optional rate limiting, and no secrets in the client.
+
 ## Browser Support
 
 - Chrome/Edge 90+

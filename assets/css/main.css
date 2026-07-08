@@ -2526,6 +2526,36 @@ button {
   color: var(--accent);
   min-height: 1em;
 }
+
+.subscribe-inline-status.is-error {
+  color: #ff8a8a;
+}
+
+.subscribe-inline-status.is-success {
+  color: var(--accent);
+}
+
+/* Honeypot: kept in the accessibility tree for bots but hidden from humans. */
+.subscribe-hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.subscribe-consent {
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--muted);
+  opacity: 0.85;
+  margin-top: 0.1rem;
+}
+
+.subscribe-card .btn[aria-busy='true'] {
+  opacity: 0.75;
+  cursor: progress;
+}
 .card-tabs {
   width: 100%;
   display: flex;

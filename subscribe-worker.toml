@@ -1,0 +1,18 @@
+name = "cidirilk-subscribe"
+main = "subscribe-worker.js"
+compatibility_date = "2024-11-01"
+
+# Non-secret configuration. Replace the placeholder ids with values from Brevo.
+# The API key is NOT stored here; set it as a secret:
+#   wrangler secret put BREVO_API_KEY -c subscribe-worker.toml
+[vars]
+BREVO_LIST_ID = "4"
+BREVO_DOI_TEMPLATE_ID = "2"
+DOI_REDIRECT_URL = "https://cidirilk.com/?subscribed=1"
+
+# Optional per-IP rate limiting. Create the namespace, then paste its id and
+# uncomment the block below:
+#   wrangler kv namespace create RATE_LIMIT
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT"
+# id = "REPLACE_WITH_KV_ID"
