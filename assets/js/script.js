@@ -4,6 +4,8 @@ const subscribeStatus = document.querySelector('.subscribe-inline-status');
 // After deploying subscribe-worker.js, set this to the worker URL, e.g.
 // 'https://cidirilk-subscribe.<you>.workers.dev/'.
 const SUBSCRIBE_ENDPOINT = 'https://cidirilk-subscribe.cidirilk.workers.dev/';
+const LOCAL_SUBSCRIBE_ENDPOINT = 'http://127.0.0.1:8787/';
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
 const SUBSCRIBE_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const tabButtons = document.querySelectorAll('[data-tab]');
 const tabPanels = document.querySelectorAll('[data-panel]');
@@ -124,6 +126,7 @@ const tabPanelsWrap = tabPanels[0]?.closest('.tab-panels') || null;
 const tabReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const tabMobileQuery = window.matchMedia('(max-width: 640px)');
 let tabHeightTimer = null;
+let fitTurnstile = () => {};
 
 // Smoothly morph the panel container between the old and new panel heights so
 // switching tabs never jumps abruptly or flashes the column scrollbar.
@@ -168,6 +171,15 @@ const scrollTabPanelIntoView = () => {
   });
 };
 
+const syncSubscribePanelAfterActivation = (target) => {
+  if (target !== 'subscribe') return;
+
+  requestAnimationFrame(() => {
+    fitTurnstile();
+    setTimeout(fitTurnstile, 300);
+  });
+};
+
 const setActiveTab = (target, persist = true, animate = false) => {
   if (tabMobileQuery.matches) return;
 
@@ -191,6 +203,7 @@ const setActiveTab = (target, persist = true, animate = false) => {
   }
 
   animatePanelHeight(fromHeight);
+  syncSubscribePanelAfterActivation(target);
   if (animate) {
     scrollTabPanelIntoView();
   }
@@ -287,6 +300,11 @@ const setSubscribeStatus = (msg, type) => {
   subscribeStatus.classList.toggle('is-success', type === 'success');
 };
 
+const getSubscribeEndpoint = () =>
+  LOCAL_HOSTS.has(window.location.hostname)
+    ? LOCAL_SUBSCRIBE_ENDPOINT
+    : SUBSCRIBE_ENDPOINT;
+
 // Safe no-op unless GA/GTM is added later.
 const trackSubscribe = (action) => {
   try {
@@ -333,7 +351,7 @@ subscribeForm?.addEventListener('submit', async (event) => {
   trackSubscribe('submit');
 
   try {
-    const resp = await fetch(SUBSCRIBE_ENDPOINT, {
+    const resp = await fetch(getSubscribeEndpoint(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, company: honeypot, token: turnstileToken }),
@@ -379,16 +397,15 @@ let turnstileWidgetId = null;
 const TURNSTILE_TEST_SITEKEY = '1x00000000000000000000AA';
 const TURNSTILE_MIN_WIDTH = 300; // "flexible" widget can't render narrower than this.
 const TURNSTILE_SIDE_INSET = 6; // px narrower than the input/button on each side.
-const LOCAL_TURNSTILE_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
 
 const getTurnstileSitekey = (el) =>
-  LOCAL_TURNSTILE_HOSTS.has(window.location.hostname)
+  LOCAL_HOSTS.has(window.location.hostname)
     ? TURNSTILE_TEST_SITEKEY
     : el.dataset.sitekey;
 
 // Match the input/button width but pull in a few px on each side, centered.
 // When the card is too narrow for the 300px minimum, scale the widget to fit.
-const fitTurnstile = () => {
+fitTurnstile = () => {
   const wrap = document.querySelector('.subscribe-turnstile');
   const inner = document.getElementById('subscribeTurnstile');
   if (!wrap || !inner) return;

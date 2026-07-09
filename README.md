@@ -142,6 +142,21 @@ real production challenges during development. End-to-end local subscription
 tests require a local Worker using Cloudflare's matching test secret key; the
 deployed production Worker will reject dummy Turnstile tokens.
 
+To test the full subscribe flow locally:
+
+1. Copy `.dev.vars.example` to `.dev.vars`.
+2. Put your Brevo API key in `.dev.vars`; keep the included Turnstile test
+   secret for local validation.
+3. Start the local Worker:
+   ```bash
+   wrangler dev -c subscribe-worker.toml
+   ```
+4. Open the site from a local static server, for example
+   `http://127.0.0.1:5500/index.html`.
+
+When the page is on a local hostname, the browser posts subscriptions to
+`http://127.0.0.1:8787/`. Production still posts to the deployed Worker.
+
 ## Browser Support
 
 - Chrome/Edge 90+

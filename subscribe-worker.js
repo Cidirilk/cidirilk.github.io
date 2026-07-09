@@ -31,7 +31,7 @@ const ALLOWED_ORIGINS = [
   'https://cidirilk.github.io',
 ];
 // Local dev servers (Live Server, http-server, vite, etc.) on any port.
-const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LEN = 254;
 const TURNSTILE_VERIFY_URL =
