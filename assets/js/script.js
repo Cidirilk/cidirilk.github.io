@@ -25,6 +25,12 @@ const chatPanel = document.querySelector('[data-chat-panel]');
 const chatClose = document.querySelector('[data-chat-close]');
 const mobileRadioToggle = document.querySelector('[data-mobile-radio-toggle]');
 const mobileRadioPopover = document.querySelector('[data-mobile-radio-popover]');
+const desktopRadioPopup = document.querySelector('[data-desktop-radio-popup]');
+const desktopRadioToggle = document.querySelector('[data-desktop-radio-toggle]');
+const desktopRadioClose = document.querySelector('[data-desktop-radio-close]');
+const RADIO_POPOVER_TRANSITION_MS = 240;
+const DESKTOP_RADIO_COLLAPSE_MS = 260;
+const RADIO_PRESS_FEEDBACK_MS = 170;
 const pageLoader = document.querySelector('[data-page-loader]');
 const loaderEnter = document.querySelector('[data-loader-enter]');
 const loaderMessage = document.querySelector('[data-loader-message]');
@@ -37,6 +43,9 @@ const loaderMessages = [
 ];
 let loaderMessageTimer = null;
 let ticking = false;
+let mobileRadioCloseTimer = null;
+let desktopRadioCollapseTimer = null;
+const radioPressTimers = new WeakMap();
 
 // Prevent scroll restoration on Android
 if ('scrollRestoration' in history) {
@@ -631,32 +640,138 @@ const setMobileRadioToggleLabel = () => {
   mobileRadioToggle.setAttribute('aria-label', `${expanded ? 'Close' : 'Open'} radio popup. ${stateText}.`);
 };
 
+const setDesktopRadioToggleLabel = () => {
+  if (!desktopRadioToggle || !desktopRadioPopup) return;
+  const expanded = desktopRadioToggle.getAttribute('aria-expanded') === 'true';
+  const isLive = desktopRadioPopup.classList.contains('is-live');
+  const stateText = isLive ? 'LiveSets radio is live' : 'LiveSets radio is offline';
+  desktopRadioToggle.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} radio popup. ${stateText}.`);
+};
+
+const expandDesktopRadioPopup = () => {
+  if (!desktopRadioPopup || !desktopRadioToggle) return;
+  if (desktopRadioCollapseTimer) {
+    clearTimeout(desktopRadioCollapseTimer);
+    desktopRadioCollapseTimer = null;
+  }
+  desktopRadioPopup.classList.remove('is-collapsing');
+  desktopRadioPopup.classList.remove('is-collapsed');
+  desktopRadioToggle.setAttribute('aria-expanded', 'true');
+  setDesktopRadioToggleLabel();
+};
+
+const collapseDesktopRadioPopup = () => {
+  if (!desktopRadioPopup || !desktopRadioToggle) return;
+  if (desktopRadioPopup.classList.contains('is-collapsed')) return;
+  if (desktopRadioCollapseTimer) clearTimeout(desktopRadioCollapseTimer);
+  desktopRadioPopup.classList.add('is-collapsing');
+  desktopRadioPopup.classList.add('is-collapsed');
+  desktopRadioToggle.setAttribute('aria-expanded', 'false');
+  setDesktopRadioToggleLabel();
+  desktopRadioCollapseTimer = setTimeout(() => {
+    desktopRadioPopup.classList.remove('is-collapsing');
+    desktopRadioCollapseTimer = null;
+  }, tabReducedMotion ? 0 : DESKTOP_RADIO_COLLAPSE_MS);
+};
+
+const toggleDesktopRadioPopup = () => {
+  if (!desktopRadioPopup) return;
+  if (desktopRadioPopup.classList.contains('is-collapsed')) {
+    expandDesktopRadioPopup();
+  } else {
+    collapseDesktopRadioPopup();
+  }
+};
+
 const openMobileRadioPopover = () => {
   if (!mobileRadioToggle || !mobileRadioPopover) return;
+  if (mobileRadioCloseTimer) {
+    clearTimeout(mobileRadioCloseTimer);
+    mobileRadioCloseTimer = null;
+  }
   mobileRadioPopover.removeAttribute('hidden');
+  mobileRadioPopover.classList.remove('is-closing');
+  requestAnimationFrame(() => {
+    mobileRadioPopover.classList.add('is-open');
+  });
   mobileRadioToggle.setAttribute('aria-expanded', 'true');
   setMobileRadioToggleLabel();
 };
 
 const closeMobileRadioPopover = () => {
   if (!mobileRadioToggle || !mobileRadioPopover) return;
-  mobileRadioPopover.setAttribute('hidden', '');
+  if (mobileRadioPopover.hasAttribute('hidden')) {
+    mobileRadioPopover.classList.remove('is-open', 'is-closing');
+    mobileRadioToggle.setAttribute('aria-expanded', 'false');
+    setMobileRadioToggleLabel();
+    return;
+  }
+  if (mobileRadioCloseTimer) clearTimeout(mobileRadioCloseTimer);
+  mobileRadioPopover.classList.remove('is-open');
+  mobileRadioPopover.classList.add('is-closing');
   mobileRadioToggle.setAttribute('aria-expanded', 'false');
   setMobileRadioToggleLabel();
+  mobileRadioCloseTimer = setTimeout(() => {
+    mobileRadioPopover.setAttribute('hidden', '');
+    mobileRadioPopover.classList.remove('is-closing');
+    mobileRadioCloseTimer = null;
+  }, tabReducedMotion ? 0 : RADIO_POPOVER_TRANSITION_MS);
 };
 
 const toggleMobileRadioPopover = () => {
   if (!mobileRadioToggle || !mobileRadioPopover) return;
-  if (mobileRadioPopover.hasAttribute('hidden')) {
+  if (mobileRadioPopover.hasAttribute('hidden') || mobileRadioPopover.classList.contains('is-closing')) {
     openMobileRadioPopover();
   } else {
     closeMobileRadioPopover();
   }
 };
 
+const triggerRadioPressFeedback = (button) => {
+  if (!button) return;
+  const existingTimer = radioPressTimers.get(button);
+  if (existingTimer) clearTimeout(existingTimer);
+  button.classList.add('is-pressing');
+  radioPressTimers.set(button, setTimeout(() => {
+    button.classList.remove('is-pressing');
+    radioPressTimers.delete(button);
+  }, tabReducedMotion ? 0 : RADIO_PRESS_FEEDBACK_MS));
+};
+
+const bindRadioPressFeedback = (button) => {
+  if (!button) return;
+  button.addEventListener('pointerdown', () => triggerRadioPressFeedback(button));
+  button.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      triggerRadioPressFeedback(button);
+    }
+  });
+};
+
+bindRadioPressFeedback(mobileRadioToggle);
+bindRadioPressFeedback(desktopRadioToggle);
+
 mobileRadioToggle?.addEventListener('click', (event) => {
   event.stopPropagation();
   toggleMobileRadioPopover();
+});
+
+desktopRadioToggle?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  toggleDesktopRadioPopup();
+});
+
+desktopRadioClose?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  collapseDesktopRadioPopup();
+});
+
+desktopRadioPopup?.addEventListener('click', (event) => {
+  event.stopPropagation();
+});
+
+desktopRadioPopup?.querySelectorAll('a').forEach((link) => {
+  link.addEventListener('click', collapseDesktopRadioPopup);
 });
 
 mobileRadioPopover?.addEventListener('click', (event) => {
@@ -668,17 +783,25 @@ mobileRadioPopover?.querySelectorAll('a').forEach((link) => {
 });
 
 document.addEventListener('click', () => {
-  if (!mobileRadioPopover || mobileRadioPopover.hasAttribute('hidden')) return;
-  closeMobileRadioPopover();
+  if (mobileRadioPopover && !mobileRadioPopover.hasAttribute('hidden')) {
+    closeMobileRadioPopover();
+  }
+  collapseDesktopRadioPopup();
 });
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeMobileRadioPopover();
+  if (event.key === 'Escape') {
+    closeMobileRadioPopover();
+    collapseDesktopRadioPopup();
+  }
 });
 
 window.addEventListener('resize', () => {
   if (window.innerWidth > 640) closeMobileRadioPopover();
 }, { passive: true });
+
+setMobileRadioToggleLabel();
+setDesktopRadioToggleLabel();
 
 const getLiveIndicators = () => document.querySelectorAll('[data-live-indicator]');
 const getLiveLabels = () => document.querySelectorAll('[data-live-label]');
@@ -694,6 +817,7 @@ const updateLiveIndicator = (isLive) => {
     button.classList.toggle('offline', !state);
   });
   setMobileRadioToggleLabel();
+  setDesktopRadioToggleLabel();
 
   document.querySelectorAll('[data-live-sessions-link]').forEach((link) => {
     const label = link.querySelector('[data-live-sessions-text]');

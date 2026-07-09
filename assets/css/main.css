@@ -47,6 +47,7 @@
   --loader-orbit-dot: #c174ff;
   --loader-message-color: var(--muted);
   --tab-text: #ffffff;
+  --control-radius: 14px;
 }
 
 [data-theme='light'] {
@@ -755,7 +756,10 @@ button {
 
 /* Event Info & Sessions buttons: black text on white in light theme */
 [data-theme='light'] .upcoming-event-footer .btn,
-[data-theme='light'] .live-popup .btn.ghost {
+[data-theme='light'] .live-popup .live-radio-btn,
+[data-theme='light'] .mobile-radio-popover .live-radio-btn,
+[data-theme='light'] .live-popup .btn.ghost,
+[data-theme='light'] .mobile-radio-popover .btn.ghost {
   background: #ffffff;
   color: #000000;
   border-color: var(--color-primary);
@@ -763,7 +767,10 @@ button {
 }
 
 [data-theme='light'] .upcoming-event-footer .btn:hover,
-[data-theme='light'] .live-popup .btn.ghost:hover {
+[data-theme='light'] .live-popup .live-radio-btn:hover,
+[data-theme='light'] .mobile-radio-popover .live-radio-btn:hover,
+[data-theme='light'] .live-popup .btn.ghost:hover,
+[data-theme='light'] .mobile-radio-popover .btn.ghost:hover {
   background: #ffffff;
   color: #000000;
   border-color: var(--color-primary);
@@ -825,26 +832,272 @@ button {
 
 .live-popup {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: 40px;
   right: 1.5rem;
-  width: min(320px, 90vw);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.2rem 1.3rem;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  width: 60px;
+  height: 60px;
+  border: 1px solid var(--color-primary);
+  border-radius: 50%;
+  padding: 0;
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.15), 0 8px 24px rgba(137, 69, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  display: grid;
+  place-items: center;
   z-index: 150;
-  backdrop-filter: blur(20px);
-  background: color-mix(in srgb, var(--surface) 95%, transparent);
-  will-change: transform, opacity;
-  animation: smoothPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  background: rgba(20, 15, 38, 0.55);
+  will-change: transform;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+  overflow: visible;
 }
 
 .live-popup.is-live {
   display: flex;
+}
+
+.live-popup.is-collapsed {
+  width: 60px;
+  height: 60px;
+  min-height: 60px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: var(--color-primary);
+  background: rgba(20, 15, 38, 0.55);
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.15), 0 8px 24px rgba(137, 69, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  animation: none;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+
+.live-popup.is-collapsing {
+  pointer-events: none;
+}
+
+.live-popup-toggle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(214, 174, 255, 0.28), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.live-popup:hover .live-popup-toggle::after {
+  left: 100%;
+}
+
+.live-popup-toggle {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  appearance: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.live-popup.is-collapsed .live-popup-toggle {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  justify-content: center;
+}
+
+.live-popup.is-collapsing .live-popup-toggle {
+  opacity: 1;
+}
+
+.live-popup-toggle:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+.live-radio-toggle-visual {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  transform-origin: center;
+  transition: transform 0.16s ease;
+  pointer-events: none;
+}
+
+.live-popup-toggle:active .live-radio-toggle-visual,
+.live-popup-toggle.is-pressing .live-radio-toggle-visual,
+.mobile-radio-toggle:active .live-radio-toggle-visual,
+.mobile-radio-toggle.is-pressing .live-radio-toggle-visual {
+  transform: scale(0.78);
+}
+
+.live-popup-headphones {
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.live-popup.is-collapsed .live-popup-headphones {
+  color: var(--text);
+  font-size: 1.5rem;
+}
+
+.live-popup.is-live .live-popup-headphones {
+  color: var(--color-primary);
+}
+
+.live-popup.is-collapsed.is-live .live-popup-headphones,
+.live-popup.is-live .live-popup-toggle.is-pressing .live-popup-headphones {
+  transform: translateY(-2px);
+}
+
+.live-popup-live-badge {
+  display: none;
+  transition: transform 0.16s ease;
+}
+
+.live-popup.is-collapsed.is-live .live-popup-live-badge,
+.live-popup.is-live .live-popup-toggle.is-pressing .live-popup-live-badge {
+  display: block;
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 5px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: #ffffff;
+  background: var(--color-primary);
+  box-shadow: 0 0 6px rgba(193, 116, 255, 0.7);
+  animation: liveBadgePulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.live-popup-toggle:active .live-popup-toggle-status .dot,
+.live-popup-toggle.is-pressing .live-popup-toggle-status .dot {
+  animation: none;
+}
+
+.live-popup.is-live .live-popup-toggle:active .live-popup-live-badge,
+.live-popup.is-live .live-popup-toggle.is-pressing .live-popup-live-badge {
+  animation: none;
+}
+
+.live-popup-toggle-icon {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.live-popup-toggle .live-banner-text {
+  display: none;
+}
+
+.live-popup.is-collapsed:hover {
+  transform: translateY(-3px) scale(1.05);
+  background: rgba(30, 22, 56, 0.72);
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 10px 30px rgba(137, 69, 255, 0.45),
+    0 0 24px rgba(193, 116, 255, 0.35);
+  border-color: #d59bff;
+}
+
+.live-popup-content {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.75rem);
+  width: min(320px, calc(100vw - 3rem));
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 95%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+  transform-origin: bottom right;
+  animation: radioPanelIn 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
+  z-index: 3;
+}
+
+.live-popup-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(193, 116, 255, 0.35);
+  border-radius: 50%;
+  background: rgba(20, 15, 38, 0.55);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.live-popup-close:hover {
+  background: var(--accent-neon);
+  color: white;
+  border-color: var(--accent-neon);
+  box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
+  transform: rotate(90deg);
+}
+
+.live-popup-close:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 2px;
+}
+
+.live-popup.is-collapsed .live-popup-content {
+  position: absolute;
+  opacity: 0;
+  transform: translateY(10px) scale(0.96);
+  visibility: hidden;
+  pointer-events: none;
+  animation: none;
+}
+
+.live-popup.is-collapsing .live-popup-content {
+  visibility: visible;
+  pointer-events: none;
+  animation: radioPanelOut 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
 }
 
 .live-popup-status {
@@ -855,6 +1108,20 @@ button {
   text-transform: uppercase;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+.live-popup-toggle .live-popup-status {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  animation: none;
+  pointer-events: none;
+}
+
+.live-popup-panel-status {
+  width: fit-content;
+  padding-right: 2.2rem;
+  color: var(--text);
 }
 
 .live-popup.is-live .live-popup-status,
@@ -868,7 +1135,26 @@ button {
   height: 10px;
   border-radius: 50%;
   background: var(--muted);
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.16s ease;
+}
+
+.live-popup-toggle-status .dot {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border: 0;
+  background: var(--text);
+  opacity: 0.68;
+  transform-origin: center;
+}
+
+.live-popup.is-live .live-popup-toggle-status .dot {
+  background: #d59bff;
+  opacity: 1;
+  box-shadow: 0 0 10px rgba(213, 155, 255, 0.9);
+  animation: liveDotPulse 1.6s ease-in-out infinite;
 }
 
 .live-popup.is-live .dot,
@@ -880,10 +1166,20 @@ button {
   animation: livePulse 1.6s ease-in-out infinite;
 }
 
+.live-popup.is-live .live-popup-toggle:active .live-popup-toggle-status .dot,
+.live-popup.is-live .live-popup-toggle.is-pressing .live-popup-toggle-status .dot {
+  animation: none;
+  box-shadow: 0 0 5px rgba(213, 155, 255, 0.7);
+}
+
 .live-popup-copy {
   margin: 0;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+.live-popup-content .live-popup-copy {
+  padding-right: 2.2rem;
 }
 
 .live-popup-actions {
@@ -892,35 +1188,56 @@ button {
   flex-wrap: wrap;
 }
 
-.live-popup .btn {
+.live-popup .btn,
+.mobile-radio-popover .btn {
+  flex: 1;
+  min-width: 0;
   align-self: flex-start;
   text-align: center;
   justify-content: center;
   align-items: center;
   display: flex;
   gap: 0.45rem;
-  border-radius: 14px;
+  min-height: 42px;
+  border-radius: var(--control-radius);
   text-transform: none;
   letter-spacing: 0;
   font-size: 0.78rem;
   font-weight: 700;
+  white-space: nowrap;
 }
 
-.live-popup .btn:not(.ghost) {
-  flex: 1;
-  min-width: 0;
-}
-
+.live-popup .live-radio-btn,
+.mobile-radio-popover .live-radio-btn,
 .live-popup .btn.ghost,
 .mobile-radio-popover .btn.ghost {
-  flex: 1;
-  min-width: 0;
+  background: rgba(20, 15, 38, 0.55);
+  border-color: var(--color-primary);
   color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.15), 0 6px 22px rgba(137, 69, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
+.live-popup .live-radio-btn:hover,
+.mobile-radio-popover .live-radio-btn:hover,
+.live-popup .btn.ghost:hover,
+.mobile-radio-popover .btn.ghost:hover {
+  background: rgba(30, 22, 56, 0.72);
+  border-color: #d59bff;
+  color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 10px 30px rgba(137, 69, 255, 0.45),
+    0 0 24px rgba(193, 116, 255, 0.35);
+}
+
+.live-popup .live-radio-btn .live-listen-icon,
 .live-popup .btn.ghost .live-sessions-icon,
-.live-popup .btn.ghost [data-live-sessions-text],
+.mobile-radio-popover .live-radio-btn .live-listen-icon,
 .mobile-radio-popover .btn.ghost .live-sessions-icon,
+.live-popup .live-radio-btn [data-live-radio-text],
+.live-popup .btn.ghost [data-live-sessions-text],
+.mobile-radio-popover .live-radio-btn [data-live-radio-text],
 .mobile-radio-popover .btn.ghost [data-live-sessions-text] {
   color: currentColor;
 }
@@ -935,27 +1252,6 @@ button {
   flex: 1;
 }
 
-.live-popup.is-live .live-radio-btn,
-.mobile-radio-popover.is-live .live-radio-btn {
-  background: rgba(20, 15, 38, 0.55);
-  border-color: var(--color-primary);
-  color: var(--tab-text);
-  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.15), 0 6px 22px rgba(137, 69, 255, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transform: translateY(-1px);
-}
-
-.live-popup.is-live .live-radio-btn:hover,
-.mobile-radio-popover.is-live .live-radio-btn:hover {
-  background: rgba(30, 22, 56, 0.72);
-  border-color: #d59bff;
-  color: var(--tab-text);
-  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 10px 30px rgba(137, 69, 255, 0.45),
-    0 0 24px rgba(193, 116, 255, 0.35);
-}
-
 .live-listen-icon {
   color: var(--muted);
   display: inline-flex;
@@ -964,7 +1260,7 @@ button {
   width: 1em;
   font-size: 0.9em;
   line-height: 1;
-  transition: color 0.2s ease;
+  transition: color 0.2s ease, transform 0.16s ease;
 }
 
 .live-sessions-icon {
@@ -978,7 +1274,6 @@ button {
   transition: color 0.2s ease;
 }
 
-.live-popup.is-live .live-listen-icon,
 .mobile-radio-toggle.is-live .live-listen-icon {
   color: var(--color-primary);
 }
@@ -991,7 +1286,7 @@ button {
 }
 
 .subscribe-card .btn {
-  border-radius: 14px;
+  border-radius: var(--control-radius);
 }
 
 /* Chat Nickname Overlay */
@@ -1091,7 +1386,7 @@ button {
 .nickname-form input {
   width: 100%;
   padding: 0.85rem 1rem;
-  border-radius: 12px;
+  border-radius: var(--control-radius);
   border: 1px solid rgba(193, 116, 255, 0.3);
   background: rgba(13, 11, 26, 0.6);
   color: var(--text);
@@ -1422,6 +1717,28 @@ button {
   }
 }
 
+@keyframes radioPanelIn {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes radioPanelOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+}
+
 @keyframes shimmer {
   0% {
     background-position: -200% center;
@@ -1562,14 +1879,15 @@ button {
 
 .mobile-radio-status-dot {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 5px;
+  right: 5px;
   width: 8px;
   height: 8px;
   border: 1px solid color-mix(in srgb, var(--bg) 65%, transparent);
   border-radius: 50%;
   background: #ffffff;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.16s ease;
+  transform-origin: center;
 }
 
 [data-theme='light'] .mobile-radio-status-dot {
@@ -1580,6 +1898,12 @@ button {
   background: #d59bff;
   box-shadow: 0 0 10px rgba(213, 155, 255, 0.9);
   animation: liveDotPulse 1.6s ease-in-out infinite;
+}
+
+.mobile-radio-toggle:active .mobile-radio-status-dot,
+.mobile-radio-toggle.is-pressing .mobile-radio-status-dot {
+  animation: none;
+  box-shadow: 0 0 5px rgba(213, 155, 255, 0.7);
 }
 
 @keyframes liveDotPulse {
@@ -1596,6 +1920,7 @@ button {
 
 .mobile-radio-live-badge {
   display: none;
+  transition: transform 0.16s ease;
 }
 
 .mobile-radio-toggle.is-live .live-listen-icon {
@@ -1620,6 +1945,11 @@ button {
   box-shadow: 0 0 6px rgba(193, 116, 255, 0.7);
   animation: liveBadgePulse 1.6s ease-in-out infinite;
   pointer-events: none;
+}
+
+.mobile-radio-toggle.is-live:active .mobile-radio-live-badge,
+.mobile-radio-toggle.is-live.is-pressing .mobile-radio-live-badge {
+  animation: none;
 }
 
 @keyframes liveBadgePulse {
@@ -2263,7 +2593,23 @@ button {
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     z-index: 220;
-    animation: smoothPopIn 0.24s ease forwards;
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+    transform-origin: top right;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .mobile-radio-popover.is-open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .mobile-radio-popover.is-closing {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+    pointer-events: none;
   }
 
   .mobile-radio-popover .live-popup-actions {
@@ -2534,7 +2880,7 @@ button {
 
 .subscribe-card input {
   width: 100%;
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   border: 1px solid color-mix(in srgb, var(--border) 55%, rgba(193, 116, 255, 0.45) 45%);
   padding: 0.7rem 0.9rem;
   background: rgba(13, 11, 26, 0.55);
@@ -2624,7 +2970,7 @@ button {
   flex-wrap: wrap;
   gap: 0.4rem;
   padding: 0.35rem;
-  border-radius: 14px;
+  border-radius: var(--control-radius);
   border: 1px solid color-mix(in srgb, var(--border) 50%, rgba(193, 116, 255, 0.5) 50%);
   background: linear-gradient(135deg,
     color-mix(in srgb, var(--color-surface-glass) 88%, rgba(193, 116, 255, 0.12) 12%),
@@ -2652,7 +2998,7 @@ button {
   background: transparent;
   color: var(--tab-text);
   padding: 0.45rem 0.9rem;
-  border-radius: 14px;
+  border-radius: var(--control-radius);
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2750,10 +3096,56 @@ button {
   box-shadow: 0 8px 26px rgba(123, 45, 255, 0.1), 0 2px 6px rgba(17, 12, 34, 0.05);
 }
 
-[data-theme='light'] .live-popup,
+[data-theme='light'] .live-popup {
+  background: #ffffff;
+  color: #000000;
+  border-color: var(--color-primary);
+  box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 6px 16px rgba(123, 45, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+[data-theme='light'] .live-popup-content,
 [data-theme='light'] .mobile-radio-popover {
   border-color: rgba(155, 69, 255, 0.38);
   box-shadow: 0 14px 36px rgba(123, 45, 255, 0.14);
+}
+
+[data-theme='light'] .live-popup-content {
+  background: #ffffff;
+}
+
+[data-theme='light'] .live-popup-close {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(155, 69, 255, 0.35);
+  color: #000000;
+}
+
+[data-theme='light'] .live-popup-close:hover {
+  background: var(--accent-neon);
+  color: white;
+  border-color: var(--accent-neon);
+  box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
+  transform: rotate(90deg);
+}
+
+[data-theme='light'] .live-popup.is-collapsed {
+  background: #ffffff;
+  color: #000000;
+  border-color: var(--color-primary);
+  box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 6px 16px rgba(123, 45, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+[data-theme='light'] .live-popup.is-live .live-popup-toggle-status .dot {
+  background: #d59bff;
+  box-shadow: 0 0 10px rgba(213, 155, 255, 0.9);
+}
+
+[data-theme='light'] .live-popup.is-collapsed:hover {
+  background: #ffffff;
+  color: #000000;
+  border-color: var(--color-primary-strong);
+  box-shadow: 0 2px 6px rgba(17, 12, 34, 0.08), 0 12px 26px rgba(123, 45, 255, 0.18);
 }
 
 [data-theme='light'] .mobile-radio-popover {
@@ -2771,14 +3163,6 @@ button {
 [data-theme='light'] .live-popup .btn.ghost,
 [data-theme='light'] .mobile-radio-popover .btn.ghost {
   color: #000000;
-}
-
-[data-theme='light'] .live-popup.is-live .live-radio-btn,
-[data-theme='light'] .mobile-radio-popover.is-live .live-radio-btn {
-  background: linear-gradient(145deg, rgba(155, 69, 255, 0.12), rgba(123, 45, 255, 0.06));
-  border-color: var(--color-primary);
-  color: var(--tab-text);
-  box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 4px 14px rgba(123, 45, 255, 0.18);
 }
 
 [data-theme='light'] .carousel-btn {

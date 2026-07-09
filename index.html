@@ -177,9 +177,11 @@
             data-mobile-radio-toggle
             data-live-mobile-toggle
           >
-            <i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i>
-            <span class="mobile-radio-live-badge" aria-hidden="true">live</span>
-            <span class="mobile-radio-status-dot" data-live-indicator aria-hidden="true"></span>
+            <span class="live-radio-toggle-visual" aria-hidden="true">
+              <i class="fa-solid fa-headphones live-listen-icon"></i>
+              <span class="mobile-radio-live-badge">live</span>
+              <span class="mobile-radio-status-dot" data-live-indicator></span>
+            </span>
           </button>
           <button
             class="icon-button theme-toggle"
@@ -878,35 +880,61 @@
       </p>
     </footer>
 
-    <div class="live-popup" data-live-banner>
-      <div class="live-popup-status">
-        <span class="dot" data-live-indicator></span>
-        <span class="live-banner-text" data-live-label>Offline</span>
-      </div>
-      <p class="live-popup-copy">
-        LiveSets radio turns on whenever this badge pulses violet. Tap to join
-        in real time.
-      </p>
-      <div class="live-popup-actions">
-        <a
-          class="btn compact live-radio-btn"
-          href="https://livesets.com/cidirilk/live"
-          target="_blank"
-          rel="noopener"
-          data-live-radio-btn
-          style="display: none"
-          ><i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i
-          ><span data-live-radio-text>Listen Live</span></a
+    <div class="live-popup is-collapsed" data-live-banner data-desktop-radio-popup>
+      <button
+        class="live-popup-toggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="desktopRadioPanel"
+        data-desktop-radio-toggle
+      >
+        <span class="live-radio-toggle-visual" aria-hidden="true">
+          <i class="fa-solid fa-headphones live-popup-headphones"></i>
+          <span class="live-popup-live-badge">live</span>
+          <span class="live-popup-status live-popup-toggle-status">
+            <span class="dot" data-live-indicator></span>
+            <span class="live-banner-text" data-live-label>Offline</span>
+          </span>
+        </span>
+      </button>
+      <div class="live-popup-content" id="desktopRadioPanel">
+        <button
+          class="live-popup-close"
+          type="button"
+          aria-label="Close radio popup"
+          data-desktop-radio-close
         >
-        <a
-          class="btn compact ghost"
-          href="https://livesets.com/cidirilk/sessions"
-          target="_blank"
-          rel="noopener"
-          data-live-sessions-link
-          ><i class="fa-solid fa-folder-open live-sessions-icon" aria-hidden="true"></i
-          ><span data-live-sessions-text>Sessions</span></a
-        >
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+        <div class="live-popup-status live-popup-panel-status">
+          <span class="dot" data-live-indicator></span>
+          <span class="live-banner-text" data-live-label>Offline</span>
+        </div>
+        <p class="live-popup-copy">
+          LiveSets radio turns on whenever this badge pulses violet. Tap to join
+          in real time.
+        </p>
+        <div class="live-popup-actions">
+          <a
+            class="btn compact live-radio-btn"
+            href="https://livesets.com/cidirilk/live"
+            target="_blank"
+            rel="noopener"
+            data-live-radio-btn
+            style="display: none"
+            ><i class="fa-solid fa-headphones live-listen-icon" aria-hidden="true"></i
+            ><span data-live-radio-text>Listen Live</span></a
+          >
+          <a
+            class="btn compact ghost"
+            href="https://livesets.com/cidirilk/sessions"
+            target="_blank"
+            rel="noopener"
+            data-live-sessions-link
+            ><i class="fa-solid fa-folder-open live-sessions-icon" aria-hidden="true"></i
+            ><span data-live-sessions-text>Sessions</span></a
+          >
+        </div>
       </div>
     </div>
 
