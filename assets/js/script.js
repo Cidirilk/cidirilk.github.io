@@ -657,6 +657,7 @@ const expandDesktopRadioPopup = () => {
   desktopRadioPopup.classList.remove('is-collapsing');
   desktopRadioPopup.classList.remove('is-collapsed');
   desktopRadioToggle.setAttribute('aria-expanded', 'true');
+  desktopRadioToggle.setAttribute('aria-pressed', 'true');
   setDesktopRadioToggleLabel();
 };
 
@@ -667,6 +668,7 @@ const collapseDesktopRadioPopup = () => {
   desktopRadioPopup.classList.add('is-collapsing');
   desktopRadioPopup.classList.add('is-collapsed');
   desktopRadioToggle.setAttribute('aria-expanded', 'false');
+  desktopRadioToggle.setAttribute('aria-pressed', 'false');
   setDesktopRadioToggleLabel();
   desktopRadioCollapseTimer = setTimeout(() => {
     desktopRadioPopup.classList.remove('is-collapsing');
@@ -695,6 +697,7 @@ const openMobileRadioPopover = () => {
     mobileRadioPopover.classList.add('is-open');
   });
   mobileRadioToggle.setAttribute('aria-expanded', 'true');
+  mobileRadioToggle.setAttribute('aria-pressed', 'true');
   setMobileRadioToggleLabel();
 };
 
@@ -703,6 +706,7 @@ const closeMobileRadioPopover = () => {
   if (mobileRadioPopover.hasAttribute('hidden')) {
     mobileRadioPopover.classList.remove('is-open', 'is-closing');
     mobileRadioToggle.setAttribute('aria-expanded', 'false');
+    mobileRadioToggle.setAttribute('aria-pressed', 'false');
     setMobileRadioToggleLabel();
     return;
   }
@@ -710,6 +714,7 @@ const closeMobileRadioPopover = () => {
   mobileRadioPopover.classList.remove('is-open');
   mobileRadioPopover.classList.add('is-closing');
   mobileRadioToggle.setAttribute('aria-expanded', 'false');
+  mobileRadioToggle.setAttribute('aria-pressed', 'false');
   setMobileRadioToggleLabel();
   mobileRadioCloseTimer = setTimeout(() => {
     mobileRadioPopover.setAttribute('hidden', '');

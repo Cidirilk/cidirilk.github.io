@@ -648,7 +648,7 @@ button {
   justify-content: center;
   gap: 0.4rem;
   padding: 0.85rem 1.6rem;
-  border-radius: 999px;
+  border-radius: var(--control-radius);
   border: 1px solid var(--color-primary);
   background: rgba(20, 15, 38, 0.55);
   color: #ffffff;
@@ -931,7 +931,7 @@ button {
 .live-popup-toggle:focus-visible {
   outline: 2px solid var(--accent-neon);
   outline-offset: 3px;
-  border-radius: 999px;
+  border-radius: var(--control-radius);
 }
 
 .live-radio-toggle-visual {
@@ -972,7 +972,12 @@ button {
   color: var(--color-primary);
 }
 
+[data-theme='dark'] .live-popup.is-live .live-popup-headphones {
+  color: #ffffff;
+}
+
 .live-popup.is-collapsed.is-live .live-popup-headphones,
+.live-popup:not(.is-collapsed).is-live .live-popup-headphones,
 .live-popup.is-live .live-popup-toggle.is-pressing .live-popup-headphones {
   transform: translateY(-2px);
 }
@@ -983,6 +988,7 @@ button {
 }
 
 .live-popup.is-collapsed.is-live .live-popup-live-badge,
+.live-popup:not(.is-collapsed).is-live .live-popup-live-badge,
 .live-popup.is-live .live-popup-toggle.is-pressing .live-popup-live-badge {
   display: block;
   position: absolute;
@@ -1151,7 +1157,7 @@ button {
 }
 
 .live-popup.is-live .live-popup-toggle-status .dot {
-  background: #d59bff;
+  background: var(--color-primary);
   opacity: 1;
   box-shadow: 0 0 10px rgba(213, 155, 255, 0.9);
   animation: liveDotPulse 1.6s ease-in-out infinite;
@@ -1253,18 +1259,18 @@ button {
 }
 
 .live-listen-icon {
-  color: var(--muted);
+  color: currentColor;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1em;
-  font-size: 0.9em;
+  font-size: 0.95em;
   line-height: 1;
   transition: color 0.2s ease, transform 0.16s ease;
 }
 
 .live-sessions-icon {
-  color: var(--muted);
+  color: currentColor;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1276,6 +1282,10 @@ button {
 
 .mobile-radio-toggle.is-live .live-listen-icon {
   color: var(--color-primary);
+}
+
+[data-theme='dark'] .mobile-radio-toggle.is-live .live-listen-icon {
+  color: #ffffff;
 }
 
 .live-popup [data-live-radio-text],
@@ -1895,7 +1905,7 @@ button {
 }
 
 .mobile-radio-toggle.is-live .mobile-radio-status-dot {
-  background: #d59bff;
+  background: var(--color-primary);
   box-shadow: 0 0 10px rgba(213, 155, 255, 0.9);
   animation: liveDotPulse 1.6s ease-in-out infinite;
 }
@@ -2329,7 +2339,7 @@ button {
   height: 48px;
   padding: 0;
   border: 1px solid var(--color-primary);
-  border-radius: 14px;
+  border-radius: var(--control-radius);
   background: rgba(20, 15, 38, 0.55);
   box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.12), 0 3px 10px rgba(137, 69, 255, 0.18),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -2624,7 +2634,7 @@ button {
     min-width: 0;
     min-height: 42px;
     padding-inline: 0.75rem;
-    border-radius: 12px;
+    border-radius: var(--control-radius);
     font-size: 0.76rem;
     letter-spacing: 0;
   }
@@ -3136,9 +3146,22 @@ button {
     inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
+[data-theme='light'] .live-popup .live-popup-headphones {
+  color: #000000;
+}
+
+[data-theme='light'] .live-popup.is-live .live-popup-headphones {
+  color: #000000;
+}
+
 [data-theme='light'] .live-popup.is-live .live-popup-toggle-status .dot {
-  background: #d59bff;
+  background: var(--color-primary);
   box-shadow: 0 0 10px rgba(213, 155, 255, 0.9);
+}
+
+[data-theme='light'] .live-popup.is-live .live-popup-live-badge {
+  background: var(--color-primary-strong);
+  box-shadow: 0 0 6px rgba(155, 69, 255, 0.55);
 }
 
 [data-theme='light'] .live-popup.is-collapsed:hover {
@@ -3277,6 +3300,48 @@ button {
   .upcoming-event-card:hover::before {
     left: -100%;
   }
+}
+
+.live-popup:not(.is-collapsed),
+.mobile-radio-toggle[aria-expanded='true'] {
+  transform: translateY(1px) scale(0.96);
+  background: linear-gradient(145deg, rgba(34, 20, 62, 0.86), rgba(17, 10, 34, 0.94));
+  border-color: #d59bff;
+  box-shadow:
+    inset 0 3px 10px rgba(0, 0, 0, 0.48),
+    0 0 0 1px rgba(193, 116, 255, 0.38),
+    0 5px 14px rgba(137, 69, 255, 0.28);
+}
+
+.mobile-radio-toggle[aria-expanded='true']::before {
+  opacity: 0.35;
+}
+
+.live-popup:not(.is-collapsed) .live-radio-toggle-visual,
+.mobile-radio-toggle[aria-expanded='true'] .live-radio-toggle-visual {
+  transform: scale(0.86);
+}
+
+.live-popup-toggle:active .live-radio-toggle-visual,
+.live-popup-toggle.is-pressing .live-radio-toggle-visual,
+.mobile-radio-toggle:active .live-radio-toggle-visual,
+.mobile-radio-toggle.is-pressing .live-radio-toggle-visual {
+  transform: scale(0.78);
+}
+
+[data-theme='light'] .live-popup:not(.is-collapsed),
+[data-theme='light'] .mobile-radio-toggle[aria-expanded='true'] {
+  background: color-mix(in srgb, #ffffff 84%, var(--color-primary) 16%);
+  border-color: var(--color-primary-strong);
+  box-shadow:
+    inset 0 2px 8px rgba(17, 12, 34, 0.18),
+    0 0 0 1px rgba(155, 69, 255, 0.28),
+    0 4px 12px rgba(123, 45, 255, 0.12);
+}
+
+.live-popup.is-live .live-radio-btn .live-listen-icon,
+.mobile-radio-popover.is-live .live-radio-btn .live-listen-icon {
+  color: var(--color-primary);
 }
 
 .tab-panels {
@@ -3466,7 +3531,7 @@ button {
   padding: 1.2rem 1.5rem;
   background: linear-gradient(135deg, rgba(193, 116, 255, 0.08), rgba(137, 69, 255, 0.04));
   border: 1px solid rgba(193, 116, 255, 0.3);
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   text-decoration: none !important;
   transition: all 0.3s ease;
   position: relative;
@@ -3644,7 +3709,7 @@ button {
   padding: 1.5rem 1.2rem;
   background: linear-gradient(135deg, rgba(193, 116, 255, 0.08), rgba(137, 69, 255, 0.04));
   border: 1px solid rgba(193, 116, 255, 0.3);
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
@@ -3749,7 +3814,7 @@ button {
   padding: 0.85rem;
   background: linear-gradient(135deg, rgba(193, 116, 255, 0.08), rgba(137, 69, 255, 0.04));
   border: 1px solid rgba(193, 116, 255, 0.3);
-  border-radius: 10px;
+  border-radius: var(--control-radius);
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
