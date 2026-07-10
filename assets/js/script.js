@@ -213,6 +213,7 @@ const setActiveTab = (target, persist = true, animate = false) => {
 
   animatePanelHeight(fromHeight);
   syncSubscribePanelAfterActivation(target);
+  window.dispatchEvent(new CustomEvent('cidirilk:tabchange', { detail: { target } }));
   if (animate) {
     scrollTabPanelIntoView();
   }
@@ -390,7 +391,7 @@ subscribeForm?.addEventListener('submit', async (event) => {
       subscribeSubmit.disabled = false;
       subscribeSubmit.removeAttribute('aria-busy');
     }
-    if (subscribeLabel) subscribeLabel.textContent = 'Join the log';
+    if (subscribeLabel) subscribeLabel.textContent = 'Join the Signal';
     // Turnstile tokens are single-use; reset so the next attempt gets a fresh one.
     if (window.turnstile && turnstileWidgetId !== null) {
       try {
@@ -1099,12 +1100,37 @@ const initCollabCarousel = () => {
   if (!carousel) return;
 
   const track = carousel.querySelector('[data-carousel-track-collab]');
+  if (!track) return;
+
   const slides = Array.from(track.children);
   const prevBtn = carousel.querySelector('[data-carousel-prev-collab]');
   const nextBtn = carousel.querySelector('[data-carousel-next-collab]');
   const dotsContainer = carousel.querySelector('[data-carousel-dots-collab]');
+  if (!slides.length || !prevBtn || !nextBtn || !dotsContainer) return;
 
   let currentIndex = 0;
+  let activePosition = slides.length > 1 ? 1 : 0;
+  let isAnimating = false;
+  let resizeFrame = null;
+
+  slides.forEach((slide, index) => {
+    slide.dataset.carouselIndex = String(index);
+  });
+
+  if (slides.length > 1) {
+    const firstClone = slides[0].cloneNode(true);
+    const lastClone = slides[slides.length - 1].cloneNode(true);
+    firstClone.dataset.carouselIndex = '0';
+    lastClone.dataset.carouselIndex = String(slides.length - 1);
+    firstClone.dataset.carouselClone = 'true';
+    lastClone.dataset.carouselClone = 'true';
+    firstClone.classList.add('is-carousel-clone');
+    lastClone.classList.add('is-carousel-clone');
+    track.insertBefore(lastClone, slides[0]);
+    track.appendChild(firstClone);
+  }
+
+  const renderedSlides = Array.from(track.children);
 
   // Create dots
   slides.forEach((_, index) => {
@@ -1118,17 +1144,42 @@ const initCollabCarousel = () => {
 
   const dots = Array.from(dotsContainer.children);
 
-  const updateCarousel = () => {
-    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+  const setTrackPosition = (animate = true) => {
+    const activeSlide = renderedSlides[activePosition];
+    if (!activeSlide) return;
+
+    if (!animate) {
+      track.style.transition = 'none';
+    }
+
+    const offset =
+      track.clientWidth / 2 - activeSlide.offsetLeft - activeSlide.offsetWidth / 2;
+    track.style.transform = `translateX(${offset}px)`;
+
+    if (!animate) {
+      void track.offsetHeight;
+      track.style.transition = '';
+    }
+  };
+
+  const updateCarousel = (animate = true) => {
+    if (animate) {
+      isAnimating = true;
+    } else {
+      isAnimating = false;
+    }
+
+    setTrackPosition(animate);
 
     // Only the current slide is interactive; neighbours are inert so a single
     // tap can never open more than one link.
-    slides.forEach((slide, index) => {
-      const isCurrent = index === currentIndex;
+    renderedSlides.forEach((slide, index) => {
+      const isCurrent = index === activePosition;
+      const isClone = slide.dataset.carouselClone === 'true';
       slide.classList.toggle('is-current', isCurrent);
-      slide.setAttribute('aria-hidden', String(!isCurrent));
+      slide.setAttribute('aria-hidden', String(!isCurrent || isClone));
       slide.querySelectorAll('a, button, [tabindex]').forEach((el) => {
-        el.tabIndex = isCurrent ? 0 : -1;
+        el.tabIndex = isCurrent && !isClone ? 0 : -1;
       });
     });
 
@@ -1137,28 +1188,50 @@ const initCollabCarousel = () => {
       dot.classList.toggle('active', index === currentIndex);
     });
 
-    // Update button states
-    prevBtn.disabled = currentIndex === 0;
-    nextBtn.disabled = currentIndex === slides.length - 1;
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
   };
 
   const goToSlide = (index) => {
-    currentIndex = Math.max(0, Math.min(index, slides.length - 1));
+    if (slides.length <= 1) return;
+    if (isAnimating) return;
+    if (index === currentIndex) return;
+
+    currentIndex = (index + slides.length) % slides.length;
+    activePosition = currentIndex + (slides.length > 1 ? 1 : 0);
     updateCarousel();
   };
 
   prevBtn.addEventListener('click', () => {
-    if (currentIndex > 0) {
-      currentIndex--;
-      updateCarousel();
-    }
+    if (slides.length <= 1) return;
+    if (isAnimating) return;
+
+    currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+    activePosition -= 1;
+    updateCarousel();
   });
 
   nextBtn.addEventListener('click', () => {
-    if (currentIndex < slides.length - 1) {
-      currentIndex++;
-      updateCarousel();
+    if (slides.length <= 1) return;
+    if (isAnimating) return;
+
+    currentIndex = (currentIndex + 1) % slides.length;
+    activePosition += 1;
+    updateCarousel();
+  });
+
+  track.addEventListener('transitionend', (event) => {
+    if (event.propertyName !== 'transform' || slides.length <= 1) return;
+
+    if (activePosition === 0) {
+      activePosition = slides.length;
+      updateCarousel(false);
+    } else if (activePosition === renderedSlides.length - 1) {
+      activePosition = 1;
+      updateCarousel(false);
     }
+
+    isAnimating = false;
   });
 
   // Keyboard navigation
@@ -1198,7 +1271,196 @@ const initCollabCarousel = () => {
     }
   };
 
+  window.addEventListener('resize', () => {
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(() => {
+      updateCarousel(false);
+      resizeFrame = null;
+    });
+  });
+
+  window.addEventListener('cidirilk:tabchange', (event) => {
+    if (event.detail?.target !== 'collab') return;
+
+    requestAnimationFrame(() => {
+      updateCarousel(false);
+    });
+  });
+
+  updateCarousel(false);
+};
+
+// Shop Carousel functionality
+const initShopCarousel = () => {
+  const carousel = document.querySelector('[data-shop-carousel]');
+  if (!carousel) return;
+
+  const track = carousel.querySelector('[data-shop-track]');
+  const slides = Array.from(carousel.querySelectorAll('.shop-slide'));
+  const prevBtn = carousel.querySelector('[data-shop-prev]');
+  const nextBtn = carousel.querySelector('[data-shop-next]');
+  const dotsContainer = carousel.querySelector('[data-shop-dots]');
+  if (!track || !slides.length || !prevBtn || !nextBtn || !dotsContainer) return;
+
+  let currentIndex = 0;
+
+  slides.forEach((_, index) => {
+    const dot = document.createElement('button');
+    dot.classList.add('carousel-dot');
+    dot.setAttribute('aria-label', `Go to shop item ${index + 1}`);
+    dot.addEventListener('click', () => goToSlide(index));
+    dotsContainer.appendChild(dot);
+  });
+
+  const dots = Array.from(dotsContainer.children);
+
+  const setSlideInteractivity = () => {
+    slides.forEach((slide, index) => {
+      const isCurrent = index === currentIndex;
+      slide.classList.toggle('is-current', isCurrent);
+      slide.setAttribute('aria-hidden', String(!isCurrent));
+      slide.querySelectorAll('a, button, [tabindex]').forEach((el) => {
+        el.tabIndex = isCurrent ? 0 : -1;
+      });
+    });
+  };
+
+  const updateCarousel = () => {
+    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    dots.forEach((dot, index) => {
+      dot.classList.toggle('active', index === currentIndex);
+    });
+    prevBtn.disabled = false;
+    nextBtn.disabled = false;
+    setSlideInteractivity();
+  };
+
+  function goToSlide(index) {
+    currentIndex = (index + slides.length) % slides.length;
+    updateCarousel();
+  }
+
+  prevBtn.addEventListener('click', () => {
+    goToSlide(currentIndex - 1);
+  });
+
+  nextBtn.addEventListener('click', () => {
+    goToSlide(currentIndex + 1);
+  });
+
+  carousel.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      prevBtn.click();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      nextBtn.click();
+    }
+  });
+
+  let touchStartX = 0;
+  let touchEndX = 0;
+
+  carousel.addEventListener('touchstart', (event) => {
+    touchStartX = event.changedTouches[0].screenX;
+  }, { passive: true });
+
+  carousel.addEventListener('touchend', (event) => {
+    touchEndX = event.changedTouches[0].screenX;
+    const diff = touchStartX - touchEndX;
+    if (Math.abs(diff) <= 50) return;
+    if (diff > 0) {
+      nextBtn.click();
+    } else {
+      prevBtn.click();
+    }
+  }, { passive: true });
+
   updateCarousel();
+};
+
+// Shop image preview modal.
+const initShopModal = () => {
+  const modal = document.querySelector('[data-shop-modal]');
+  const overlay = document.querySelector('[data-shop-modal-overlay]');
+  const closeBtn = document.querySelector('[data-shop-modal-close]');
+  const title = document.querySelector('[data-shop-modal-title]');
+  const image = document.querySelector('[data-shop-modal-image]');
+  const triggers = document.querySelectorAll('[data-shop-image]');
+  const modalReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const modalCloseDuration = 260;
+  let modalCloseTimer = null;
+  let lastFocus = null;
+
+  if (!modal || !image || !triggers.length) return;
+
+  const focusCloseButton = () => {
+    try {
+      closeBtn?.focus({ preventScroll: true });
+    } catch (e) {
+      closeBtn?.focus();
+    }
+  };
+
+  const openModal = (trigger) => {
+    const imageSrc = trigger.getAttribute('data-shop-image');
+    const imageTitle = trigger.getAttribute('data-shop-title') || 'Artifact preview';
+    const previewImage = trigger.querySelector('img');
+    if (!imageSrc) return;
+
+    if (modalCloseTimer) {
+      clearTimeout(modalCloseTimer);
+      modalCloseTimer = null;
+    }
+
+    lastFocus = trigger;
+    title.textContent = imageTitle;
+    image.src = imageSrc;
+    image.alt = previewImage?.alt || imageTitle;
+    modal.classList.remove('is-closing');
+    modal.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+    setTimeout(focusCloseButton, 80);
+  };
+
+  const closeModal = () => {
+    if (modal.hasAttribute('hidden') || modal.classList.contains('is-closing')) return;
+
+    const hideModal = () => {
+      modal.setAttribute('hidden', '');
+      modal.classList.remove('is-closing');
+      document.body.style.overflow = '';
+      modalCloseTimer = null;
+      if (lastFocus) {
+        try {
+          lastFocus.focus({ preventScroll: true });
+        } catch (e) {
+          lastFocus.focus();
+        }
+      }
+    };
+
+    if (modalReducedMotion) {
+      hideModal();
+      return;
+    }
+
+    modal.classList.add('is-closing');
+    modalCloseTimer = setTimeout(hideModal, modalCloseDuration);
+  };
+
+  triggers.forEach((trigger) => {
+    trigger.addEventListener('click', () => openModal(trigger));
+  });
+
+  closeBtn?.addEventListener('click', closeModal);
+  overlay?.addEventListener('click', closeModal);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal.hasAttribute('hidden')) {
+      closeModal();
+    }
+  });
 };
 
 // Collaboration Modal functionality
@@ -1546,6 +1808,8 @@ if (document.readyState === 'loading') {
     checkEventExpiry();
     initCarousel();
     initCollabCarousel();
+    initShopCarousel();
+    initShopModal();
     initCollabModal();
     initInteractions();
   });
@@ -1553,6 +1817,8 @@ if (document.readyState === 'loading') {
   checkEventExpiry();
   initCarousel();
   initCollabCarousel();
+  initShopCarousel();
+  initShopModal();
   initCollabModal();
   initInteractions();
 }
