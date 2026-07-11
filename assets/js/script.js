@@ -1296,13 +1296,34 @@ const initShopCarousel = () => {
   if (!carousel) return;
 
   const track = carousel.querySelector('[data-shop-track]');
-  const slides = Array.from(carousel.querySelectorAll('.shop-slide'));
+  const slides = Array.from(track?.children || []);
   const prevBtn = carousel.querySelector('[data-shop-prev]');
   const nextBtn = carousel.querySelector('[data-shop-next]');
   const dotsContainer = carousel.querySelector('[data-shop-dots]');
   if (!track || !slides.length || !prevBtn || !nextBtn || !dotsContainer) return;
 
   let currentIndex = 0;
+  let activePosition = slides.length > 1 ? 1 : 0;
+  let isAnimating = false;
+
+  slides.forEach((slide, index) => {
+    slide.dataset.carouselIndex = String(index);
+  });
+
+  if (slides.length > 1) {
+    const firstClone = slides[0].cloneNode(true);
+    const lastClone = slides[slides.length - 1].cloneNode(true);
+    firstClone.dataset.carouselIndex = '0';
+    lastClone.dataset.carouselIndex = String(slides.length - 1);
+    firstClone.dataset.carouselClone = 'true';
+    lastClone.dataset.carouselClone = 'true';
+    firstClone.classList.add('is-carousel-clone');
+    lastClone.classList.add('is-carousel-clone');
+    track.insertBefore(lastClone, slides[0]);
+    track.appendChild(firstClone);
+  }
+
+  const renderedSlides = Array.from(track.children);
 
   slides.forEach((_, index) => {
     const dot = document.createElement('button');
@@ -1314,19 +1335,40 @@ const initShopCarousel = () => {
 
   const dots = Array.from(dotsContainer.children);
 
+  const setTrackPosition = (animate = true) => {
+    if (!animate) {
+      track.style.transition = 'none';
+    }
+
+    track.style.transform = `translateX(-${activePosition * 100}%)`;
+
+    if (!animate) {
+      void track.offsetHeight;
+      track.style.transition = '';
+    }
+  };
+
   const setSlideInteractivity = () => {
-    slides.forEach((slide, index) => {
-      const isCurrent = index === currentIndex;
+    renderedSlides.forEach((slide, index) => {
+      const isCurrent = index === activePosition;
+      const isClone = slide.dataset.carouselClone === 'true';
       slide.classList.toggle('is-current', isCurrent);
-      slide.setAttribute('aria-hidden', String(!isCurrent));
+      slide.setAttribute('aria-hidden', String(!isCurrent || isClone));
       slide.querySelectorAll('a, button, [tabindex]').forEach((el) => {
-        el.tabIndex = isCurrent ? 0 : -1;
+        el.tabIndex = isCurrent && !isClone ? 0 : -1;
       });
     });
   };
 
-  const updateCarousel = () => {
-    track.style.transform = `translateX(-${currentIndex * 100}%)`;
+  const updateCarousel = (animate = true) => {
+    if (animate) {
+      isAnimating = true;
+    } else {
+      isAnimating = false;
+    }
+
+    setTrackPosition(animate);
+
     dots.forEach((dot, index) => {
       dot.classList.toggle('active', index === currentIndex);
     });
@@ -1336,16 +1378,45 @@ const initShopCarousel = () => {
   };
 
   function goToSlide(index) {
+    if (slides.length <= 1) return;
+    if (isAnimating) return;
+    if (index === currentIndex) return;
+
     currentIndex = (index + slides.length) % slides.length;
+    activePosition = currentIndex + 1;
     updateCarousel();
   }
 
   prevBtn.addEventListener('click', () => {
-    goToSlide(currentIndex - 1);
+    if (slides.length <= 1) return;
+    if (isAnimating) return;
+
+    currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+    activePosition -= 1;
+    updateCarousel();
   });
 
   nextBtn.addEventListener('click', () => {
-    goToSlide(currentIndex + 1);
+    if (slides.length <= 1) return;
+    if (isAnimating) return;
+
+    currentIndex = (currentIndex + 1) % slides.length;
+    activePosition += 1;
+    updateCarousel();
+  });
+
+  track.addEventListener('transitionend', (event) => {
+    if (event.propertyName !== 'transform' || slides.length <= 1) return;
+
+    if (activePosition === 0) {
+      activePosition = slides.length;
+      updateCarousel(false);
+    } else if (activePosition === renderedSlides.length - 1) {
+      activePosition = 1;
+      updateCarousel(false);
+    }
+
+    isAnimating = false;
   });
 
   carousel.addEventListener('keydown', (event) => {
@@ -1376,7 +1447,7 @@ const initShopCarousel = () => {
     }
   }, { passive: true });
 
-  updateCarousel();
+  updateCarousel(false);
 };
 
 // Shop image preview modal.
