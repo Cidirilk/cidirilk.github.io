@@ -4061,6 +4061,7 @@ button {
 
 .shop-item-body {
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0.48rem;
@@ -4080,6 +4081,7 @@ button {
   color: var(--text);
   font-size: clamp(0.95rem, 1.6vw, 1.05rem);
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .shop-price {
@@ -4129,12 +4131,14 @@ button {
 }
 
 .shop-actions .btn {
+  min-width: 0;
   width: 100%;
   min-height: 36px;
   padding: 0.5rem 0.4rem;
   font-size: 0.52rem;
   letter-spacing: 0.08em;
   border-radius: 10px;
+  line-height: 1.15;
   white-space: normal;
   text-align: center;
 }
@@ -4663,7 +4667,7 @@ button {
   }
 
   .shop-carousel {
-    --carousel-card-height: 205px;
+    --carousel-card-height: 225px;
   }
 
   .carousel {
@@ -4824,7 +4828,7 @@ button {
   }
 
   .shop-carousel {
-    --carousel-card-height: 195px;
+    --carousel-card-height: 220px;
   }
 
   .carousel-btn {
