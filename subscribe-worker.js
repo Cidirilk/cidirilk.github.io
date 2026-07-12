@@ -40,21 +40,18 @@ const TURNSTILE_VERIFY_URL =
 const isAllowedOrigin = (origin) =>
   ALLOWED_ORIGINS.includes(origin) || LOCAL_ORIGIN_RE.test(origin);
 
-const cors = (origin) => {
-  const allow = isAllowedOrigin(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allow,
-    Vary: 'Origin',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
-};
+const cors = (origin) => ({
+  'Access-Control-Allow-Origin': origin,
+  Vary: 'Origin',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+});
 
 const json = (body, status, origin) =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
-      ...cors(origin),
+      ...(isAllowedOrigin(origin) ? cors(origin) : {}),
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store',
     },
@@ -65,13 +62,16 @@ export default {
     const origin = request.headers.get('Origin') || '';
 
     if (request.method === 'OPTIONS') {
+      if (!isAllowedOrigin(origin)) {
+        return new Response(null, { status: 403 });
+      }
       return new Response(null, { status: 204, headers: cors(origin) });
+    }
+    if (!isAllowedOrigin(origin)) {
+      return json({ ok: false, error: 'forbidden' }, 403, origin);
     }
     if (request.method !== 'POST') {
       return json({ ok: false, error: 'method_not_allowed' }, 405, origin);
-    }
-    if (origin && !isAllowedOrigin(origin)) {
-      return json({ ok: false, error: 'forbidden' }, 403, origin);
     }
 
     let data;
