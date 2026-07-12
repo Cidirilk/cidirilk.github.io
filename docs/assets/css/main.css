@@ -1075,12 +1075,14 @@ button {
   display: grid;
   place-items: center;
   cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 8px 24px rgba(137, 69, 255, 0.3),
+    0 0 18px rgba(193, 116, 255, 0.22);
   transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .live-popup-close:hover {
   background: var(--accent-neon);
-  color: white;
+  color: #ffffff;
   border-color: var(--accent-neon);
   box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
   transform: rotate(90deg);
@@ -1581,6 +1583,34 @@ button {
 .chat-close {
   width: 2.5rem;
   height: 2.5rem;
+}
+
+.chat-header-actions .icon-button.chat-close {
+  border-color: #d59bff;
+  background: rgba(20, 15, 38, 0.72);
+  color: var(--text);
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 8px 24px rgba(137, 69, 255, 0.3),
+    0 0 18px rgba(193, 116, 255, 0.22);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.chat-header-actions .icon-button.chat-close::before {
+  display: none;
+}
+
+.chat-header-actions .icon-button.chat-close:hover,
+.chat-header-actions .icon-button.chat-close:focus-visible {
+  background: var(--accent-neon);
+  color: #ffffff;
+  border-color: var(--accent-neon);
+  box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
+  transform: rotate(90deg);
+}
+
+.chat-header-actions .icon-button.chat-close:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 2px;
 }
 
 .chat-panel iframe {
@@ -3275,11 +3305,28 @@ button {
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(155, 69, 255, 0.35);
   color: #000000;
+  box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 6px 16px rgba(123, 45, 255, 0.12);
+}
+
+[data-theme='light'] .chat-header-actions .icon-button.chat-close {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--color-primary);
+  color: #000000;
+  box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 6px 16px rgba(123, 45, 255, 0.12);
 }
 
 [data-theme='light'] .live-popup-close:hover {
   background: var(--accent-neon);
-  color: white;
+  color: #000000;
+  border-color: var(--accent-neon);
+  box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
+  transform: rotate(90deg);
+}
+
+[data-theme='light'] .chat-header-actions .icon-button.chat-close:hover,
+[data-theme='light'] .chat-header-actions .icon-button.chat-close:focus-visible {
+  background: var(--accent-neon);
+  color: #000000;
   border-color: var(--accent-neon);
   box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
   transform: rotate(90deg);
@@ -4939,7 +4986,9 @@ button {
   color: var(--text);
   cursor: pointer;
   z-index: 2;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 8px 24px rgba(137, 69, 255, 0.3),
+    0 0 18px rgba(193, 116, 255, 0.22);
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .shop-modal-close:hover,
@@ -4947,6 +4996,7 @@ button {
   background: var(--accent-neon);
   color: #ffffff;
   border-color: var(--accent-neon);
+  box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
   transform: rotate(90deg);
 }
 
@@ -4981,6 +5031,16 @@ button {
   background: #ffffff;
   color: #000000;
   border-color: var(--color-primary);
+  box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 6px 16px rgba(123, 45, 255, 0.12);
+}
+
+[data-theme='light'] .shop-modal-close:hover,
+[data-theme='light'] .shop-modal-close:focus-visible {
+  background: var(--accent-neon);
+  color: #000000;
+  border-color: var(--accent-neon);
+  box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
+  transform: rotate(90deg);
 }
 
 [data-theme='light'] .shop-modal-content img {
@@ -5142,13 +5202,24 @@ button {
   cursor: pointer;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 8px 24px rgba(137, 69, 255, 0.3),
+    0 0 18px rgba(193, 116, 255, 0.22);
   transition: all 0.2s ease;
   z-index: 4;
 }
 
 .collab-modal-close:hover {
   background: var(--accent-neon);
-  color: white;
+  color: #ffffff;
+  border-color: var(--accent-neon);
+  box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
+  transform: rotate(90deg);
+}
+
+[data-theme='light'] .collab-modal-close:hover,
+[data-theme='light'] .collab-modal-close:focus-visible {
+  background: var(--accent-neon);
+  color: #000000;
   border-color: var(--accent-neon);
   box-shadow: 0 0 20px rgba(193, 116, 255, 0.5);
   transform: rotate(90deg);
