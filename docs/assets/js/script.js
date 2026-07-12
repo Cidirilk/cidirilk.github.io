@@ -22,7 +22,6 @@ const LIVESETS_POLL_INTERVAL = 15000;
 const LIVESETS_PROXY_WORKER = 'https://livesets-proxy.cidirilk.workers.dev/';
 const chatToggles = document.querySelectorAll('[data-chat-toggle]');
 const chatPanel = document.querySelector('[data-chat-panel]');
-const chatClose = document.querySelector('[data-chat-close]');
 const mobileRadioToggle = document.querySelector('[data-mobile-radio-toggle]');
 const mobileRadioPopover = document.querySelector('[data-mobile-radio-popover]');
 const desktopRadioPopup = document.querySelector('[data-desktop-radio-popup]');
@@ -122,7 +121,8 @@ if (loaderAlreadySeen) {
 
 const setCookie = (name, value, days = 60) => {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax${secure}`;
 };
 
 const getCookie = (name) =>
@@ -516,7 +516,14 @@ const handleScroll = () => {
 };
 
 const openChat = () => chatPanel?.classList.add('is-open');
-const closeChat = () => chatPanel?.classList.remove('is-open');
+const closeChat = () => {
+  if (!chatPanel) return;
+  const chatIframe = chatPanel.querySelector('iframe');
+  if (chatIframe) chatIframe.src = 'about:blank';
+  chatPanel.classList.remove('is-open');
+  chatPanel.innerHTML = '';
+  chatLoaded = false;
+};
 
 // Custom nickname prompt
 const nicknameOverlay = document.querySelector('[data-nickname-overlay]');
@@ -562,22 +569,34 @@ const loadChatWithNickname = (nickname) => {
         <p class="label">Free chat</p>
         <h3>hack.chat / cidirilk</h3>
       </div>
-      <button class="icon-button chat-close" type="button" aria-label="Close chat" data-chat-close>
-        <i class="fa-solid fa-xmark"></i>
-      </button>
+      <div class="chat-header-actions">
+        <button class="icon-button chat-nickname-change" type="button" aria-label="Change chat nickname" title="Change nickname" data-chat-change-nickname>
+          <i class="fa-solid fa-pen" aria-hidden="true"></i>
+        </button>
+        <button class="icon-button chat-close" type="button" aria-label="Leave chat" title="Leave chat" data-chat-close>
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
     </header>
     <iframe
       title="hack.chat cidirilk room"
       src="https://hack.chat/?cidirilk#${encodeURIComponent(nickname)}"
       loading="lazy"
       referrerpolicy="no-referrer"
+      sandbox="allow-forms allow-popups allow-same-origin allow-scripts"
     ></iframe>
-    <p class="chat-helper">Hosted on hack.chat — no login required. If the embed fails, open the room directly.</p>
+    <p class="chat-helper">Nickname taken? It may already be active in another tab. Use the close button to leave this session or choose another nickname.</p>
+    <p class="chat-helper">Hosted on hack.chat - no login required. If the embed fails, open the room directly.</p>
     <a class="btn ghost compact" href="https://hack.chat/?cidirilk" target="_blank" rel="noopener">Open hack.chat</a>
   `;
   
-  // Re-attach close button listener
+  // Re-attach controls because this panel is rendered dynamically.
+  const changeNicknameBtn = chatPanel.querySelector('[data-chat-change-nickname]');
   const newCloseBtn = chatPanel.querySelector('[data-chat-close]');
+  changeNicknameBtn?.addEventListener('click', () => {
+    closeChat();
+    showNicknamePrompt();
+  });
   newCloseBtn?.addEventListener('click', closeChat);
   
   openChat();

@@ -19,13 +19,17 @@ Electronic music navigator portfolio site for CIDIRILK (Kliridis Charalampos). A
 
 ```
 cidirilk.github.io/
-├── index.html           # Main HTML file
-├── assets/
-│   ├── css/
-│   │   └── main.css    # All styles (1900+ lines)
-│   └── js/
-│       └── script.js   # All functionality (500+ lines)
-├── CNAME               # Custom domain configuration
+├── docs/                # GitHub Pages published folder
+│   ├── index.html       # Main HTML file
+│   ├── CNAME            # Custom domain configuration
+│   └── assets/
+│       ├── css/
+│       │   └── main.css # All styles
+│       ├── images/
+│       └── js/
+│           └── script.js
+├── subscribe-worker.js # Cloudflare Worker source, not published by Pages
+├── livesets-proxy-worker.js
 └── README.md           # This file
 ```
 
@@ -78,7 +82,7 @@ cidirilk.github.io/
 ### GitHub Pages
 1. Push to repository
 2. Enable Pages in Settings → Pages
-3. Set source to `main` branch, `/ (root)`
+3. Set source to `main` branch, `/docs`
 4. Site auto-deploys on every push
 
 ### Custom Domain Setup
@@ -116,7 +120,7 @@ go through Brevo's double opt-in (they must confirm via email before being added
    ```bash
    wrangler deploy -c subscribe-worker.toml
    ```
-6. Set `SUBSCRIBE_ENDPOINT` in `assets/js/script.js` to that URL.
+6. Set `SUBSCRIBE_ENDPOINT` in `docs/assets/js/script.js` to that URL.
 
 Security features: origin allow-list + CORS, server-side email validation,
 honeypot spam trap, Cloudflare Turnstile (server-side siteverify in the Worker),
@@ -125,7 +129,7 @@ optional rate limiting, and no secrets in the client.
 ### Turnstile setup
 
 The subscribe form is protected by [Cloudflare Turnstile](https://www.cloudflare.com/products/turnstile/).
-The widget site key is embedded in `index.html`; the secret is a Worker secret:
+The widget site key is embedded in `docs/index.html`; the secret is a Worker secret:
 
 ```bash
 wrangler secret put TURNSTILE_SECRET_KEY -c subscribe-worker.toml
@@ -152,7 +156,7 @@ To test the full subscribe flow locally:
    wrangler dev -c subscribe-worker.toml
    ```
 4. Open the site from a local static server, for example
-   `http://127.0.0.1:5500/index.html`.
+   `http://127.0.0.1:5500/docs/index.html`.
 
 When the page is on a local hostname, the browser posts subscriptions to
 `http://127.0.0.1:8787/`. Production still posts to the deployed Worker.
@@ -173,7 +177,7 @@ When the page is on a local hostname, the browser posts subscriptions to
 ## Customization
 
 ### Colors
-Edit CSS custom properties in `assets/css/main.css`:
+Edit CSS custom properties in `docs/assets/css/main.css`:
 ```css
 :root {
   --accent-neon: #c174ff;
@@ -184,10 +188,10 @@ Edit CSS custom properties in `assets/css/main.css`:
 ```
 
 ### Content
-Update profile text, events, and social links in `index.html`
+Update profile text, events, and social links in `docs/index.html`
 
 ### LiveSets Integration
-Update endpoint in `assets/js/script.js`:
+Update endpoint in `docs/assets/js/script.js`:
 ```javascript
 const LIVESETS_STATUS_ENDPOINT = 'your-endpoint-here';
 ```
