@@ -52,7 +52,7 @@ cidirilk.github.io/
 
 ### Navigation
 - Sticky header with blur effect
-- Tab-based content sections (Social, Past Events, Collaborations, Subscribe)
+- Tab-based content sections (Social, Past Events, Collaborations, Artifacts, Guides, Subscribe)
 - Smooth scroll behavior
 - Mobile-responsive menu
 
@@ -189,6 +189,73 @@ Edit CSS custom properties in `docs/assets/css/main.css`:
 
 ### Content
 Update profile text, events, and social links in `docs/index.html`
+
+## Adding a new DJ guide
+
+DJ guides are managed from repository files. There is no database or admin
+dashboard. Published guides appear inside the `Guides` tab and use a carousel
+for browsing the available documents.
+
+1. Place the PDF in `docs/assets/documents/`.
+2. Use a lowercase, descriptive filename with hyphens, for example
+   `starting-djing-what-you-actually-need.pdf`.
+3. Add one metadata object to `docs/data/guides.json`.
+4. Keep every `id` and `slug` unique.
+5. Test locally from a static server, then click both `Read online` and
+   `Download PDF`.
+
+Required fields:
+
+- `id`
+- `slug`
+- `title`
+- `description`
+- `category`
+- `pdf`
+
+Optional fields:
+
+- `publishedDate`
+- `updatedDate`
+- `pages`
+- `readingTime`
+- `fileSize`
+- `featured`
+- `downloadName`
+- `available`
+
+Use one of the current categories when it fits: `Getting Started`,
+`Equipment & Setup`, `Music Discovery`, `Music Library`, `Set Preparation`,
+`Mixing`, `Performing`, `Recording`, or `Personal Experience`.
+
+Set `"featured": true` on one guide to place it first in the Guides carousel.
+If multiple guides are marked featured, the first matching guide in the JSON
+file is placed first.
+
+Example metadata object:
+
+```json
+{
+  "id": "starting-djing",
+  "slug": "starting-djing",
+  "title": "Starting DJing: What You Actually Need",
+  "description": "A practical introduction to equipment, music selection, preparation, and the first steps behind the decks.",
+  "category": "Getting Started",
+  "pdf": "assets/documents/starting-djing-what-you-actually-need.pdf",
+  "publishedDate": "2026-07-12",
+  "updatedDate": "2026-07-12",
+  "pages": 12,
+  "readingTime": "20 min read",
+  "fileSize": "2.4 MB",
+  "featured": true,
+  "downloadName": "starting-djing-what-you-actually-need.pdf",
+  "available": true
+}
+```
+
+Do not add metadata for a PDF that has not been placed in
+`docs/assets/documents/`. If you want to draft an entry without publishing it,
+keep it outside `guides.json` or set `"available": false` until the file exists.
 
 ### LiveSets Integration
 Update endpoint in `docs/assets/js/script.js`:

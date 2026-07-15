@@ -40,6 +40,8 @@ const loaderMessages = [
   'Warning dark matter...',
   "Rendering cosmos..."
 ];
+const initialHash = window.location.hash;
+const shouldPreserveInitialHash = initialHash === '#dj-guides';
 let loaderMessageTimer = null;
 let ticking = false;
 let mobileRadioCloseTimer = null;
@@ -52,7 +54,9 @@ if ('scrollRestoration' in history) {
 }
 
 // Ensure starting at top
-window.scrollTo(0, 0);
+if (!shouldPreserveInitialHash) {
+  window.scrollTo(0, 0);
+}
 
 const markBodyLoaded = () => document.body?.classList.add('is-loaded');
 
@@ -73,10 +77,14 @@ const completeLoader = () => {
     loaderMessageTimer = null;
   }
   
-  // Ensure page starts at top (fixes Android scroll issue)
+  // Ensure page starts at top (fixes Android scroll issue) unless opening a
+  // shareable guide hash.
   setTimeout(() => {
-    window.scrollTo(0, 0);
-    document.querySelector('main')?.scrollTo(0, 0);
+    if (!shouldPreserveInitialHash) {
+      window.scrollTo(0, 0);
+      document.querySelector('main')?.scrollTo(0, 0);
+    }
+    window.dispatchEvent(new CustomEvent('cidirilk:loadercomplete'));
   }, 50);
 };
 
@@ -253,7 +261,10 @@ const syncTabLayoutForViewport = () => {
 
 if (tabButtons.length && tabPanels.length) {
   const saved = getCookie(TAB_COOKIE);
-  const defaultTab = saved && [...tabPanels].some((panel) => panel.getAttribute('data-panel') === saved) ? saved : 'social';
+  const hashTab = shouldPreserveInitialHash ? 'guides' : '';
+  const defaultTab =
+    hashTab ||
+    (saved && [...tabPanels].some((panel) => panel.getAttribute('data-panel') === saved) ? saved : 'social');
   if (tabMobileQuery.matches) {
     showMobileTabSections();
   } else {
@@ -1778,6 +1789,393 @@ const initCollabModal = () => {
   });
 };
 
+// DJ Guides: repository-managed PDF archive.
+const initDJGuides = () => {
+  const section = document.querySelector('[data-guides-section]');
+  if (!section) return;
+
+  const carouselEl = section.querySelector('[data-guides-carousel]');
+  const trackEl = section.querySelector('[data-guides-track]');
+  const prevBtn = section.querySelector('[data-guides-prev]');
+  const nextBtn = section.querySelector('[data-guides-next]');
+  const dotsEl = section.querySelector('[data-guides-dots]');
+  const emptyEl = section.querySelector('[data-guides-empty]');
+  const emptyTitle = section.querySelector('[data-guides-empty-title]');
+  const emptyCopy = section.querySelector('[data-guides-empty-copy]');
+  const viewer = document.querySelector('[data-guide-viewer]');
+  const viewerFrame = document.querySelector('[data-guide-viewer-frame]');
+  const viewerTitle = document.querySelector('[data-guide-viewer-title]');
+  const viewerOpen = document.querySelector('[data-guide-viewer-open]');
+  const viewerClose = document.querySelector('[data-guide-viewer-close]');
+  const viewerOverlay = document.querySelector('[data-guide-viewer-overlay]');
+  const mobilePdfQuery = window.matchMedia('(max-width: 768px), (pointer: coarse)');
+  const GUIDE_DATA_URL = './data/guides.json';
+  const state = {
+    guides: [],
+    lastFocus: null,
+    pdfAvailability: new Map(),
+    carouselGuides: [],
+    currentIndex: 0,
+  };
+
+  const createEl = (tag, className, text) => {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text != null) el.textContent = text;
+    return el;
+  };
+
+  const createIcon = (className) => {
+    const icon = createEl('i', className);
+    icon.setAttribute('aria-hidden', 'true');
+    return icon;
+  };
+
+  const normalizeText = (value) => String(value || '').trim();
+
+  const isSafeRelativeAsset = (path, rootPath, extension) => {
+    const value = normalizeText(path).replace(/\\/g, '/');
+    if (!value || value.startsWith('/') || value.includes('://') || value.includes('..')) {
+      return false;
+    }
+    return value.startsWith(rootPath) && value.toLowerCase().endsWith(extension);
+  };
+
+  const getPdfFileName = (guide) => {
+    const explicit = normalizeText(guide.downloadName);
+    if (explicit) return explicit;
+    return guide.pdf.split('/').pop() || `${guide.slug}.pdf`;
+  };
+
+  const getPdfLabel = (guide) => {
+    const parts = ['PDF'];
+    if (guide.pages) parts.push(`${guide.pages} pages`);
+    if (guide.readingTime) parts.push(guide.readingTime);
+    return parts.join(' / ');
+  };
+
+  const validateGuide = (rawGuide) => {
+    if (!rawGuide || typeof rawGuide !== 'object') return null;
+
+    const guide = {
+      id: normalizeText(rawGuide.id),
+      slug: normalizeText(rawGuide.slug || rawGuide.id),
+      title: normalizeText(rawGuide.title),
+      description: normalizeText(rawGuide.description),
+      category: normalizeText(rawGuide.category),
+      pdf: normalizeText(rawGuide.pdf),
+      publishedDate: normalizeText(rawGuide.publishedDate),
+      updatedDate: normalizeText(rawGuide.updatedDate),
+      pages: rawGuide.pages || null,
+      readingTime: normalizeText(rawGuide.readingTime),
+      fileSize: normalizeText(rawGuide.fileSize),
+      featured: Boolean(rawGuide.featured),
+      available: rawGuide.available !== false,
+      downloadName: normalizeText(rawGuide.downloadName),
+    };
+
+    if (!guide.id || !guide.slug || !guide.title || !guide.description || !guide.category) {
+      return null;
+    }
+
+    guide.hasPdf = isSafeRelativeAsset(guide.pdf, 'assets/documents/', '.pdf');
+
+    return guide;
+  };
+
+  const setEmptyState = (title, copy, visible) => {
+    if (emptyTitle) emptyTitle.textContent = title;
+    if (emptyCopy) emptyCopy.textContent = copy;
+    emptyEl?.toggleAttribute('hidden', !visible);
+  };
+
+  const buildMeta = (guide) => {
+    const meta = createEl('div', 'guide-card-meta');
+    const pdfLabel = getPdfLabel(guide);
+    [pdfLabel].filter(Boolean).forEach((item) => {
+      const span = createEl('span', null, item);
+      meta.appendChild(span);
+    });
+    return meta;
+  };
+
+  const buildActions = (guide) => {
+    const actions = createEl('div', 'guide-card-actions');
+
+    if (!guide.hasPdf || !guide.available) {
+      const unavailable = createEl('p', 'guide-unavailable', 'PDF not available yet.');
+      actions.appendChild(unavailable);
+      return actions;
+    }
+
+    const readLink = document.createElement('a');
+    readLink.className = 'btn compact guide-read-link';
+    readLink.href = guide.pdf;
+    readLink.target = '_blank';
+    readLink.rel = 'noopener noreferrer';
+    readLink.dataset.guideRead = guide.slug;
+    readLink.setAttribute('aria-label', `Read ${guide.title} online`);
+    readLink.appendChild(createIcon('fa-solid fa-book-open'));
+    readLink.appendChild(createEl('span', null, 'Read'));
+
+    const downloadLink = document.createElement('a');
+    downloadLink.className = 'btn compact ghost guide-download-link';
+    downloadLink.href = guide.pdf;
+    downloadLink.download = getPdfFileName(guide);
+    downloadLink.dataset.guideDownload = guide.slug;
+    downloadLink.setAttribute(
+      'aria-label',
+      `Download ${guide.title} PDF${guide.fileSize ? `, ${guide.fileSize}` : ''}`
+    );
+    downloadLink.appendChild(createIcon('fa-solid fa-file-arrow-down'));
+    downloadLink.appendChild(createEl('span', null, 'Download'));
+
+    actions.append(readLink, downloadLink);
+    return actions;
+  };
+
+  const buildGuideCard = (guide, featured = false) => {
+    const article = document.createElement('article');
+    article.className = featured ? 'guide-card guide-card-featured' : 'guide-card';
+
+    const body = createEl('div', 'guide-card-body');
+    const category = createEl('span', 'guide-card-category', guide.category);
+    const title = createEl(featured ? 'h3' : 'h4', 'guide-card-title', guide.title);
+    const description = createEl('p', 'guide-card-description', guide.description);
+    const titleWrap = createEl('div', 'guide-card-title-row');
+    titleWrap.appendChild(title);
+    body.append(category, titleWrap, description, buildMeta(guide), buildActions(guide));
+    article.appendChild(body);
+    return article;
+  };
+
+  const buildGuideSlide = (guide) => {
+    const slide = createEl('div', 'carousel-slide guide-carousel-slide');
+    slide.dataset.guideSlide = guide.slug;
+    slide.appendChild(buildGuideCard(guide, guide.featured));
+    return slide;
+  };
+
+  const updateCarousel = () => {
+    if (!trackEl || !carouselEl || !prevBtn || !nextBtn || !dotsEl) return;
+    const guides = state.carouselGuides;
+    const hasGuides = guides.length > 0;
+    carouselEl.toggleAttribute('hidden', !hasGuides);
+    if (!hasGuides) return;
+
+    state.currentIndex = Math.max(0, Math.min(state.currentIndex, guides.length - 1));
+    trackEl.style.transform = `translateX(-${state.currentIndex * 100}%)`;
+
+    Array.from(trackEl.children).forEach((slide, index) => {
+      const isCurrent = index === state.currentIndex;
+      slide.classList.toggle('is-current', isCurrent);
+      slide.setAttribute('aria-hidden', String(!isCurrent));
+      slide.querySelectorAll('a, button, [tabindex]').forEach((el) => {
+        el.tabIndex = isCurrent ? 0 : -1;
+      });
+    });
+
+    Array.from(dotsEl.children).forEach((dot, index) => {
+      dot.classList.toggle('active', index === state.currentIndex);
+    });
+
+    prevBtn.disabled = guides.length <= 1 || state.currentIndex === 0;
+    nextBtn.disabled = guides.length <= 1 || state.currentIndex === guides.length - 1;
+  };
+
+  const goToGuideIndex = (index) => {
+    if (!state.carouselGuides.length) return;
+    state.currentIndex = Math.max(0, Math.min(index, state.carouselGuides.length - 1));
+    updateCarousel();
+  };
+
+  const activateGuideHash = () => {
+    const hash = window.location.hash;
+    if (hash !== '#dj-guides') return;
+    setActiveTab('guides', false, false);
+  };
+
+  const renderGuides = () => {
+    const filtered = state.guides;
+    const featuredGuide = filtered.find((guide) => guide.featured);
+    const carouselGuides = featuredGuide
+      ? [featuredGuide, ...filtered.filter((guide) => guide.slug !== featuredGuide.slug)]
+      : filtered;
+
+    if (trackEl && dotsEl) {
+      trackEl.textContent = '';
+      dotsEl.textContent = '';
+      state.carouselGuides = carouselGuides;
+      state.currentIndex = 0;
+
+      carouselGuides.forEach((guide, index) => {
+        trackEl.appendChild(buildGuideSlide(guide));
+        const dot = document.createElement('button');
+        dot.className = 'carousel-dot';
+        dot.type = 'button';
+        dot.setAttribute('aria-label', `Go to guide ${index + 1}: ${guide.title}`);
+        dot.addEventListener('click', () => goToGuideIndex(index));
+        dotsEl.appendChild(dot);
+      });
+      updateCarousel();
+    }
+
+    const hasVisibleGuides = Boolean(filtered.length);
+    const hasAnyGuides = Boolean(state.guides.length);
+    setEmptyState(
+      'No guides published yet',
+      hasAnyGuides
+        ? 'The guide archive is ready, but no valid guide entries could be shown.'
+        : 'The guide archive is ready. Add a PDF in docs/assets/documents/ and register it in docs/data/guides.json to publish the first guide.',
+      !hasVisibleGuides
+    );
+    requestAnimationFrame(activateGuideHash);
+  };
+
+  const closeViewer = () => {
+    if (!viewer || viewer.hasAttribute('hidden')) return;
+    viewer.setAttribute('hidden', '');
+    viewer.classList.remove('is-open');
+    document.body.style.overflow = '';
+    if (viewerFrame) viewerFrame.src = 'about:blank';
+    if (state.lastFocus) {
+      try {
+        state.lastFocus.focus({ preventScroll: true });
+      } catch (e) {
+        state.lastFocus.focus();
+      }
+    }
+  };
+
+  const trapViewerFocus = (event) => {
+    if (!viewer || viewer.hasAttribute('hidden') || event.key !== 'Tab') return;
+    const focusable = Array.from(
+      viewer.querySelectorAll('a[href], button:not([disabled]), iframe')
+    ).filter((element) => element.offsetParent !== null);
+    if (!focusable.length) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  const openViewer = (guide, trigger) => {
+    if (!viewer || !viewerFrame || !viewerTitle || !viewerOpen) return;
+    state.lastFocus = trigger;
+    viewerTitle.textContent = guide.title;
+    viewerFrame.title = `${guide.title} PDF viewer`;
+    viewerFrame.src = guide.pdf;
+    viewerOpen.href = guide.pdf;
+    viewerOpen.setAttribute('aria-label', `Open ${guide.title} PDF in a new tab`);
+    viewer.classList.add('is-open');
+    viewer.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => viewerClose?.focus({ preventScroll: true }), 80);
+  };
+
+  const isPdfReachable = async (guide) => {
+    if (!guide.hasPdf || !guide.available) return false;
+    if (state.pdfAvailability.has(guide.pdf)) {
+      return state.pdfAvailability.get(guide.pdf);
+    }
+
+    try {
+      const response = await fetch(guide.pdf, { method: 'HEAD', cache: 'no-store' });
+      const reachable = response.ok;
+      state.pdfAvailability.set(guide.pdf, reachable);
+      return reachable;
+    } catch (error) {
+      state.pdfAvailability.set(guide.pdf, false);
+      return false;
+    }
+  };
+
+  const bindGuideActions = () => {
+    section.addEventListener('click', async (event) => {
+      const readLink = event.target.closest('[data-guide-read]');
+      if (!readLink) return;
+      const guide = state.guides.find((item) => item.slug === readLink.dataset.guideRead);
+      if (!guide || mobilePdfQuery.matches) return;
+      event.preventDefault();
+      const reachable = await isPdfReachable(guide);
+      if (!reachable) {
+        guide.available = false;
+        renderGuides();
+        return;
+      }
+      openViewer(guide, readLink);
+    });
+
+    section.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goToGuideIndex(state.currentIndex - 1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        goToGuideIndex(state.currentIndex + 1);
+      }
+    });
+  };
+
+  prevBtn?.addEventListener('click', () => goToGuideIndex(state.currentIndex - 1));
+  nextBtn?.addEventListener('click', () => goToGuideIndex(state.currentIndex + 1));
+
+  let touchStartX = 0;
+  carouselEl?.addEventListener('touchstart', (event) => {
+    touchStartX = event.changedTouches[0].screenX;
+  }, { passive: true });
+
+  carouselEl?.addEventListener('touchend', (event) => {
+    const diff = touchStartX - event.changedTouches[0].screenX;
+    if (Math.abs(diff) <= 50) return;
+    goToGuideIndex(state.currentIndex + (diff > 0 ? 1 : -1));
+  }, { passive: true });
+
+  const loadGuides = async () => {
+    try {
+      const response = await fetch(GUIDE_DATA_URL, {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`Guide data returned ${response.status}`);
+      const payload = await response.json();
+      if (!Array.isArray(payload)) throw new Error('Guide data must be an array');
+      state.guides = payload.map(validateGuide).filter(Boolean);
+      renderGuides();
+    } catch (error) {
+      state.guides = [];
+      setEmptyState(
+        'Guide data unavailable',
+        'The guide archive could not be loaded right now. Try again later or open the PDF links directly when they are published.',
+        true
+      );
+    }
+  };
+
+  viewerClose?.addEventListener('click', closeViewer);
+  viewerOverlay?.addEventListener('click', closeViewer);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeViewer();
+    trapViewerFocus(event);
+  });
+  window.addEventListener('hashchange', activateGuideHash);
+  window.addEventListener('cidirilk:loadercomplete', activateGuideHash);
+  window.addEventListener('cidirilk:tabchange', (event) => {
+    if (event.detail?.target === 'guides') {
+      requestAnimationFrame(updateCarousel);
+    }
+  });
+
+  bindGuideActions();
+  loadGuides();
+};
+
 // Build an archive carousel slide from the expired "next event" card so the
 // past-events list stays current without manual edits once the date passes.
 const buildArchiveSlideFromNextEvent = (eventCard, eventEndTime) => {
@@ -1901,6 +2299,7 @@ if (document.readyState === 'loading') {
     initShopCarousel();
     initShopModal();
     initCollabModal();
+    initDJGuides();
     initInteractions();
   });
 } else {
@@ -1910,5 +2309,6 @@ if (document.readyState === 'loading') {
   initShopCarousel();
   initShopModal();
   initCollabModal();
+  initDJGuides();
   initInteractions();
 }

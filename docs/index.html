@@ -66,6 +66,27 @@
       />
     </noscript>
     <link rel="stylesheet" href="./assets/css/main.css" />
+    <noscript>
+      <style>
+        body {
+          height: auto;
+          overflow-y: visible;
+        }
+
+        main {
+          overflow-y: visible;
+        }
+
+        .page-loader {
+          display: none !important;
+        }
+
+        .reveal-on-load {
+          opacity: 1;
+          transform: none;
+        }
+      </style>
+    </noscript>
     <link
       rel="icon"
       type="image/png"
@@ -306,6 +327,18 @@
               >
                 <i class="fa-solid fa-store tab-icon" aria-hidden="true"></i>
                 <span class="tab-label">Artifacts</span>
+              </button>
+              <button
+                class="tab-button"
+                type="button"
+                role="tab"
+                aria-label="Guides"
+                aria-selected="false"
+                title="Guides"
+                data-tab="guides"
+              >
+                <i class="fa-solid fa-book-open tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Guides</span>
               </button>
               <button
                 class="tab-button"
@@ -1015,6 +1048,56 @@
                 </div>
               </article>
               <article
+                id="dj-guides"
+                class="info-card tab-panel guide-panel"
+                data-panel="guides"
+                data-guides-section
+                role="tabpanel"
+                hidden
+                aria-labelledby="dj-guides-title"
+              >
+                <h3 id="dj-guides-title">DJ Guides</h3>
+                <p class="section-description">Knowledge from experience.</p>
+
+                <div
+                  class="carousel guide-carousel"
+                  data-guides-carousel
+                  aria-label="Available DJ guides"
+                  hidden
+                >
+                  <div class="carousel-track guide-carousel-track" data-guides-track></div>
+                  <button
+                    class="carousel-btn carousel-prev guide-carousel-prev"
+                    type="button"
+                    data-guides-prev
+                    aria-label="Previous guide"
+                  >
+                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    class="carousel-btn carousel-next guide-carousel-next"
+                    type="button"
+                    data-guides-next
+                    aria-label="Next guide"
+                  >
+                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                  </button>
+                  <div class="carousel-dots guide-carousel-dots" data-guides-dots></div>
+                </div>
+
+                <div class="guide-empty" data-guides-empty>
+                  <div class="guide-empty-icon" aria-hidden="true">
+                    <i class="fa-solid fa-record-vinyl"></i>
+                  </div>
+                  <h4 data-guides-empty-title>No guides published yet</h4>
+                  <p data-guides-empty-copy>
+                    The guide archive is ready. Add a PDF in
+                    <code>docs/assets/documents/</code> and register it in
+                    <code>docs/data/guides.json</code> to publish the first guide.
+                  </p>
+                </div>
+              </article>
+              <article
                 class="info-card tab-panel subscribe-card"
                 data-panel="subscribe"
                 role="tabpanel"
@@ -1193,6 +1276,56 @@
     </div>
 
     <section class="chat-panel" aria-live="polite" data-chat-panel></section>
+
+    <!-- DJ Guide PDF Viewer -->
+    <div
+      class="guide-viewer"
+      data-guide-viewer
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="guide-viewer-title"
+      hidden
+    >
+      <button
+        class="guide-viewer-overlay"
+        type="button"
+        aria-label="Close guide viewer"
+        data-guide-viewer-overlay
+      ></button>
+      <div class="guide-viewer-content">
+        <header class="guide-viewer-header">
+          <div>
+            <p class="label">Read online</p>
+            <h2 id="guide-viewer-title" data-guide-viewer-title>DJ guide</h2>
+          </div>
+          <div class="guide-viewer-actions">
+            <a
+              class="btn compact ghost"
+              href="#"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-guide-viewer-open
+            >
+              <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
+              Open PDF
+            </a>
+            <button
+              class="guide-viewer-close"
+              type="button"
+              data-guide-viewer-close
+              aria-label="Close guide viewer"
+            >
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </div>
+        </header>
+        <iframe
+          class="guide-viewer-frame"
+          title="PDF guide viewer"
+          data-guide-viewer-frame
+        ></iframe>
+      </div>
+    </div>
 
     <!-- Shop Image Modal -->
     <div
