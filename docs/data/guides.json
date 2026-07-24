@@ -1,0 +1,62 @@
+[
+  {
+    "id": "protocol-001-music-discovery",
+    "slug": "protocol-001-music-discovery",
+    "title": "PROTOCOL_001: Music Discovery",
+    "description": "Finding music worth keeping through active listening, selective saving, purposeful playlists, and regular review.",
+    "category": "Music Discovery",
+    "file": "assets/documents/protocol-001-music-discovery.png",
+    "publishedDate": "2026-07-24",
+    "updatedDate": "2026-07-24",
+    "pages": 1,
+    "readingTime": "5 min read",
+    "fileSize": "PNG",
+    "featured": true,
+    "downloadName": "protocol-001-music-discovery.png"
+  },
+  {
+    "id": "protocol-002-lossless-music-library",
+    "slug": "protocol-002-lossless-music-library",
+    "title": "PROTOCOL_002: Building Your Lossless Music Library",
+    "description": "A buying and download workflow for building a clean, high-quality FLAC library from trusted music stores.",
+    "category": "Music Library",
+    "file": "assets/documents/protocol-002-lossless-music-library.png",
+    "publishedDate": "2026-07-24",
+    "updatedDate": "2026-07-24",
+    "pages": 1,
+    "readingTime": "6 min read",
+    "fileSize": "PNG",
+    "featured": false,
+    "downloadName": "protocol-002-lossless-music-library.png"
+  },
+  {
+    "id": "protocol-003-flac-to-aiff-conversion",
+    "slug": "protocol-003-flac-to-aiff-conversion",
+    "title": "PROTOCOL_003: FLAC to AIFF Conversion",
+    "description": "Preparing lossless files for CDJs, Traktor, and professional DJ setups with a clean FLAC-to-AIFF workflow.",
+    "category": "File Preparation",
+    "file": "assets/documents/protocol-003-flac-to-aiff-conversion.png",
+    "publishedDate": "2026-07-24",
+    "updatedDate": "2026-07-24",
+    "pages": 1,
+    "readingTime": "6 min read",
+    "fileSize": "PNG",
+    "featured": false,
+    "downloadName": "protocol-003-flac-to-aiff-conversion.png"
+  },
+  {
+    "id": "protocol-004-mix-in-key-analysis",
+    "slug": "protocol-004-mix-in-key-analysis",
+    "title": "PROTOCOL_004: Mix in Key Analysis",
+    "description": "A professional workflow for key analysis, harmonic consistency, and reliable Camelot key results.",
+    "category": "Track Analysis",
+    "file": "assets/documents/protocol-004-mix-in-key-analysis.png",
+    "publishedDate": "2026-07-24",
+    "updatedDate": "2026-07-24",
+    "pages": 1,
+    "readingTime": "7 min read",
+    "fileSize": "PNG",
+    "featured": false,
+    "downloadName": "protocol-004-mix-in-key-analysis.png"
+  }
+]

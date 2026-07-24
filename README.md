@@ -52,7 +52,7 @@ cidirilk.github.io/
 
 ### Navigation
 - Sticky header with blur effect
-- Tab-based content sections (Social, Past Events, Collaborations, Subscribe)
+- Tab-based content sections (Social, Past Events, Collaborations, Artifacts, Guides, Subscribe)
 - Smooth scroll behavior
 - Mobile-responsive menu
 
@@ -189,6 +189,73 @@ Edit CSS custom properties in `docs/assets/css/main.css`:
 
 ### Content
 Update profile text, events, and social links in `docs/index.html`
+
+## Adding a new DJ guide
+
+DJ guides are managed from repository files. There is no database or admin
+dashboard. Published guides appear inside the `Guides` tab and use a carousel
+for browsing the available documents.
+
+1. Place the guide file in `docs/assets/documents/`. Supported formats are
+   PDF, PNG, JPG, JPEG, and WEBP.
+2. Use a lowercase, descriptive filename with hyphens, for example
+   `protocol-001-music-discovery.png`.
+3. Add one metadata object to `docs/data/guides.json`.
+4. Keep every `id` and `slug` unique.
+5. Test locally from a static server, then click both `Read` and `Download`.
+
+Required fields:
+
+- `id`
+- `slug`
+- `title`
+- `description`
+- `category`
+- `file`
+
+Optional fields:
+
+- `publishedDate`
+- `updatedDate`
+- `pages`
+- `readingTime`
+- `fileSize`
+- `featured`
+- `downloadName`
+- `available`
+
+Use one of the current categories when it fits: `Getting Started`,
+`Equipment & Setup`, `Music Discovery`, `Music Library`, `Set Preparation`,
+`Mixing`, `Performing`, `Recording`, or `Personal Experience`.
+
+Set `"featured": true` on one guide to place it first in the Guides carousel.
+If multiple guides are marked featured, the first matching guide in the JSON
+file is placed first.
+
+Example metadata object:
+
+```json
+{
+  "id": "protocol-001-music-discovery",
+  "slug": "protocol-001-music-discovery",
+  "title": "PROTOCOL_001: Music Discovery",
+  "description": "Finding music worth keeping through active listening, selective saving, purposeful playlists, and regular review.",
+  "category": "Music Discovery",
+  "file": "assets/documents/protocol-001-music-discovery.png",
+  "publishedDate": "2026-07-24",
+  "updatedDate": "2026-07-24",
+  "pages": 1,
+  "readingTime": "5 min read",
+  "fileSize": "PNG",
+  "featured": true,
+  "downloadName": "protocol-001-music-discovery.png",
+  "available": true
+}
+```
+
+Do not add metadata for a guide file that has not been placed in
+`docs/assets/documents/`. If you want to draft an entry without publishing it,
+keep it outside `guides.json` or set `"available": false` until the file exists.
 
 ### LiveSets Integration
 Update endpoint in `docs/assets/js/script.js`:
