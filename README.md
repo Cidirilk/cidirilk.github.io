@@ -196,13 +196,13 @@ DJ guides are managed from repository files. There is no database or admin
 dashboard. Published guides appear inside the `Guides` tab and use a carousel
 for browsing the available documents.
 
-1. Place the PDF in `docs/assets/documents/`.
+1. Place the guide file in `docs/assets/documents/`. Supported formats are
+   PDF, PNG, JPG, JPEG, and WEBP.
 2. Use a lowercase, descriptive filename with hyphens, for example
-   `starting-djing-what-you-actually-need.pdf`.
+   `protocol-001-music-discovery.png`.
 3. Add one metadata object to `docs/data/guides.json`.
 4. Keep every `id` and `slug` unique.
-5. Test locally from a static server, then click both `Read online` and
-   `Download PDF`.
+5. Test locally from a static server, then click both `Read` and `Download`.
 
 Required fields:
 
@@ -211,7 +211,7 @@ Required fields:
 - `title`
 - `description`
 - `category`
-- `pdf`
+- `file`
 
 Optional fields:
 
@@ -236,24 +236,24 @@ Example metadata object:
 
 ```json
 {
-  "id": "starting-djing",
-  "slug": "starting-djing",
-  "title": "Starting DJing: What You Actually Need",
-  "description": "A practical introduction to equipment, music selection, preparation, and the first steps behind the decks.",
-  "category": "Getting Started",
-  "pdf": "assets/documents/starting-djing-what-you-actually-need.pdf",
-  "publishedDate": "2026-07-12",
-  "updatedDate": "2026-07-12",
-  "pages": 12,
-  "readingTime": "20 min read",
-  "fileSize": "2.4 MB",
+  "id": "protocol-001-music-discovery",
+  "slug": "protocol-001-music-discovery",
+  "title": "PROTOCOL_001: Music Discovery",
+  "description": "Finding music worth keeping through active listening, selective saving, purposeful playlists, and regular review.",
+  "category": "Music Discovery",
+  "file": "assets/documents/protocol-001-music-discovery.png",
+  "publishedDate": "2026-07-24",
+  "updatedDate": "2026-07-24",
+  "pages": 1,
+  "readingTime": "5 min read",
+  "fileSize": "PNG",
   "featured": true,
-  "downloadName": "starting-djing-what-you-actually-need.pdf",
+  "downloadName": "protocol-001-music-discovery.png",
   "available": true
 }
 ```
 
-Do not add metadata for a PDF that has not been placed in
+Do not add metadata for a guide file that has not been placed in
 `docs/assets/documents/`. If you want to draft an entry without publishing it,
 keep it outside `guides.json` or set `"available": false` until the file exists.
 

@@ -263,6 +263,17 @@
     <main>
       <section id="home" class="section profile">
         <div class="profile-layout">
+          <div class="mobile-orbit-intro reveal-on-load" aria-hidden="true">
+            <div class="mobile-orbit-stage">
+              <img
+                class="mobile-orbit-image"
+                src="./assets/images/cidirilk-orb.png"
+                alt=""
+                width="1024"
+                height="1024"
+              />
+            </div>
+          </div>
           <div class="profile-text reveal-on-load">
             <p class="eyebrow">if you can't pronounce it, read it backwards</p>
             <h1>Human After All. Looking for Something Real.</h1>
@@ -1091,7 +1102,7 @@
                   </div>
                   <h4 data-guides-empty-title>No guides published yet</h4>
                   <p data-guides-empty-copy>
-                    The guide archive is ready. Add a PDF in
+                    The guide archive is ready. Add a guide file in
                     <code>docs/assets/documents/</code> and register it in
                     <code>docs/data/guides.json</code> to publish the first guide.
                   </p>
@@ -1277,7 +1288,7 @@
 
     <section class="chat-panel" aria-live="polite" data-chat-panel></section>
 
-    <!-- DJ Guide PDF Viewer -->
+    <!-- DJ Guide Viewer -->
     <div
       class="guide-viewer"
       data-guide-viewer
@@ -1307,7 +1318,7 @@
               data-guide-viewer-open
             >
               <i class="fa-solid fa-up-right-from-square" aria-hidden="true"></i>
-              Open PDF
+              Open guide
             </a>
             <button
               class="guide-viewer-close"
@@ -1321,7 +1332,7 @@
         </header>
         <iframe
           class="guide-viewer-frame"
-          title="PDF guide viewer"
+          title="DJ guide viewer"
           data-guide-viewer-frame
         ></iframe>
       </div>

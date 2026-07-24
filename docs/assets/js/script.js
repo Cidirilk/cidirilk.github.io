@@ -141,7 +141,7 @@ const getCookie = (name) =>
 
 const tabPanelsWrap = tabPanels[0]?.closest('.tab-panels') || null;
 const tabReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const tabMobileQuery = window.matchMedia('(max-width: 640px)');
+const tabMobileQuery = window.matchMedia('(max-width: 1024px)');
 let tabHeightTimer = null;
 let fitTurnstile = () => {};
 
@@ -1789,7 +1789,7 @@ const initCollabModal = () => {
   });
 };
 
-// DJ Guides: repository-managed PDF archive.
+// DJ Guides: repository-managed guide archive.
 const initDJGuides = () => {
   const section = document.querySelector('[data-guides-section]');
   if (!section) return;
@@ -1808,12 +1808,12 @@ const initDJGuides = () => {
   const viewerOpen = document.querySelector('[data-guide-viewer-open]');
   const viewerClose = document.querySelector('[data-guide-viewer-close]');
   const viewerOverlay = document.querySelector('[data-guide-viewer-overlay]');
-  const mobilePdfQuery = window.matchMedia('(max-width: 768px), (pointer: coarse)');
+  const mobileGuideQuery = window.matchMedia('(max-width: 768px), (pointer: coarse)');
   const GUIDE_DATA_URL = './data/guides.json';
   const state = {
     guides: [],
     lastFocus: null,
-    pdfAvailability: new Map(),
+    fileAvailability: new Map(),
     carouselGuides: [],
     currentIndex: 0,
   };
@@ -1833,23 +1833,30 @@ const initDJGuides = () => {
 
   const normalizeText = (value) => String(value || '').trim();
 
-  const isSafeRelativeAsset = (path, rootPath, extension) => {
+  const isSafeRelativeAsset = (path, rootPath, extensions) => {
     const value = normalizeText(path).replace(/\\/g, '/');
     if (!value || value.startsWith('/') || value.includes('://') || value.includes('..')) {
       return false;
     }
-    return value.startsWith(rootPath) && value.toLowerCase().endsWith(extension);
+    const allowedExtensions = Array.isArray(extensions) ? extensions : [extensions];
+    return value.startsWith(rootPath) &&
+      allowedExtensions.some((extension) => value.toLowerCase().endsWith(extension));
   };
 
-  const getPdfFileName = (guide) => {
+  const getGuideFileName = (guide) => {
     const explicit = normalizeText(guide.downloadName);
     if (explicit) return explicit;
-    return guide.pdf.split('/').pop() || `${guide.slug}.pdf`;
+    return guide.file.split('/').pop() || `${guide.slug}.${guide.fileType.toLowerCase()}`;
   };
 
-  const getPdfLabel = (guide) => {
-    const parts = ['PDF'];
-    if (guide.pages) parts.push(`${guide.pages} pages`);
+  const getGuideType = (file) => {
+    const extension = (file.split('.').pop() || '').toUpperCase();
+    return extension || 'FILE';
+  };
+
+  const getGuideLabel = (guide) => {
+    const parts = [guide.fileType || 'FILE'];
+    if (guide.pages) parts.push(`${guide.pages} ${guide.pages === 1 ? 'page' : 'pages'}`);
     if (guide.readingTime) parts.push(guide.readingTime);
     return parts.join(' / ');
   };
@@ -1863,7 +1870,7 @@ const initDJGuides = () => {
       title: normalizeText(rawGuide.title),
       description: normalizeText(rawGuide.description),
       category: normalizeText(rawGuide.category),
-      pdf: normalizeText(rawGuide.pdf),
+      file: normalizeText(rawGuide.file || rawGuide.pdf),
       publishedDate: normalizeText(rawGuide.publishedDate),
       updatedDate: normalizeText(rawGuide.updatedDate),
       pages: rawGuide.pages || null,
@@ -1878,7 +1885,12 @@ const initDJGuides = () => {
       return null;
     }
 
-    guide.hasPdf = isSafeRelativeAsset(guide.pdf, 'assets/documents/', '.pdf');
+    guide.fileType = getGuideType(guide.file);
+    guide.hasFile = isSafeRelativeAsset(
+      guide.file,
+      'assets/documents/',
+      ['.pdf', '.png', '.jpg', '.jpeg', '.webp']
+    );
 
     return guide;
   };
@@ -1891,8 +1903,8 @@ const initDJGuides = () => {
 
   const buildMeta = (guide) => {
     const meta = createEl('div', 'guide-card-meta');
-    const pdfLabel = getPdfLabel(guide);
-    [pdfLabel].filter(Boolean).forEach((item) => {
+    const guideLabel = getGuideLabel(guide);
+    [guideLabel].filter(Boolean).forEach((item) => {
       const span = createEl('span', null, item);
       meta.appendChild(span);
     });
@@ -1902,15 +1914,15 @@ const initDJGuides = () => {
   const buildActions = (guide) => {
     const actions = createEl('div', 'guide-card-actions');
 
-    if (!guide.hasPdf || !guide.available) {
-      const unavailable = createEl('p', 'guide-unavailable', 'PDF not available yet.');
+    if (!guide.hasFile || !guide.available) {
+      const unavailable = createEl('p', 'guide-unavailable', 'Guide not available yet.');
       actions.appendChild(unavailable);
       return actions;
     }
 
     const readLink = document.createElement('a');
     readLink.className = 'btn compact guide-read-link';
-    readLink.href = guide.pdf;
+    readLink.href = guide.file;
     readLink.target = '_blank';
     readLink.rel = 'noopener noreferrer';
     readLink.dataset.guideRead = guide.slug;
@@ -1920,12 +1932,12 @@ const initDJGuides = () => {
 
     const downloadLink = document.createElement('a');
     downloadLink.className = 'btn compact ghost guide-download-link';
-    downloadLink.href = guide.pdf;
-    downloadLink.download = getPdfFileName(guide);
+    downloadLink.href = guide.file;
+    downloadLink.download = getGuideFileName(guide);
     downloadLink.dataset.guideDownload = guide.slug;
     downloadLink.setAttribute(
       'aria-label',
-      `Download ${guide.title} PDF${guide.fileSize ? `, ${guide.fileSize}` : ''}`
+      `Download ${guide.title} ${guide.fileType}${guide.fileSize ? `, ${guide.fileSize}` : ''}`
     );
     downloadLink.appendChild(createIcon('fa-solid fa-file-arrow-down'));
     downloadLink.appendChild(createEl('span', null, 'Download'));
@@ -2026,7 +2038,7 @@ const initDJGuides = () => {
       'No guides published yet',
       hasAnyGuides
         ? 'The guide archive is ready, but no valid guide entries could be shown.'
-        : 'The guide archive is ready. Add a PDF in docs/assets/documents/ and register it in docs/data/guides.json to publish the first guide.',
+        : 'The guide archive is ready. Add a guide file in docs/assets/documents/ and register it in docs/data/guides.json to publish the first guide.',
       !hasVisibleGuides
     );
     requestAnimationFrame(activateGuideHash);
@@ -2069,29 +2081,29 @@ const initDJGuides = () => {
     if (!viewer || !viewerFrame || !viewerTitle || !viewerOpen) return;
     state.lastFocus = trigger;
     viewerTitle.textContent = guide.title;
-    viewerFrame.title = `${guide.title} PDF viewer`;
-    viewerFrame.src = guide.pdf;
-    viewerOpen.href = guide.pdf;
-    viewerOpen.setAttribute('aria-label', `Open ${guide.title} PDF in a new tab`);
+    viewerFrame.title = `${guide.title} guide viewer`;
+    viewerFrame.src = guide.file;
+    viewerOpen.href = guide.file;
+    viewerOpen.setAttribute('aria-label', `Open ${guide.title} guide in a new tab`);
     viewer.classList.add('is-open');
     viewer.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
     setTimeout(() => viewerClose?.focus({ preventScroll: true }), 80);
   };
 
-  const isPdfReachable = async (guide) => {
-    if (!guide.hasPdf || !guide.available) return false;
-    if (state.pdfAvailability.has(guide.pdf)) {
-      return state.pdfAvailability.get(guide.pdf);
+  const isGuideReachable = async (guide) => {
+    if (!guide.hasFile || !guide.available) return false;
+    if (state.fileAvailability.has(guide.file)) {
+      return state.fileAvailability.get(guide.file);
     }
 
     try {
-      const response = await fetch(guide.pdf, { method: 'HEAD', cache: 'no-store' });
+      const response = await fetch(guide.file, { method: 'HEAD', cache: 'no-store' });
       const reachable = response.ok;
-      state.pdfAvailability.set(guide.pdf, reachable);
+      state.fileAvailability.set(guide.file, reachable);
       return reachable;
     } catch (error) {
-      state.pdfAvailability.set(guide.pdf, false);
+      state.fileAvailability.set(guide.file, false);
       return false;
     }
   };
@@ -2101,9 +2113,9 @@ const initDJGuides = () => {
       const readLink = event.target.closest('[data-guide-read]');
       if (!readLink) return;
       const guide = state.guides.find((item) => item.slug === readLink.dataset.guideRead);
-      if (!guide || mobilePdfQuery.matches) return;
+      if (!guide || mobileGuideQuery.matches) return;
       event.preventDefault();
-      const reachable = await isPdfReachable(guide);
+      const reachable = await isGuideReachable(guide);
       if (!reachable) {
         guide.available = false;
         renderGuides();
@@ -2152,7 +2164,7 @@ const initDJGuides = () => {
       state.guides = [];
       setEmptyState(
         'Guide data unavailable',
-        'The guide archive could not be loaded right now. Try again later or open the PDF links directly when they are published.',
+        'The guide archive could not be loaded right now. Try again later or open the guide files directly when they are published.',
         true
       );
     }
