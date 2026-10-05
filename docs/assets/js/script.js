@@ -13,6 +13,10 @@ const TAB_COOKIE = 'cidirilkActiveTab';
 const root = document.documentElement;
 const header = document.getElementById('siteHeader');
 const themeToggle = document.querySelector('.theme-toggle');
+const soundCloudSourcePlayers = document.querySelectorAll('[data-soundcloud-source]');
+const soundCloudEpisodeLists = document.querySelectorAll('[data-soundcloud-episodes]');
+const podcastCarouselPrev = document.querySelector('[data-podcast-prev]');
+const podcastCarouselNext = document.querySelector('[data-podcast-next]');
 const yearEl = document.getElementById('year');
 const LIVESETS_STATUS_ENDPOINT = 'https://livesets.com/app/polling/live/42069';
 const LIVESETS_POLL_INTERVAL = 15000;
@@ -254,9 +258,9 @@ const syncTabLayoutForViewport = () => {
   const current =
     [...tabButtons].find((button) => button.classList.contains('active'))?.getAttribute('data-tab') ||
     getCookie(TAB_COOKIE) ||
-    'social';
+    'subscribe';
   const hasPanel = [...tabPanels].some((panel) => panel.getAttribute('data-panel') === current);
-  setActiveTab(hasPanel ? current : 'social', false);
+  setActiveTab(hasPanel ? current : 'subscribe', false);
 };
 
 if (tabButtons.length && tabPanels.length) {
@@ -264,7 +268,7 @@ if (tabButtons.length && tabPanels.length) {
   const hashTab = shouldPreserveInitialHash ? 'guides' : '';
   const defaultTab =
     hashTab ||
-    (saved && [...tabPanels].some((panel) => panel.getAttribute('data-panel') === saved) ? saved : 'social');
+    (saved && [...tabPanels].some((panel) => panel.getAttribute('data-panel') === saved) ? saved : 'subscribe');
   if (tabMobileQuery.matches) {
     showMobileTabSections();
   } else {
@@ -481,6 +485,364 @@ const syncThemeIcon = () => {
   themeIcon.className = theme === 'light' ? 'theme-icon fa-solid fa-moon' : 'theme-icon fa-solid fa-sun';
 };
 
+const buildSoundCloudPlayerSrc = (sourceUrl, trackIndex = 0, usePlaylistIndex = true) => {
+  const theme = root.getAttribute('data-theme') || 'dark';
+  const params = new URLSearchParams({
+    url: sourceUrl,
+    color: theme === 'light' ? '#9b45ff' : '#c174ff',
+    auto_play: 'false',
+    hide_related: 'false',
+    show_comments: 'false',
+    show_user: 'true',
+    show_reposts: 'false',
+    show_teaser: 'false',
+    show_artwork: 'false',
+    visual: 'false',
+  });
+  if (usePlaylistIndex) {
+    params.set('start_track', String(trackIndex));
+  }
+  return `https://w.soundcloud.com/player/?${params.toString()}`;
+};
+
+const loadSoundCloudSourcePlayers = () => {
+  soundCloudSourcePlayers.forEach((frame) => {
+    if (frame.getAttribute('src')) return;
+    const sourceUrl = String(frame.dataset.soundcloudUrl || '').trim();
+    if (!sourceUrl) return;
+    const trackIndex = Number.parseInt(frame.dataset.soundcloudTrackIndex || '0', 10);
+    frame.setAttribute('src', buildSoundCloudPlayerSrc(sourceUrl, Number.isNaN(trackIndex) ? 0 : trackIndex));
+  });
+};
+
+const releaseSoundCloudSourcePlayers = () => {
+  soundCloudSourcePlayers.forEach((frame) => {
+    frame.removeAttribute('src');
+  });
+};
+
+const renderSoundCloudEpisodeStatus = (message, isLoading = false) => {
+  soundCloudEpisodeLists.forEach((list) => {
+    list.replaceChildren();
+    const status = document.createElement('span');
+    status.className = `podcast-episodes-status${isLoading ? ' is-loading' : ''}`;
+    if (isLoading) {
+      const spinner = document.createElement('span');
+      spinner.className = 'podcast-loading-spinner';
+      spinner.setAttribute('aria-hidden', 'true');
+      status.appendChild(spinner);
+    }
+    const text = document.createElement('span');
+    text.textContent = message;
+    status.appendChild(text);
+    list.appendChild(status);
+  });
+};
+
+const finishPodcastPreviewLoad = (player) => {
+  if (!player) return;
+  if (player.classList.contains('is-preview-ready')) return;
+  const startedAt = Number.parseInt(player.dataset.previewStartedAt || '0', 10);
+  const elapsed = Date.now() - (Number.isNaN(startedAt) ? 0 : startedAt);
+  const delay = Math.max(0, 650 - elapsed);
+  setTimeout(() => {
+    player.classList.remove('is-loading-preview');
+    player.classList.add('is-preview-ready');
+  }, delay);
+};
+
+const loadPodcastCardPlayer = (card) => {
+  const player = card?.querySelector('[data-soundcloud-card-player]');
+  const iframe = card?.querySelector('[data-soundcloud-card-frame]');
+  if (!iframe) return;
+  if (iframe.getAttribute('src')) {
+    finishPodcastPreviewLoad(player);
+    return;
+  }
+  const src = iframe.dataset.soundcloudSrc;
+  if (src) {
+    player?.classList.remove('is-unloaded', 'is-preview-ready');
+    player?.classList.add('is-loading-preview');
+    if (player) player.dataset.previewStartedAt = String(Date.now());
+    iframe.setAttribute('src', src);
+    setTimeout(() => finishPodcastPreviewLoad(player), 2600);
+  }
+};
+
+const unloadPodcastCardPlayer = (card) => {
+  const player = card?.querySelector('[data-soundcloud-card-player]');
+  const iframe = card?.querySelector('[data-soundcloud-card-frame]');
+  if (!iframe?.getAttribute('src')) return;
+  iframe.removeAttribute('src');
+  player?.classList.remove('is-loading-preview', 'is-preview-ready');
+  player?.classList.add('is-unloaded');
+  if (player) delete player.dataset.previewStartedAt;
+};
+
+const setActiveSoundCloudTrack = (trackIndex, options = {}) => {
+  soundCloudSourcePlayers.forEach((frame) => {
+    frame.dataset.soundcloudTrackIndex = String(trackIndex);
+  });
+  soundCloudEpisodeLists.forEach((list) => {
+    list.querySelectorAll('.podcast-episode[data-soundcloud-track]').forEach((card) => {
+      const active = Number.parseInt(card.dataset.soundcloudTrack || '0', 10) === trackIndex;
+      card.classList.toggle('active', active);
+      card.setAttribute('aria-current', active ? 'true' : 'false');
+      if (active) {
+        loadPodcastCardPlayer(card);
+      } else {
+        unloadPodcastCardPlayer(card);
+      }
+      if (active) {
+        if (options.instant && card) {
+          const previousScrollBehavior = list.style.scrollBehavior;
+          list.style.scrollBehavior = 'auto';
+          const targetLeft =
+            list.scrollLeft +
+            card.getBoundingClientRect().left +
+            card.offsetWidth / 2 -
+            list.getBoundingClientRect().left -
+            list.clientWidth / 2;
+          list.scrollTo({ left: targetLeft, behavior: 'auto' });
+          list.style.scrollBehavior = previousScrollBehavior;
+        } else {
+          card.scrollIntoView({
+            behavior: tabReducedMotion ? 'auto' : 'smooth',
+            block: 'nearest',
+            inline: 'center',
+          });
+        }
+      }
+    });
+  });
+};
+
+const getPodcastEpisodeButtons = () =>
+  [...document.querySelectorAll('.podcast-episode[data-soundcloud-track]')];
+
+const getActivePodcastTrackIndex = () => {
+  const current = getPodcastEpisodeButtons().find(
+    (button) => button.getAttribute('aria-current') === 'true'
+  );
+  const trackIndex = Number.parseInt(current?.dataset.soundcloudTrack || '0', 10);
+  return Number.isNaN(trackIndex) ? 0 : trackIndex;
+};
+
+const movePodcastCarousel = (direction) => {
+  const buttons = getPodcastEpisodeButtons();
+  if (!buttons.length) return;
+  const currentIndex = getActivePodcastTrackIndex();
+  const nextIndex = (currentIndex + direction + buttons.length) % buttons.length;
+  const wrapsAround =
+    (direction < 0 && currentIndex === 0) ||
+    (direction > 0 && currentIndex === buttons.length - 1);
+  setActiveSoundCloudTrack(nextIndex, { instant: wrapsAround });
+};
+
+const formatPodcastEpisodeLabel = (track, index) => {
+  const title = String(track?.title || '').trim();
+  const episodeMatch = title.match(/#\s*(\d+)/);
+  if (episodeMatch) return `#${episodeMatch[1].padStart(3, '0')}`;
+  return `#${String(index + 1).padStart(3, '0')}`;
+};
+
+const formatPodcastEpisodeTitle = () => {
+  return 'Your Monthly Dose';
+};
+
+const PODCAST_ARTWORK_CACHE_KEY = 'cidirilkPodcastPlaylistArtwork';
+const PODCAST_ARTWORK_CACHE_TTL = 24 * 60 * 60 * 1000;
+
+const normalizeSoundCloudArtworkUrl = (url) => {
+  const artworkUrl = String(url || '').trim();
+  if (!artworkUrl) return '';
+  return artworkUrl.replace(/-large(?=\.[a-z0-9]+(?:\?|$))/i, '-t500x500');
+};
+
+const getCachedPodcastArtwork = (playlistUrl) => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(PODCAST_ARTWORK_CACHE_KEY) || 'null');
+    if (
+      cached?.playlistUrl === playlistUrl &&
+      cached?.artworkUrl &&
+      Date.now() - cached.cachedAt < PODCAST_ARTWORK_CACHE_TTL
+    ) {
+      return cached.artworkUrl;
+    }
+  } catch (e) {}
+  return '';
+};
+
+const cachePodcastArtwork = (playlistUrl, artworkUrl) => {
+  if (!playlistUrl || !artworkUrl) return;
+  try {
+    localStorage.setItem(
+      PODCAST_ARTWORK_CACHE_KEY,
+      JSON.stringify({ playlistUrl, artworkUrl, cachedAt: Date.now() })
+    );
+  } catch (e) {}
+};
+
+const fetchPodcastPlaylistArtwork = async (playlistUrl) => {
+  const cachedArtwork = getCachedPodcastArtwork(playlistUrl);
+  if (cachedArtwork) return cachedArtwork;
+
+  try {
+    const response = await fetch(
+      `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(playlistUrl)}`
+    );
+    if (!response.ok) return '';
+    const data = await response.json();
+    const artworkUrl = normalizeSoundCloudArtworkUrl(data?.thumbnail_url);
+    cachePodcastArtwork(playlistUrl, artworkUrl);
+    return artworkUrl;
+  } catch (e) {
+    return '';
+  }
+};
+
+const preparePodcastClone = (card) => {
+  const clone = card.cloneNode(true);
+  clone.classList.remove('active');
+  clone.dataset.podcastClone = 'true';
+  clone.setAttribute('aria-hidden', 'true');
+  clone.removeAttribute('data-soundcloud-track');
+  clone.removeAttribute('data-soundcloud-url');
+  clone.removeAttribute('role');
+  clone.removeAttribute('tabindex');
+  clone.removeAttribute('aria-label');
+  clone.removeAttribute('aria-current');
+  clone.querySelectorAll('[data-soundcloud-card-frame]').forEach((frame) => {
+    frame.removeAttribute('src');
+  });
+  clone.querySelectorAll('[data-soundcloud-card-player]').forEach((player) => {
+    player.classList.remove('is-loading-preview', 'is-preview-ready');
+    player.classList.add('is-unloaded');
+  });
+  return clone;
+};
+
+const addPodcastCarouselClones = (list) => {
+  const cards = [...list.querySelectorAll('.podcast-episode')];
+  if (cards.length < 2) return;
+  list.prepend(preparePodcastClone(cards[cards.length - 1]));
+  list.appendChild(preparePodcastClone(cards[0]));
+};
+
+const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
+  if (!soundCloudEpisodeLists.length || !tracks?.length) return;
+  const selectedIndex = Number.parseInt(soundCloudSourcePlayers[0]?.dataset.soundcloudTrackIndex || '0', 10);
+  const playlistUrl = String(soundCloudSourcePlayers[0]?.dataset.soundcloudUrl || '').trim();
+  const playlistArtwork = normalizeSoundCloudArtworkUrl(playlistArtworkUrl);
+
+  soundCloudEpisodeLists.forEach((list) => {
+    list.replaceChildren();
+    tracks.forEach((track, index) => {
+      const card = document.createElement('article');
+      const active = index === (Number.isNaN(selectedIndex) ? 0 : selectedIndex);
+      card.className = `podcast-episode${active ? ' active' : ''}`;
+      card.dataset.soundcloudTrack = String(index);
+      card.setAttribute('role', 'link');
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('aria-current', active ? 'true' : 'false');
+      if (playlistArtwork) {
+        card.classList.add('has-artwork');
+        card.style.setProperty('--podcast-artwork', `url("${playlistArtwork}")`);
+      }
+
+      const trackUrl = String(track?.permalink_url || '').trim();
+      const playerUrl = trackUrl || playlistUrl;
+      if (playerUrl) {
+        card.dataset.soundcloudUrl = playerUrl;
+        card.setAttribute(
+          'aria-label',
+          `Open ${formatPodcastEpisodeTitle(track, index)} ${formatPodcastEpisodeLabel(track, index)} on SoundCloud`
+        );
+      }
+      const playerIndex = Number.isInteger(track?.trackIndex) ? track.trackIndex : index;
+      const player = document.createElement('span');
+      player.className = `podcast-episode-player${active ? ' is-loading-preview' : ' is-unloaded'}`;
+      player.dataset.soundcloudCardPlayer = '';
+      if (active) player.dataset.previewStartedAt = String(Date.now());
+      if (playerUrl) {
+        const iframe = document.createElement('iframe');
+        iframe.className = 'podcast-card-frame';
+        iframe.title = `${formatPodcastEpisodeLabel(track, index)} SoundCloud preview`;
+        iframe.loading = 'lazy';
+        iframe.scrolling = 'no';
+        iframe.allow = 'autoplay';
+        iframe.dataset.soundcloudCardFrame = '';
+        iframe.dataset.soundcloudSrc = buildSoundCloudPlayerSrc(playerUrl, playerIndex, !trackUrl);
+        iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
+        if (active) {
+          iframe.src = iframe.dataset.soundcloudSrc;
+          setTimeout(() => finishPodcastPreviewLoad(player), 2600);
+        }
+        player.appendChild(iframe);
+      }
+
+      const meta = document.createElement('span');
+      meta.className = 'podcast-episode-meta';
+      const number = document.createElement('span');
+      number.className = 'podcast-episode-number';
+      number.textContent = formatPodcastEpisodeLabel(track, index);
+      meta.appendChild(number);
+      card.append(meta, player);
+      list.appendChild(card);
+    });
+    addPodcastCarouselClones(list);
+  });
+  setActiveSoundCloudTrack(Number.isNaN(selectedIndex) ? 0 : selectedIndex, { instant: true });
+};
+
+soundCloudEpisodeLists.forEach((list) => {
+  list.addEventListener('click', (event) => {
+    const card = event.target.closest('.podcast-episode[data-soundcloud-url]');
+    if (!card) return;
+    window.open(card.dataset.soundcloudUrl, '_blank', 'noopener,noreferrer');
+  });
+
+  list.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    const card = event.target.closest('.podcast-episode[data-soundcloud-url]');
+    if (!card) return;
+    event.preventDefault();
+    window.open(card.dataset.soundcloudUrl, '_blank', 'noopener,noreferrer');
+  });
+});
+
+podcastCarouselPrev?.addEventListener('click', () => movePodcastCarousel(-1));
+podcastCarouselNext?.addEventListener('click', () => movePodcastCarousel(1));
+
+const initSoundCloudEpisodeLists = () => {
+  if (!soundCloudSourcePlayers.length || !soundCloudEpisodeLists.length) return;
+  renderSoundCloudEpisodeStatus('Getting signals from SoundCloud...', true);
+  loadSoundCloudSourcePlayers();
+  if (!window.SC?.Widget) {
+    renderSoundCloudEpisodeStatus('SoundCloud player could not load. Please refresh in a moment.');
+    return;
+  }
+
+  let rendered = false;
+  const widget = window.SC.Widget(soundCloudSourcePlayers[0]);
+  widget.bind(window.SC.Widget.Events.READY, () => {
+    if (typeof widget.getSounds !== 'function') return;
+    widget.getSounds(async (tracks) => {
+      if (Array.isArray(tracks) && tracks.length) {
+        rendered = true;
+        const playlistUrl = String(soundCloudSourcePlayers[0]?.dataset.soundcloudUrl || '').trim();
+        const playlistArtworkUrl = await fetchPodcastPlaylistArtwork(playlistUrl);
+        renderSoundCloudEpisodes(tracks, playlistArtworkUrl);
+        releaseSoundCloudSourcePlayers();
+      }
+    });
+  });
+
+  setTimeout(() => {
+    if (!rendered) renderSoundCloudEpisodeStatus('Still connecting to SoundCloud...');
+  }, 4000);
+};
+
 const setTheme = (mode) => {
   root.setAttribute('data-theme', mode);
   localStorage.setItem('theme', mode);
@@ -496,16 +858,10 @@ const setTheme = (mode) => {
 
 const initTheme = () => {
   const stored = localStorage.getItem('theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
   
-  if (stored) {
+  if (stored === 'light' || stored === 'dark') {
     root.setAttribute('data-theme', stored);
-  } else if (prefersLight) {
-    // Only use light if user explicitly prefers it
-    root.setAttribute('data-theme', 'light');
   } else {
-    // Default to dark for everyone else
     root.setAttribute('data-theme', 'dark');
   }
   syncThemeIcon();
@@ -994,6 +1350,7 @@ window.cidirilkLive = (state = true) => {
 };
 
 initTheme();
+initSoundCloudEpisodeLists();
 handleScroll();
 
 // Lazy load LiveSets checking after initial render
@@ -2232,8 +2589,6 @@ const buildArchiveSlideFromNextEvent = (eventCard, eventEndTime) => {
 const checkEventExpiry = () => {
   const eventContainer = document.querySelector('[data-next-event-container]');
   const eventCard = document.querySelector('[data-event-end]');
-  const socialHeading = document.querySelector('[data-social-heading]');
-  const socialLinks = document.querySelector('.socials-card .social-links');
 
   if (!eventContainer || !eventCard) return;
 
@@ -2246,10 +2601,6 @@ const checkEventExpiry = () => {
 
   if (now > eventEndTime) {
     eventContainer.style.display = 'none';
-    // With no upcoming event to anchor the panel, label the social row and
-    // expand it into a vertical list with each platform name shown.
-    if (socialHeading) socialHeading.hidden = false;
-    if (socialLinks) socialLinks.classList.add('is-stacked');
 
     // Promote the finished event into the archive carousel (deduped by RA id).
     const track = document.querySelector('[data-carousel-track]');
@@ -2270,8 +2621,6 @@ const checkEventExpiry = () => {
     }
   } else {
     eventContainer.style.display = 'block';
-    if (socialHeading) socialHeading.hidden = true;
-    if (socialLinks) socialLinks.classList.remove('is-stacked');
   }
 };
 

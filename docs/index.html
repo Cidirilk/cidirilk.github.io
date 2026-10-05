@@ -1,5 +1,5 @@
 ﻿<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -65,7 +65,7 @@
         referrerpolicy="no-referrer"
       />
     </noscript>
-    <link rel="stylesheet" href="./assets/css/main.css?v=29538f0" />
+    <link rel="stylesheet" href="./assets/css/main.css?v=dark-loader-default-20261005" />
     <noscript>
       <style>
         body {
@@ -94,7 +94,13 @@
     />
     <script>
       (function () {
-        const savedTheme = localStorage.getItem("theme") || "dark";
+        let savedTheme = "dark";
+        try {
+          const storedTheme = localStorage.getItem("theme");
+          if (storedTheme === "light" || storedTheme === "dark") {
+            savedTheme = storedTheme;
+          }
+        } catch (e) {}
         document.documentElement.setAttribute("data-theme", savedTheme);
         try {
           if (localStorage.getItem("loaderSeen") === "1") {
@@ -295,13 +301,25 @@
                 class="tab-button active"
                 type="button"
                 role="tab"
-                aria-label="Channels"
+                aria-label="Stay Tuned"
                 aria-selected="true"
-                title="Channels"
-                data-tab="social"
+                title="Stay Tuned"
+                data-tab="subscribe"
               >
-                <i class="fa-solid fa-link tab-icon" aria-hidden="true"></i>
-                <span class="tab-label">Channels</span>
+                <i class="fa-solid fa-envelope-open-text tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Stay Tuned</span>
+              </button>
+              <button
+                class="tab-button"
+                type="button"
+                role="tab"
+                aria-label="Your Monthly Dose"
+                aria-selected="false"
+                title="Your Monthly Dose"
+                data-tab="podcast"
+              >
+                <i class="fa-brands fa-soundcloud tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Podcast</span>
               </button>
               <button
                 class="tab-button"
@@ -355,68 +373,24 @@
                 class="tab-button"
                 type="button"
                 role="tab"
-                aria-label="Stay Tuned"
+                aria-label="Channels"
                 aria-selected="false"
-                title="Stay Tuned"
-                data-tab="subscribe"
+                title="Channels"
+                data-tab="social"
               >
-                <i class="fa-solid fa-envelope-open-text tab-icon" aria-hidden="true"></i>
-                <span class="tab-label">Stay Tuned</span>
+                <i class="fa-solid fa-link tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Channels</span>
               </button>
             </div>
             <div class="tab-panels">
               <article
-                class="info-card tab-panel active socials-card"
+                class="info-card tab-panel socials-card"
                 data-panel="social"
                 role="tabpanel"
+                hidden
               >
                 <h3 data-social-heading>Channels</h3>
                 <p class="section-description">Tune into a transmission.</p>
-
-                <div data-next-event-container style="display: block">
-                  <h3>
-                    <span class="next-event-pulse" aria-hidden="true"></span>
-                    Next Event
-                  </h3>
-                  <div
-                    class="upcoming-event-card"
-                    data-event-end="2026-07-05T08:00:00"
-                  >
-                    <span class="upcoming-event-tag">ChaCha</span>
-                    <div class="upcoming-event-header">
-                      <div class="upcoming-event-date">
-                        <span class="date-day">04</span>
-                        <span class="date-month">JUL</span>
-                      </div>
-                      <div class="upcoming-event-info">
-                        <h4 class="upcoming-event-title">
-                          5 YEARS SYNESTHESIA — FESTIVAL EDITION
-                        </h4>
-                        <p class="upcoming-event-venue">
-                          <i class="fa-solid fa-location-dot"></i> Cyprus
-                        </p>
-                      </div>
-                    </div>
-                    <p class="upcoming-event-description">
-                      Five years of SYNESTHESIA, scaled into a full festival.
-                      DAX J, Stef Mendesidis, KUSS, Paul Angelo &amp; Don
-                      Argento, WAVERÛNNER, OUST, ChaCha, tomzy &amp; La Rod's.
-                    </p>
-                    <div class="upcoming-event-footer">
-                      <span class="upcoming-event-time">
-                        <i class="fa-solid fa-calendar-day"></i> Sat, 4 Jul 2026
-                      </span>
-                      <a
-                        href="https://ra.co/events/2432496"
-                        target="_blank"
-                        rel="noopener"
-                        class="btn compact"
-                      >
-                        Event Info
-                      </a>
-                    </div>
-                  </div>
-                </div>
 
                 <div class="social-links" aria-label="Channels">
                   <a
@@ -469,6 +443,53 @@
                     <i class="fa-solid fa-user" aria-hidden="true"></i>
                     <span class="sr-only">Resident Advisor</span>
                   </a>
+                </div>
+              </article>
+              <article
+                class="info-card tab-panel podcast-panel"
+                data-panel="podcast"
+                role="tabpanel"
+                hidden
+              >
+                <div class="podcast-header">
+                  <h3>Your Monthly Dose</h3>
+                  <p class="section-description">
+                    10 years of growth.
+                  </p>
+                </div>
+                <div class="podcast-source-shell" aria-hidden="true">
+                  <iframe
+                    title="Your Monthly Dose playlist source"
+                    data-soundcloud-source
+                    data-soundcloud-url="https://soundcloud.com/cidirilk/sets/your-monthly-dose"
+                    data-soundcloud-track-index="0"
+                    loading="lazy"
+                    scrolling="no"
+                    allow="autoplay"
+                  ></iframe>
+                </div>
+                <div class="podcast-carousel" data-podcast-carousel>
+                  <button
+                    class="carousel-btn carousel-prev podcast-carousel-prev"
+                    type="button"
+                    aria-label="Previous podcast episode"
+                    data-podcast-prev
+                  >
+                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                  </button>
+                  <div
+                    class="podcast-episodes"
+                    aria-label="Your Monthly Dose episodes"
+                    data-soundcloud-episodes
+                  ></div>
+                  <button
+                    class="carousel-btn carousel-next podcast-carousel-next"
+                    type="button"
+                    aria-label="Next podcast episode"
+                    data-podcast-next
+                  >
+                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                  </button>
                 </div>
               </article>
               <article
@@ -1109,13 +1130,56 @@
                 </div>
               </article>
               <article
-                class="info-card tab-panel subscribe-card"
+                class="info-card tab-panel active subscribe-card"
                 data-panel="subscribe"
                 role="tabpanel"
-                hidden
               >
                 <h3>Stay Tuned</h3>
                 <p class="section-description">Subscribe to future transmissions.</p>
+                <div data-next-event-container style="display: block">
+                  <h3>
+                    <span class="next-event-pulse" aria-hidden="true"></span>
+                    Next Event
+                  </h3>
+                  <div
+                    class="upcoming-event-card"
+                    data-event-end="2026-07-05T08:00:00"
+                  >
+                    <span class="upcoming-event-tag">ChaCha</span>
+                    <div class="upcoming-event-header">
+                      <div class="upcoming-event-date">
+                        <span class="date-day">04</span>
+                        <span class="date-month">JUL</span>
+                      </div>
+                      <div class="upcoming-event-info">
+                        <h4 class="upcoming-event-title">
+                          5 YEARS SYNESTHESIA — FESTIVAL EDITION
+                        </h4>
+                        <p class="upcoming-event-venue">
+                          <i class="fa-solid fa-location-dot"></i> Cyprus
+                        </p>
+                      </div>
+                    </div>
+                    <p class="upcoming-event-description">
+                      Five years of SYNESTHESIA, scaled into a full festival.
+                      DAX J, Stef Mendesidis, KUSS, Paul Angelo &amp; Don
+                      Argento, WAVERÛNNER, OUST, ChaCha, tomzy &amp; La Rod's.
+                    </p>
+                    <div class="upcoming-event-footer">
+                      <span class="upcoming-event-time">
+                        <i class="fa-solid fa-calendar-day"></i> Sat, 4 Jul 2026
+                      </span>
+                      <a
+                        href="https://ra.co/events/2432496"
+                        target="_blank"
+                        rel="noopener"
+                        class="btn compact"
+                      >
+                        Event Info
+                      </a>
+                    </div>
+                  </div>
+                </div>
                 <form class="subscribe-box" data-subscribe-inline novalidate>
                   <label for="subEmail">
                     Email
@@ -1401,7 +1465,8 @@
       </div>
     </div>
 
-    <script src="./assets/js/script.js" defer></script>
+    <script src="https://w.soundcloud.com/player/api.js" defer></script>
+    <script src="./assets/js/script.js?v=dark-loader-default-20261005" defer></script>
     <script
       src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstile"
       defer
