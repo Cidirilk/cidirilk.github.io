@@ -313,13 +313,13 @@
                 class="tab-button"
                 type="button"
                 role="tab"
-                aria-label="Your Monthly Dose"
+                aria-label="Sessions"
                 aria-selected="false"
-                title="Your Monthly Dose"
-                data-tab="podcast"
+                title="Sessions"
+                data-tab="sessions"
               >
-                <i class="fa-brands fa-soundcloud tab-icon" aria-hidden="true"></i>
-                <span class="tab-label">Podcast</span>
+                <i class="fa-solid fa-folder-open tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Sessions</span>
               </button>
               <button
                 class="tab-button"
@@ -332,6 +332,30 @@
               >
                 <i class="fa-solid fa-box-archive tab-icon" aria-hidden="true"></i>
                 <span class="tab-label">Fragments</span>
+              </button>
+              <button
+                class="tab-button"
+                type="button"
+                role="tab"
+                aria-label="Your Monthly Dose"
+                aria-selected="false"
+                title="Your Monthly Dose"
+                data-tab="podcast"
+              >
+                <i class="fa-brands fa-soundcloud tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Podcast</span>
+              </button>
+              <button
+                class="tab-button"
+                type="button"
+                role="tab"
+                aria-label="YouTube"
+                aria-selected="false"
+                title="YouTube"
+                data-tab="youtube"
+              >
+                <i class="fa-brands fa-youtube tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">YouTube</span>
               </button>
               <button
                 class="tab-button"
@@ -397,8 +421,8 @@
                     href="https://livesets.com/cidirilk/sessions"
                     target="_blank"
                     rel="noopener"
-                    aria-label="LiveSets Sessions"
-                    title="LiveSets Sessions"
+                    aria-label="Sessions"
+                    title="Sessions"
                   >
                     <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
                     <span class="sr-only">Sessions</span>
@@ -446,6 +470,41 @@
                 </div>
               </article>
               <article
+                class="info-card tab-panel sessions-panel"
+                data-panel="sessions"
+                role="tabpanel"
+                hidden
+              >
+                <div class="sessions-header">
+                  <h3>Sessions</h3>
+                  <p class="section-description">Latest transmissions from LiveSets.</p>
+                </div>
+                <div class="sessions-carousel" data-livesets-carousel>
+                  <button
+                    class="carousel-btn carousel-prev sessions-carousel-prev"
+                    type="button"
+                    aria-label="Previous LiveSets session"
+                    data-livesets-prev
+                  >
+                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                  </button>
+                  <div
+                    class="sessions-track"
+                    aria-label="LiveSets sessions"
+                    data-livesets-sessions
+                  ></div>
+                  <button
+                    class="carousel-btn carousel-next sessions-carousel-next"
+                    type="button"
+                    aria-label="Next LiveSets session"
+                    data-livesets-next
+                  >
+                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                  </button>
+                  <div class="carousel-dots sessions-carousel-dots" data-livesets-dots></div>
+                </div>
+              </article>
+              <article
                 class="info-card tab-panel podcast-panel"
                 data-panel="podcast"
                 role="tabpanel"
@@ -454,7 +513,7 @@
                 <div class="podcast-header">
                   <h3>Your Monthly Dose</h3>
                   <p class="section-description">
-                    10 years of growth.
+                    Sharing content from the past
                   </p>
                 </div>
                 <div class="podcast-source-shell" aria-hidden="true">
@@ -490,6 +549,44 @@
                   >
                     <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
                   </button>
+                  <div class="carousel-dots podcast-carousel-dots" data-podcast-dots></div>
+                </div>
+              </article>
+              <article
+                class="info-card tab-panel youtube-panel"
+                data-panel="youtube"
+                role="tabpanel"
+                hidden
+              >
+                <div class="youtube-header">
+                  <h3>YouTube</h3>
+                  <p class="section-description">
+                    Unlisted Videos. HQ Audio sets can be found in Sessions.
+                  </p>
+                </div>
+                <div class="youtube-carousel" data-youtube-carousel>
+                  <button
+                    class="carousel-btn carousel-prev youtube-carousel-prev"
+                    type="button"
+                    aria-label="Previous YouTube video"
+                    data-youtube-prev
+                  >
+                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                  </button>
+                  <div
+                    class="youtube-track"
+                    aria-label="YouTube videos"
+                    data-youtube-videos
+                  ></div>
+                  <button
+                    class="carousel-btn carousel-next youtube-carousel-next"
+                    type="button"
+                    aria-label="Next YouTube video"
+                    data-youtube-next
+                  >
+                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                  </button>
+                  <div class="carousel-dots youtube-carousel-dots" data-youtube-dots></div>
                 </div>
               </article>
               <article

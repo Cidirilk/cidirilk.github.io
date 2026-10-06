@@ -17,9 +17,23 @@ const soundCloudSourcePlayers = document.querySelectorAll('[data-soundcloud-sour
 const soundCloudEpisodeLists = document.querySelectorAll('[data-soundcloud-episodes]');
 const podcastCarouselPrev = document.querySelector('[data-podcast-prev]');
 const podcastCarouselNext = document.querySelector('[data-podcast-next]');
+const podcastCarouselDots = document.querySelector('[data-podcast-dots]');
+const liveSetsSessionLists = document.querySelectorAll('[data-livesets-sessions]');
+const liveSetsCarouselPrev = document.querySelector('[data-livesets-prev]');
+const liveSetsCarouselNext = document.querySelector('[data-livesets-next]');
+const liveSetsCarouselDots = document.querySelector('[data-livesets-dots]');
+const youtubeVideoLists = document.querySelectorAll('[data-youtube-videos]');
+const youtubeCarouselPrev = document.querySelector('[data-youtube-prev]');
+const youtubeCarouselNext = document.querySelector('[data-youtube-next]');
+const youtubeCarouselDots = document.querySelector('[data-youtube-dots]');
 const yearEl = document.getElementById('year');
 const LIVESETS_STATUS_ENDPOINT = 'https://livesets.com/app/polling/live/42069';
+const LIVESETS_SESSIONS_URL = 'https://livesets.com/cidirilk/sessions';
 const LIVESETS_POLL_INTERVAL = 15000;
+const MEDIA_CAROUSEL_LIMIT = 10;
+const PODCAST_DOT_WINDOW = MEDIA_CAROUSEL_LIMIT;
+const LIVESETS_DOT_WINDOW = MEDIA_CAROUSEL_LIMIT;
+const YOUTUBE_DOT_WINDOW = 8;
 // Preferred proxy: your own Cloudflare Worker (see livesets-proxy-worker.js).
 // Once deployed, set this to the worker URL, e.g. 'https://livesets-proxy.<you>.workers.dev/'.
 // The worker is the durable long-term path; public proxies below are only fallbacks.
@@ -148,6 +162,7 @@ const tabReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').m
 const tabMobileQuery = window.matchMedia('(max-width: 1024px)');
 let tabHeightTimer = null;
 let fitTurnstile = () => {};
+let podcastTrackCount = 0;
 
 // Smoothly morph the panel container between the old and new panel heights so
 // switching tabs never jumps abruptly or flashes the column scrollbar.
@@ -523,6 +538,7 @@ const releaseSoundCloudSourcePlayers = () => {
 
 const renderSoundCloudEpisodeStatus = (message, isLoading = false) => {
   soundCloudEpisodeLists.forEach((list) => {
+    list.style.transform = '';
     list.replaceChildren();
     const status = document.createElement('span');
     status.className = `podcast-episodes-status${isLoading ? ' is-loading' : ''}`;
@@ -579,15 +595,31 @@ const unloadPodcastCardPlayer = (card) => {
   if (player) delete player.dataset.previewStartedAt;
 };
 
+const setPeekCarouselPosition = (track, slide, instant = false) => {
+  if (!track || !slide) return;
+  const targetLeft = slide.offsetLeft - (track.clientWidth - slide.offsetWidth) / 2;
+  const disableAnimation = instant || tabReducedMotion;
+  if (disableAnimation) {
+    track.style.transition = 'none';
+  }
+  track.style.transform = `translateX(-${targetLeft}px)`;
+  if (disableAnimation) {
+    void track.offsetHeight;
+    track.style.transition = '';
+  }
+};
+
 const setActiveSoundCloudTrack = (trackIndex, options = {}) => {
   soundCloudSourcePlayers.forEach((frame) => {
     frame.dataset.soundcloudTrackIndex = String(trackIndex);
   });
+  renderPodcastCarouselDots(podcastTrackCount, trackIndex);
   soundCloudEpisodeLists.forEach((list) => {
     list.querySelectorAll('.podcast-episode[data-soundcloud-track]').forEach((card) => {
       const active = Number.parseInt(card.dataset.soundcloudTrack || '0', 10) === trackIndex;
       card.classList.toggle('active', active);
       card.setAttribute('aria-current', active ? 'true' : 'false');
+      card.tabIndex = active ? 0 : -1;
       if (active) {
         loadPodcastCardPlayer(card);
       } else {
@@ -595,25 +627,32 @@ const setActiveSoundCloudTrack = (trackIndex, options = {}) => {
       }
       if (active) {
         if (options.instant && card) {
-          const previousScrollBehavior = list.style.scrollBehavior;
-          list.style.scrollBehavior = 'auto';
-          const targetLeft =
-            list.scrollLeft +
-            card.getBoundingClientRect().left +
-            card.offsetWidth / 2 -
-            list.getBoundingClientRect().left -
-            list.clientWidth / 2;
-          list.scrollTo({ left: targetLeft, behavior: 'auto' });
-          list.style.scrollBehavior = previousScrollBehavior;
+          setPeekCarouselPosition(list, card.closest('.podcast-slide'), true);
         } else {
-          card.scrollIntoView({
-            behavior: tabReducedMotion ? 'auto' : 'smooth',
-            block: 'nearest',
-            inline: 'center',
-          });
+          setPeekCarouselPosition(list, card.closest('.podcast-slide'));
         }
       }
     });
+  });
+};
+
+const renderPodcastCarouselDots = (count, activeIndex = getActivePodcastTrackIndex()) => {
+  if (!podcastCarouselDots) return;
+  podcastTrackCount = count;
+  const visibleCount = Math.min(count, PODCAST_DOT_WINDOW);
+  const startIndex = Math.max(0, Math.min(activeIndex - Math.floor(visibleCount / 2), count - visibleCount));
+
+  podcastCarouselDots.replaceChildren();
+  Array.from({ length: visibleCount }).forEach((_, dotIndex) => {
+    const index = startIndex + dotIndex;
+    const dot = document.createElement('button');
+    dot.className = 'carousel-dot';
+    dot.type = 'button';
+    dot.classList.toggle('active', index === activeIndex);
+    dot.setAttribute('aria-current', index === activeIndex ? 'true' : 'false');
+    dot.setAttribute('aria-label', `Go to monthly dose episode ${index + 1}`);
+    dot.addEventListener('click', () => setActiveSoundCloudTrack(index));
+    podcastCarouselDots.appendChild(dot);
   });
 };
 
@@ -701,17 +740,21 @@ const fetchPodcastPlaylistArtwork = async (playlistUrl) => {
   }
 };
 
-const preparePodcastClone = (card) => {
-  const clone = card.cloneNode(true);
+const preparePodcastClone = (slide) => {
+  const clone = slide.cloneNode(true);
   clone.classList.remove('active');
   clone.dataset.podcastClone = 'true';
   clone.setAttribute('aria-hidden', 'true');
-  clone.removeAttribute('data-soundcloud-track');
-  clone.removeAttribute('data-soundcloud-url');
-  clone.removeAttribute('role');
-  clone.removeAttribute('tabindex');
-  clone.removeAttribute('aria-label');
-  clone.removeAttribute('aria-current');
+  clone.querySelectorAll('.podcast-episode').forEach((card) => {
+    card.classList.remove('active');
+    card.dataset.podcastClone = 'true';
+    card.removeAttribute('data-soundcloud-track');
+    card.removeAttribute('data-soundcloud-url');
+    card.removeAttribute('role');
+    card.removeAttribute('tabindex');
+    card.removeAttribute('aria-label');
+    card.removeAttribute('aria-current');
+  });
   clone.querySelectorAll('[data-soundcloud-card-frame]').forEach((frame) => {
     frame.removeAttribute('src');
   });
@@ -723,23 +766,31 @@ const preparePodcastClone = (card) => {
 };
 
 const addPodcastCarouselClones = (list) => {
-  const cards = [...list.querySelectorAll('.podcast-episode')];
-  if (cards.length < 2) return;
-  list.prepend(preparePodcastClone(cards[cards.length - 1]));
-  list.appendChild(preparePodcastClone(cards[0]));
+  const slides = [...list.querySelectorAll('.podcast-slide')];
+  if (slides.length < 2) return;
+  list.prepend(preparePodcastClone(slides[slides.length - 1]));
+  list.appendChild(preparePodcastClone(slides[0]));
 };
 
 const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
   if (!soundCloudEpisodeLists.length || !tracks?.length) return;
   const selectedIndex = Number.parseInt(soundCloudSourcePlayers[0]?.dataset.soundcloudTrackIndex || '0', 10);
+  const startIndex = Math.max(0, tracks.length - MEDIA_CAROUSEL_LIMIT);
+  const visibleTracks = tracks.slice(startIndex).map((track, index) => ({
+    ...track,
+    trackIndex: Number.isInteger(track?.trackIndex) ? track.trackIndex : startIndex + index,
+  }));
+  const activeIndex = Math.min(Number.isNaN(selectedIndex) ? 0 : selectedIndex, visibleTracks.length - 1);
   const playlistUrl = String(soundCloudSourcePlayers[0]?.dataset.soundcloudUrl || '').trim();
   const playlistArtwork = normalizeSoundCloudArtworkUrl(playlistArtworkUrl);
 
   soundCloudEpisodeLists.forEach((list) => {
     list.replaceChildren();
-    tracks.forEach((track, index) => {
+    visibleTracks.forEach((track, index) => {
+      const slide = document.createElement('div');
+      slide.className = 'podcast-slide';
       const card = document.createElement('article');
-      const active = index === (Number.isNaN(selectedIndex) ? 0 : selectedIndex);
+      const active = index === activeIndex;
       card.className = `podcast-episode${active ? ' active' : ''}`;
       card.dataset.soundcloudTrack = String(index);
       card.setAttribute('role', 'link');
@@ -788,11 +839,13 @@ const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
       number.textContent = formatPodcastEpisodeLabel(track, index);
       meta.appendChild(number);
       card.append(meta, player);
-      list.appendChild(card);
+      slide.appendChild(card);
+      list.appendChild(slide);
     });
     addPodcastCarouselClones(list);
   });
-  setActiveSoundCloudTrack(Number.isNaN(selectedIndex) ? 0 : selectedIndex, { instant: true });
+  renderPodcastCarouselDots(visibleTracks.length);
+  setActiveSoundCloudTrack(activeIndex, { instant: true });
 };
 
 soundCloudEpisodeLists.forEach((list) => {
@@ -1241,6 +1294,803 @@ const parseLiveStatus = (payload) => {
   return false;
 };
 
+const LIVESETS_SESSIONS_CACHE_KEY = 'cidirilkLiveSetsSessions';
+const LIVESETS_SESSIONS_CACHE_TTL = 30 * 60 * 1000;
+const LIVESETS_FALLBACK_ARTWORK =
+  'https://livesets.com/cache/images/resize/300/dab2d6bc379caf377c44d13ce6252562.png';
+const LIVESETS_FALLBACK_SESSIONS = [
+  {
+    index: 1,
+    title: 'mood_rec( *six.6)',
+    url: 'https://livesets.com/cidirilk/session/72255',
+    age: '2 days ago',
+    genre: 'Techno',
+    duration: '58:20',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 2,
+    title: 'mood_rec( *six.5)',
+    url: 'https://livesets.com/cidirilk/session/71461',
+    age: '4 days ago',
+    genre: 'Techno',
+    duration: '59:55',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 3,
+    title: 'mood_rec( *six.4)',
+    url: 'https://livesets.com/cidirilk/session/71442',
+    age: '3 months ago',
+    genre: 'Techno',
+    duration: '1:00:07',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 4,
+    title: 'mood_rec( *six.3)',
+    url: 'https://livesets.com/cidirilk/session/71430',
+    age: '3 months ago',
+    genre: 'Techno',
+    duration: '1:00:16',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 5,
+    title: 'mood_rec( *six.2)',
+    url: 'https://livesets.com/cidirilk/session/71426',
+    age: '3 months ago',
+    genre: 'Techno',
+    duration: '59:45',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 6,
+    title: 'mood_rec( *six.1)',
+    url: 'https://livesets.com/cidirilk/session/71424',
+    age: '3 months ago',
+    genre: 'Techno',
+    duration: '1:01:47',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 7,
+    title: 'mood_rec( *six.0)',
+    url: 'https://livesets.com/cidirilk/session/71412',
+    age: '3 months ago',
+    genre: 'Techno',
+    duration: '2:00:04',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 8,
+    title: 'mood_rec( *five.9)',
+    url: 'https://livesets.com/cidirilk/session/71307',
+    age: '3 months ago',
+    genre: 'Techno',
+    duration: '44:42',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 9,
+    title: 'mood_rec( *five.8)',
+    url: 'https://livesets.com/cidirilk/session/70834',
+    age: '3 months ago',
+    genre: 'Techno',
+    duration: '1:46:04',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 10,
+    title: 'mood_rec( *five.7)',
+    url: 'https://livesets.com/cidirilk/session/70539',
+    age: '6 months ago',
+    genre: 'Techno',
+    duration: '1:00:18',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+];
+const liveSetsSessionMetaCache = new Map();
+
+const normalizeLiveSetsUrl = (url) => {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  return value.startsWith('http') ? value : `https://livesets.com${value}`;
+};
+
+const getLiveSetsProxyBase = () => {
+  if (!LIVESETS_PROXY_WORKER) return '';
+  return LIVESETS_PROXY_WORKER.endsWith('/')
+    ? LIVESETS_PROXY_WORKER
+    : `${LIVESETS_PROXY_WORKER}/`;
+};
+
+const getLiveSetsSessionId = (session) => {
+  const id = String(session?.id || '').trim();
+  if (id) return id;
+  const url = String(session?.url || '').trim();
+  return url.match(/\/session\/(\d+)/)?.[1] || '';
+};
+
+const normalizeLiveSetsSessionMeta = (meta) => ({
+  id: String(meta?.id || meta?.soundId || ''),
+  title: String(meta?.title || ''),
+  duration: Number(meta?.duration || 0),
+  urlAudio: Array.isArray(meta?.urlAudio)
+    ? meta.urlAudio
+        .map((audio) => ({
+          type: String(audio?.type || ''),
+          url: normalizeLiveSetsUrl(audio?.url || ''),
+        }))
+        .filter((audio) => audio.url)
+    : [],
+});
+
+const readCachedLiveSetsSessions = () => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(LIVESETS_SESSIONS_CACHE_KEY) || 'null');
+    if (
+      Array.isArray(cached?.sessions) &&
+      cached.sessions.length &&
+      Date.now() - cached.cachedAt < LIVESETS_SESSIONS_CACHE_TTL
+    ) {
+      return cached.sessions;
+    }
+  } catch (error) {}
+  return [];
+};
+
+const cacheLiveSetsSessions = (sessions) => {
+  if (!Array.isArray(sessions) || !sessions.length) return;
+  try {
+    localStorage.setItem(
+      LIVESETS_SESSIONS_CACHE_KEY,
+      JSON.stringify({ sessions, cachedAt: Date.now() })
+    );
+  } catch (error) {}
+};
+
+const parseLiveSetsSessionsHtml = (html) => {
+  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
+  return [...doc.querySelectorAll('.media-list.item')]
+    .map((item, index) => {
+      const titleLink = item.querySelector('.head a');
+      const avatarStyle = item.querySelector('.avatar')?.getAttribute('style') || '';
+      const artworkMatch = avatarStyle.match(/url\(['"]?([^'")]+)['"]?\)/i);
+      const subText = item.querySelector('.sub')?.textContent.replace(/\s+/g, ' ').trim() || '';
+      const [, age = ''] = subText.split('|').map((part) => part.trim());
+
+      return {
+        index: index + 1,
+        title: titleLink?.textContent.replace(/\s+/g, ' ').trim() || '',
+        url: normalizeLiveSetsUrl(item.dataset.url || titleLink?.getAttribute('href')),
+        age,
+        genre: item.querySelector('.info .meta')?.textContent.replace(/\s+/g, ' ').trim() || '',
+        duration: item.querySelector('.playtime')?.textContent.replace(/\s+/g, ' ').trim() || '',
+        artwork: normalizeLiveSetsUrl(artworkMatch?.[1] || ''),
+      };
+    })
+    .filter((session) => session.title && session.url);
+};
+
+const buildLiveSetsSessionStrategies = () => {
+  const encoded = encodeURIComponent(LIVESETS_SESSIONS_URL);
+  const strategies = [];
+  const base = getLiveSetsProxyBase();
+
+  if (base) {
+    strategies.push({
+      name: 'worker',
+      url: `${base}sessions?t=${Date.now()}`,
+      extract: async (response) => {
+        const payload = await response.json();
+        return Array.isArray(payload?.sessions) ? payload.sessions : [];
+      },
+    });
+  }
+
+  strategies.push(
+    {
+      name: 'allorigins',
+      url: `https://api.allorigins.win/get?url=${encoded}`,
+      extract: async (response) => {
+        const payload = await response.json();
+        return parseLiveSetsSessionsHtml(payload?.contents || '');
+      },
+    },
+    {
+      name: 'codetabs',
+      url: `https://api.codetabs.com/v1/proxy/?quest=${encoded}`,
+      extract: async (response) => parseLiveSetsSessionsHtml(await response.text()),
+    },
+  );
+
+  return strategies;
+};
+
+const fetchLiveSetsSessions = async () => {
+  for (const strategy of buildLiveSetsSessionStrategies()) {
+    try {
+      const response = await fetch(strategy.url, {
+        headers: { Accept: strategy.name === 'worker' ? 'application/json' : 'text/html, application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`${strategy.name} status ${response.status}`);
+      const sessions = await strategy.extract(response);
+      if (Array.isArray(sessions) && sessions.length) return sessions;
+    } catch (error) {
+      continue;
+    }
+  }
+  return [];
+};
+
+const buildLiveSetsSessionMetaStrategies = (sessionId) => {
+  const target = `https://livesets.com/json/session/meta/${sessionId}`;
+  const encoded = encodeURIComponent(target);
+  const strategies = [];
+  const base = getLiveSetsProxyBase();
+
+  if (base) {
+    strategies.push({
+      name: 'worker',
+      url: `${base}session-meta/${sessionId}?t=${Date.now()}`,
+      extract: async (response) => {
+        const payload = await response.json();
+        return normalizeLiveSetsSessionMeta(payload?.meta);
+      },
+    });
+  }
+
+  strategies.push(
+    {
+      name: 'allorigins',
+      url: `https://api.allorigins.win/get?url=${encoded}`,
+      extract: async (response) => {
+        const payload = await response.json();
+        return normalizeLiveSetsSessionMeta(JSON.parse(payload?.contents || '{}'));
+      },
+    },
+    {
+      name: 'codetabs',
+      url: `https://api.codetabs.com/v1/proxy/?quest=${encoded}`,
+      extract: async (response) => normalizeLiveSetsSessionMeta(JSON.parse(await response.text())),
+    },
+  );
+
+  return strategies;
+};
+
+const fetchLiveSetsSessionMeta = async (sessionId) => {
+  if (!sessionId) return null;
+  if (liveSetsSessionMetaCache.has(sessionId)) return liveSetsSessionMetaCache.get(sessionId);
+
+  for (const strategy of buildLiveSetsSessionMetaStrategies(sessionId)) {
+    try {
+      const response = await fetch(strategy.url, {
+        headers: { Accept: strategy.name === 'worker' ? 'application/json' : 'text/html, application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) throw new Error(`${strategy.name} status ${response.status}`);
+      const meta = await strategy.extract(response);
+      if (meta?.urlAudio?.length) {
+        liveSetsSessionMetaCache.set(sessionId, meta);
+        return meta;
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return null;
+};
+
+const renderLiveSetsSessionsStatus = (message, isLoading = false) => {
+  liveSetsCarouselDots?.replaceChildren();
+  liveSetsSessionLists.forEach((list) => {
+    list.style.transform = '';
+    list.replaceChildren();
+    const status = document.createElement('span');
+    status.className = 'sessions-status';
+    if (isLoading) {
+      const spinner = document.createElement('span');
+      spinner.className = 'podcast-loading-spinner';
+      spinner.setAttribute('aria-hidden', 'true');
+      status.appendChild(spinner);
+    }
+    const text = document.createElement('span');
+    text.textContent = message;
+    status.appendChild(text);
+    list.appendChild(status);
+  });
+};
+
+let liveSetsSessionCount = 0;
+let youtubeVideoCount = 0;
+
+const YOUTUBE_VIDEOS = [
+  {
+    id: 'GxuFIf0Nyqg',
+    title: 'cidirilk_aLive',
+  },
+  {
+    id: 'DnCT4AkjR0g',
+    title: 'cidirilk_keepIt_real',
+  },
+  {
+    id: 'JaXO00J4rO0',
+    title: 'cidirilk_im_Not_leaving',
+  },
+  {
+    id: '4V5Hhjnk23o',
+    title: 'cidirilk_setup_before_iGo',
+  },
+].map((video) => ({
+  ...video,
+  url: `https://youtu.be/${video.id}`,
+  embedUrl: `https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1&playsinline=1`,
+  autoplayUrl: `https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1&playsinline=1&autoplay=1`,
+  thumbnail: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
+}));
+
+const getLiveSetsSessionCards = () =>
+  [...document.querySelectorAll('.sessions-card[data-livesets-session]')];
+
+const getYoutubeCards = () =>
+  [...document.querySelectorAll('.youtube-card[data-youtube-video]')];
+
+const getActiveLiveSetsSessionIndex = () => {
+  const current = getLiveSetsSessionCards().find(
+    (card) => card.getAttribute('aria-current') === 'true'
+  );
+  const sessionIndex = Number.parseInt(current?.dataset.livesetsSession || '0', 10);
+  return Number.isNaN(sessionIndex) ? 0 : sessionIndex;
+};
+
+const renderLiveSetsCarouselDots = (count, activeIndex = getActiveLiveSetsSessionIndex()) => {
+  if (!liveSetsCarouselDots) return;
+  liveSetsSessionCount = count;
+  const visibleCount = Math.min(count, LIVESETS_DOT_WINDOW);
+  const startIndex = Math.max(0, Math.min(activeIndex - Math.floor(visibleCount / 2), count - visibleCount));
+
+  liveSetsCarouselDots.replaceChildren();
+  Array.from({ length: visibleCount }).forEach((_, dotIndex) => {
+    const index = startIndex + dotIndex;
+    const dot = document.createElement('button');
+    dot.className = 'carousel-dot';
+    dot.type = 'button';
+    dot.classList.toggle('active', index === activeIndex);
+    dot.setAttribute('aria-current', index === activeIndex ? 'true' : 'false');
+    dot.setAttribute('aria-label', `Go to LiveSets session ${index + 1}`);
+    dot.addEventListener('click', () => setActiveLiveSetsSession(index));
+    liveSetsCarouselDots.appendChild(dot);
+  });
+};
+
+const getActiveYoutubeVideoIndex = () => {
+  const current = getYoutubeCards().find((card) => card.getAttribute('aria-current') === 'true');
+  const videoIndex = Number.parseInt(current?.dataset.youtubeVideo || '0', 10);
+  return Number.isNaN(videoIndex) ? 0 : videoIndex;
+};
+
+const renderYoutubeCarouselDots = (count, activeIndex = getActiveYoutubeVideoIndex()) => {
+  if (!youtubeCarouselDots) return;
+  youtubeVideoCount = count;
+  const visibleCount = Math.min(count, YOUTUBE_DOT_WINDOW);
+  const startIndex = Math.max(0, Math.min(activeIndex - Math.floor(visibleCount / 2), count - visibleCount));
+
+  youtubeCarouselDots.replaceChildren();
+  Array.from({ length: visibleCount }).forEach((_, dotIndex) => {
+    const index = startIndex + dotIndex;
+    const dot = document.createElement('button');
+    dot.className = 'carousel-dot';
+    dot.type = 'button';
+    dot.classList.toggle('active', index === activeIndex);
+    dot.setAttribute('aria-current', index === activeIndex ? 'true' : 'false');
+    dot.setAttribute('aria-label', `Go to YouTube video ${index + 1}`);
+    dot.addEventListener('click', () => setActiveYoutubeVideo(index));
+    youtubeCarouselDots.appendChild(dot);
+  });
+};
+
+const loadYoutubeCardPlayer = (card, autoplay = false) => {
+  const frame = card?.querySelector('[data-youtube-frame]');
+  const player = card?.querySelector('[data-youtube-player]');
+  if (!frame || frame.getAttribute('src')) return;
+  frame.src = autoplay ? frame.dataset.youtubeAutoplaySrc || '' : frame.dataset.youtubeSrc || '';
+  player?.classList.add('is-loaded');
+};
+
+const unloadYoutubeCardPlayer = (card) => {
+  const frame = card?.querySelector('[data-youtube-frame]');
+  const player = card?.querySelector('[data-youtube-player]');
+  if (!frame) return;
+  frame.removeAttribute('src');
+  player?.classList.remove('is-loaded');
+};
+
+const setActiveYoutubeVideo = (videoIndex, options = {}) => {
+  renderYoutubeCarouselDots(youtubeVideoCount, videoIndex);
+  youtubeVideoLists.forEach((list) => {
+    list.querySelectorAll('.youtube-card[data-youtube-video]').forEach((card) => {
+      const active = Number.parseInt(card.dataset.youtubeVideo || '0', 10) === videoIndex;
+      card.classList.toggle('active', active);
+      card.setAttribute('aria-current', active ? 'true' : 'false');
+      card.tabIndex = active ? 0 : -1;
+      if (active) {
+        setPeekCarouselPosition(list, card.closest('.youtube-slide'), Boolean(options.instant));
+      } else {
+        unloadYoutubeCardPlayer(card);
+      }
+    });
+  });
+};
+
+const playYoutubeCard = (card) => {
+  if (!card || !card.classList.contains('active')) return;
+  loadYoutubeCardPlayer(card, true);
+};
+
+const setActiveLiveSetsSession = (sessionIndex, options = {}) => {
+  renderLiveSetsCarouselDots(liveSetsSessionCount, sessionIndex);
+  liveSetsSessionLists.forEach((list) => {
+    list.querySelectorAll('.sessions-card[data-livesets-session]').forEach((card) => {
+      const active = Number.parseInt(card.dataset.livesetsSession || '0', 10) === sessionIndex;
+      card.classList.toggle('active', active);
+      card.setAttribute('aria-current', active ? 'true' : 'false');
+      card.tabIndex = active ? 0 : -1;
+      if (!active) {
+        pauseLiveSetsCardPlayer(card);
+        return;
+      }
+
+      if (options.instant) {
+        setPeekCarouselPosition(list, card.closest('.sessions-slide'), true);
+      } else {
+        setPeekCarouselPosition(list, card.closest('.sessions-slide'));
+      }
+    });
+  });
+};
+
+const pauseLiveSetsCardPlayer = (card) => {
+  const audio = card?.querySelector('[data-livesets-audio]');
+  if (!audio) return;
+  audio.pause();
+  card.classList.remove('is-playing-session');
+};
+
+const setLiveSetsCardPlayerState = (card, state, message = '') => {
+  const player = card?.querySelector('[data-livesets-player]');
+  const status = card?.querySelector('[data-livesets-player-status]');
+  if (!player) return;
+  card.classList.remove('is-loading-session', 'is-session-ready', 'has-session-error');
+  if (state === 'is-loading') card.classList.add('is-loading-session');
+  if (state === 'is-ready') card.classList.add('is-session-ready');
+  if (state === 'has-error') card.classList.add('has-session-error');
+  player.classList.remove('is-unloaded', 'is-loading', 'is-ready', 'has-error');
+  player.classList.add(state);
+  if (status) status.textContent = message;
+};
+
+const loadLiveSetsCardPlayer = async (card) => {
+  const audio = card?.querySelector('[data-livesets-audio]');
+  if (!audio) return null;
+  if (audio.querySelector('source')) return audio;
+
+  const sessionId = card.dataset.livesetsSessionId || '';
+  setLiveSetsCardPlayerState(card, 'is-loading', 'Loading session...');
+  const meta = await fetchLiveSetsSessionMeta(sessionId);
+
+  if (!meta?.urlAudio?.length) {
+    setLiveSetsCardPlayerState(card, 'has-error', 'Player could not load right now.');
+    return null;
+  }
+
+  audio.replaceChildren();
+  meta.urlAudio.forEach((sourceData) => {
+    const source = document.createElement('source');
+    source.src = sourceData.url;
+    if (sourceData.type) source.type = sourceData.type;
+    audio.appendChild(source);
+  });
+  audio.load();
+  setLiveSetsCardPlayerState(card, 'is-ready');
+  return audio;
+};
+
+const playLiveSetsCard = async (card) => {
+  if (!card || !card.classList.contains('active')) return;
+  const audio = await loadLiveSetsCardPlayer(card);
+  if (!audio) return;
+
+  getLiveSetsSessionCards().forEach((otherCard) => {
+    if (otherCard !== card) pauseLiveSetsCardPlayer(otherCard);
+  });
+
+  try {
+    await audio.play();
+    card.classList.add('is-playing-session');
+  } catch (error) {}
+};
+
+const prepareLiveSetsSessionClone = (slide) => {
+  const clone = slide.cloneNode(true);
+  clone.classList.remove('active');
+  clone.dataset.sessionsClone = 'true';
+  clone.setAttribute('aria-hidden', 'true');
+  clone.querySelectorAll('.sessions-card').forEach((card) => {
+    card.classList.remove('active');
+    card.dataset.sessionsClone = 'true';
+    card.removeAttribute('data-livesets-session');
+    card.removeAttribute('data-livesets-session-id');
+    card.removeAttribute('data-livesets-session-url');
+    card.removeAttribute('aria-current');
+    card.removeAttribute('aria-label');
+    card.removeAttribute('role');
+    card.tabIndex = -1;
+    card.querySelectorAll('[data-livesets-audio]').forEach((audio) => {
+      audio.pause();
+      audio.replaceChildren();
+    });
+    card.querySelectorAll('[data-livesets-player]').forEach((player) => {
+      player.classList.remove('is-loading', 'is-ready', 'has-error');
+      player.classList.add('is-unloaded');
+    });
+  });
+  return clone;
+};
+
+const addLiveSetsSessionClones = (list) => {
+  const slides = [...list.querySelectorAll('.sessions-slide')];
+  if (slides.length < 2) return;
+  list.prepend(prepareLiveSetsSessionClone(slides[slides.length - 1]));
+  list.appendChild(prepareLiveSetsSessionClone(slides[0]));
+};
+
+const prepareYoutubeClone = (slide) => {
+  const clone = slide.cloneNode(true);
+  clone.dataset.youtubeClone = 'true';
+  clone.setAttribute('aria-hidden', 'true');
+  clone.querySelectorAll('.youtube-card').forEach((card) => {
+    card.classList.remove('active');
+    card.dataset.youtubeClone = 'true';
+    card.removeAttribute('data-youtube-video');
+    card.removeAttribute('aria-current');
+    card.removeAttribute('aria-label');
+    card.removeAttribute('role');
+    card.tabIndex = -1;
+  });
+  clone.querySelectorAll('[data-youtube-frame]').forEach((frame) => {
+    frame.removeAttribute('src');
+  });
+  clone.querySelectorAll('[data-youtube-player]').forEach((player) => {
+    player.classList.remove('is-loaded');
+  });
+  return clone;
+};
+
+const addYoutubeClones = (list) => {
+  const slides = [...list.querySelectorAll('.youtube-slide')];
+  if (slides.length < 2) return;
+  list.prepend(prepareYoutubeClone(slides[slides.length - 1]));
+  list.appendChild(prepareYoutubeClone(slides[0]));
+};
+
+const renderYoutubeVideos = () => {
+  if (!youtubeVideoLists.length) return;
+  youtubeVideoLists.forEach((list) => {
+    list.replaceChildren();
+    YOUTUBE_VIDEOS.forEach((video, index) => {
+      const slide = document.createElement('div');
+      slide.className = 'youtube-slide';
+      const card = document.createElement('article');
+      card.className = `youtube-card${index === 0 ? ' active' : ''}`;
+      card.dataset.youtubeVideo = String(index);
+      card.setAttribute('role', 'button');
+      card.tabIndex = index === 0 ? 0 : -1;
+      card.setAttribute('aria-current', index === 0 ? 'true' : 'false');
+      card.setAttribute('aria-label', `Play ${video.title} on YouTube`);
+
+      const top = document.createElement('span');
+      top.className = 'youtube-card-top';
+      const source = document.createElement('span');
+      source.className = 'youtube-card-source';
+      source.textContent = 'YouTube';
+      const count = document.createElement('span');
+      count.className = 'youtube-card-count';
+      count.textContent = `${String(index + 1).padStart(2, '0')} / ${String(YOUTUBE_VIDEOS.length).padStart(2, '0')}`;
+      top.append(source, count);
+
+      const player = document.createElement('span');
+      player.className = 'youtube-card-player';
+      player.dataset.youtubePlayer = '';
+      player.style.setProperty('--youtube-thumb', `url("${video.thumbnail}")`);
+      const frame = document.createElement('iframe');
+      frame.className = 'youtube-card-frame';
+      frame.title = `${video.title} YouTube video`;
+      frame.loading = 'lazy';
+      frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      frame.allowFullscreen = true;
+      frame.dataset.youtubeFrame = '';
+      frame.dataset.youtubeSrc = video.embedUrl;
+      frame.dataset.youtubeAutoplaySrc = video.autoplayUrl;
+      player.appendChild(frame);
+
+      const playButton = document.createElement('button');
+      playButton.className = 'youtube-card-play';
+      playButton.type = 'button';
+      playButton.dataset.youtubePlay = '';
+      playButton.setAttribute('aria-label', `Play ${video.title}`);
+      playButton.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i>';
+      playButton.append(document.createTextNode('Play video'));
+      player.appendChild(playButton);
+
+      const note = document.createElement('span');
+      note.className = 'youtube-card-note';
+      note.textContent = 'HQ audio in Sessions';
+
+      card.append(top, player, note);
+      slide.appendChild(card);
+      list.appendChild(slide);
+    });
+    addYoutubeClones(list);
+  });
+  renderYoutubeCarouselDots(YOUTUBE_VIDEOS.length, 0);
+  setActiveYoutubeVideo(0, { instant: true });
+};
+
+const renderLiveSetsSessions = (sessions) => {
+  const visibleSessions = sessions.slice(0, MEDIA_CAROUSEL_LIMIT);
+  liveSetsSessionLists.forEach((list) => {
+    list.replaceChildren();
+    visibleSessions.forEach((session, index) => {
+      const slide = document.createElement('div');
+      slide.className = 'sessions-slide';
+      const sessionId = getLiveSetsSessionId(session);
+      const card = document.createElement('article');
+      card.className = `sessions-card${index === 0 ? ' active' : ''}`;
+      card.dataset.livesetsSession = String(index);
+      card.dataset.livesetsSessionId = sessionId;
+      card.dataset.livesetsSessionUrl = session.url;
+      card.setAttribute('role', 'button');
+      card.tabIndex = index === 0 ? 0 : -1;
+      card.setAttribute('aria-current', index === 0 ? 'true' : 'false');
+      card.setAttribute('aria-label', `Play ${session.title} from LiveSets`);
+      if (session.artwork) {
+        card.style.setProperty('--sessions-artwork', `url("${session.artwork}")`);
+      }
+
+      const top = document.createElement('span');
+      top.className = 'sessions-card-top';
+      const source = document.createElement('span');
+      source.className = 'sessions-card-source';
+      source.textContent = 'LiveSets';
+      const duration = document.createElement('span');
+      duration.className = 'sessions-card-duration';
+      duration.textContent = session.duration || 'LiveSets';
+      top.append(source, duration);
+
+      const title = document.createElement('strong');
+      title.className = 'sessions-card-title';
+      title.textContent = session.title;
+
+      const meta = document.createElement('span');
+      meta.className = 'sessions-card-meta';
+      [
+        ['fa-solid fa-wave-square', session.genre],
+        ['fa-regular fa-clock', session.age],
+      ].forEach(([icon, value]) => {
+        if (!value) return;
+        const chip = document.createElement('span');
+        chip.className = 'sessions-card-chip';
+        chip.innerHTML = `<i class="${icon}" aria-hidden="true"></i>`;
+        chip.append(document.createTextNode(value));
+        meta.appendChild(chip);
+      });
+
+      const action = document.createElement('span');
+      action.className = 'sessions-card-action';
+      action.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i>';
+      action.append(document.createTextNode('Play session'));
+
+      const player = document.createElement('span');
+      player.className = 'sessions-card-player is-unloaded';
+      player.dataset.livesetsPlayer = '';
+      const audio = document.createElement('audio');
+      audio.className = 'sessions-card-audio';
+      audio.controls = true;
+      audio.preload = 'none';
+      audio.dataset.livesetsAudio = '';
+      audio.addEventListener('play', () => card.classList.add('is-playing-session'));
+      audio.addEventListener('pause', () => card.classList.remove('is-playing-session'));
+      audio.addEventListener('ended', () => card.classList.remove('is-playing-session'));
+      const playerStatus = document.createElement('span');
+      playerStatus.className = 'sessions-card-player-status';
+      playerStatus.dataset.livesetsPlayerStatus = '';
+      player.append(audio, playerStatus);
+
+      card.append(top, title, meta, action, player);
+      slide.appendChild(card);
+      list.appendChild(slide);
+    });
+    addLiveSetsSessionClones(list);
+  });
+  renderLiveSetsCarouselDots(visibleSessions.length, 0);
+  setActiveLiveSetsSession(0, { instant: true });
+};
+
+const initLiveSetsSessions = async () => {
+  if (!liveSetsSessionLists.length) return;
+  const cachedSessions = readCachedLiveSetsSessions();
+  if (cachedSessions.length) {
+    renderLiveSetsSessions(cachedSessions);
+  } else {
+    renderLiveSetsSessionsStatus('Getting signals from LiveSets...', true);
+  }
+
+  const sessions = await fetchLiveSetsSessions();
+  if (sessions.length) {
+    cacheLiveSetsSessions(sessions);
+    renderLiveSetsSessions(sessions);
+  } else if (!cachedSessions.length) {
+    renderLiveSetsSessions(LIVESETS_FALLBACK_SESSIONS);
+  }
+};
+
+const moveLiveSetsSessions = (direction) => {
+  const cards = getLiveSetsSessionCards();
+  if (!cards.length) return;
+  const currentIndex = getActiveLiveSetsSessionIndex();
+  const nextIndex = (currentIndex + direction + cards.length) % cards.length;
+  const wrapsAround =
+    (direction < 0 && currentIndex === 0) ||
+    (direction > 0 && currentIndex === cards.length - 1);
+  setActiveLiveSetsSession(nextIndex, { instant: wrapsAround });
+};
+
+const moveYoutubeCarousel = (direction) => {
+  const cards = getYoutubeCards();
+  if (!cards.length) return;
+  const currentIndex = getActiveYoutubeVideoIndex();
+  const nextIndex = (currentIndex + direction + cards.length) % cards.length;
+  const wrapsAround =
+    (direction < 0 && currentIndex === 0) ||
+    (direction > 0 && currentIndex === cards.length - 1);
+  setActiveYoutubeVideo(nextIndex, { instant: wrapsAround });
+};
+
+liveSetsSessionLists.forEach((list) => {
+  list.addEventListener('click', (event) => {
+    if (event.target.closest('[data-livesets-audio]')) return;
+    const card = event.target.closest('.sessions-card[data-livesets-session]');
+    if (!card) return;
+    playLiveSetsCard(card);
+  });
+
+  list.addEventListener('keydown', (event) => {
+    if (!['Enter', ' '].includes(event.key)) return;
+    const card = event.target.closest('.sessions-card[data-livesets-session]');
+    if (!card || event.target.closest('[data-livesets-audio]')) return;
+    event.preventDefault();
+    playLiveSetsCard(card);
+  });
+});
+
+youtubeVideoLists.forEach((list) => {
+  list.addEventListener('click', (event) => {
+    const playButton = event.target.closest('[data-youtube-play]');
+    if (!playButton) return;
+    const card = playButton.closest('.youtube-card[data-youtube-video]');
+    playYoutubeCard(card);
+  });
+});
+
+liveSetsCarouselPrev?.addEventListener('click', () => moveLiveSetsSessions(-1));
+liveSetsCarouselNext?.addEventListener('click', () => moveLiveSetsSessions(1));
+youtubeCarouselPrev?.addEventListener('click', () => moveYoutubeCarousel(-1));
+youtubeCarouselNext?.addEventListener('click', () => moveYoutubeCarousel(1));
+
 // Ordered list of ways to reach the LiveSets endpoint. The first that succeeds
 // is remembered and reused, so a single proxy outage no longer breaks the badge.
 // `extract` normalizes each proxy's response shape back to the raw status payload.
@@ -1351,6 +2201,8 @@ window.cidirilkLive = (state = true) => {
 
 initTheme();
 initSoundCloudEpisodeLists();
+renderYoutubeVideos();
+initLiveSetsSessions();
 handleScroll();
 
 // Lazy load LiveSets checking after initial render
