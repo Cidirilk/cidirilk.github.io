@@ -294,6 +294,16 @@
               destination. Sometimes, what we find was never what we were
               looking for.
             </p>
+            <p>
+              <a
+                class="profile-bio-link"
+                href="https://ra.co/dj/cidirilk"
+                target="_blank"
+                rel="noopener"
+                aria-label="Cidirilk on Resident Advisor (opens in a new tab)"
+                title="Resident Advisor (opens in a new tab)"
+              >Resident Advisor <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+            </p>
           </div>
           <div class="profile-cards reveal-on-load" data-card-tabs>
             <div class="card-tabs" role="tablist">
@@ -419,6 +429,8 @@
                 <div class="social-links" aria-label="Channels">
                   <a
                     href="https://livesets.com/cidirilk/sessions"
+                    data-mobile-section="sessions"
+                    data-mobile-label="Sessions"
                     target="_blank"
                     rel="noopener"
                     aria-label="Sessions"
@@ -429,6 +441,8 @@
                   </a>
                   <a
                     href="https://soundcloud.com/cidirilk"
+                    data-mobile-section="soundcloud"
+                    data-mobile-label="SoundCloud episodes"
                     target="_blank"
                     rel="noopener"
                     aria-label="SoundCloud"
@@ -439,6 +453,9 @@
                   </a>
                   <a
                     href="https://open.spotify.com/user/11124220447?si=c54ed7391ed94293"
+                    data-mobile-section="artifacts"
+                    data-mobile-label="Artifacts shop"
+                    data-mobile-icon="fa-solid fa-cart-shopping"
                     target="_blank"
                     rel="noopener"
                     aria-label="Spotify"
@@ -449,6 +466,8 @@
                   </a>
                   <a
                     href="https://www.youtube.com/@Cidirilk"
+                    data-mobile-section="youtube"
+                    data-mobile-label="YouTube videos"
                     target="_blank"
                     rel="noopener"
                     aria-label="YouTube"
@@ -459,6 +478,8 @@
                   </a>
                   <a
                     href="https://ra.co/dj/cidirilk"
+                    data-mobile-section="home"
+                    data-mobile-label="Back to top"
                     target="_blank"
                     rel="noopener"
                     aria-label="Resident Advisor"
@@ -471,6 +492,7 @@
               </article>
               <article
                 class="info-card tab-panel sessions-panel"
+                id="sessions"
                 data-panel="sessions"
                 role="tabpanel"
                 hidden
@@ -507,6 +529,7 @@
               <article
                 class="info-card tab-panel podcast-panel"
                 data-panel="podcast"
+                id="soundcloud"
                 role="tabpanel"
                 hidden
               >
@@ -522,9 +545,9 @@
                     data-soundcloud-source
                     data-soundcloud-url="https://soundcloud.com/cidirilk/sets/your-monthly-dose"
                     data-soundcloud-track-index="0"
-                    loading="lazy"
+                    loading="eager"
                     scrolling="no"
-                    allow="autoplay"
+                    allow="autoplay; encrypted-media"
                   ></iframe>
                 </div>
                 <div class="podcast-carousel" data-podcast-carousel>
@@ -555,6 +578,7 @@
               <article
                 class="info-card tab-panel youtube-panel"
                 data-panel="youtube"
+                id="youtube"
                 role="tabpanel"
                 hidden
               >
@@ -996,6 +1020,7 @@
               <article
                 class="info-card tab-panel shop-card"
                 data-panel="shop"
+                id="artifacts"
                 role="tabpanel"
                 hidden
               >

@@ -160,6 +160,31 @@ const getCookie = (name) =>
 const tabPanelsWrap = tabPanels[0]?.closest('.tab-panels') || null;
 const tabReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const tabMobileQuery = window.matchMedia('(max-width: 1024px)');
+const mobileSectionLinks = [...document.querySelectorAll('[data-mobile-section]')].map((link) => ({
+  link,
+  href: link.getAttribute('href'),
+  target: link.getAttribute('target'),
+  label: link.getAttribute('aria-label'),
+  iconClass: link.querySelector('i')?.className,
+}));
+
+const syncMobileSectionLinks = () => {
+  mobileSectionLinks.forEach(({ link, href, target, label, iconClass }) => {
+    const mobile = tabMobileQuery.matches;
+    const currentLabel = mobile ? link.dataset.mobileLabel : label;
+    link.setAttribute('href', mobile ? `#${link.dataset.mobileSection}` : href);
+    if (mobile || !target) link.removeAttribute('target');
+    else link.setAttribute('target', target);
+    link.setAttribute('aria-label', currentLabel);
+    link.setAttribute('title', currentLabel);
+    const text = link.querySelector('.sr-only');
+    if (text) text.textContent = currentLabel;
+    const icon = link.querySelector('i');
+    if (icon && iconClass) {
+      icon.className = mobile && link.dataset.mobileIcon ? link.dataset.mobileIcon : iconClass;
+    }
+  });
+};
 let tabHeightTimer = null;
 let fitTurnstile = () => {};
 let podcastTrackCount = 0;
@@ -263,6 +288,7 @@ const showMobileTabSections = () => {
 };
 
 const syncTabLayoutForViewport = () => {
+  syncMobileSectionLinks();
   if (!tabButtons.length || !tabPanels.length) return;
 
   if (tabMobileQuery.matches) {
@@ -279,6 +305,7 @@ const syncTabLayoutForViewport = () => {
 };
 
 if (tabButtons.length && tabPanels.length) {
+  syncMobileSectionLinks();
   const saved = getCookie(TAB_COOKIE);
   const hashTab = shouldPreserveInitialHash ? 'guides' : '';
   const defaultTab =
@@ -506,8 +533,9 @@ const buildSoundCloudPlayerSrc = (sourceUrl, trackIndex = 0, usePlaylistIndex = 
     url: sourceUrl,
     color: theme === 'light' ? '#9b45ff' : '#c174ff',
     auto_play: 'false',
-    hide_related: 'false',
+    hide_related: 'true',
     show_comments: 'false',
+    show_playcount: 'false',
     show_user: 'true',
     show_reposts: 'false',
     show_teaser: 'false',
@@ -571,7 +599,8 @@ const loadPodcastCardPlayer = (card) => {
   const player = card?.querySelector('[data-soundcloud-card-player]');
   const iframe = card?.querySelector('[data-soundcloud-card-frame]');
   if (!iframe) return;
-  if (iframe.getAttribute('src')) {
+  if (!player?.isConnected || !player.clientWidth) return;
+  if (iframe.getAttribute('src') && iframe.getAttribute('src') !== 'about:blank') {
     finishPodcastPreviewLoad(player);
     return;
   }
@@ -580,6 +609,7 @@ const loadPodcastCardPlayer = (card) => {
     player?.classList.remove('is-unloaded', 'is-preview-ready');
     player?.classList.add('is-loading-preview');
     if (player) player.dataset.previewStartedAt = String(Date.now());
+    iframe.tabIndex = 0;
     iframe.setAttribute('src', src);
     setTimeout(() => finishPodcastPreviewLoad(player), 2600);
   }
@@ -588,26 +618,64 @@ const loadPodcastCardPlayer = (card) => {
 const unloadPodcastCardPlayer = (card) => {
   const player = card?.querySelector('[data-soundcloud-card-player]');
   const iframe = card?.querySelector('[data-soundcloud-card-frame]');
-  if (!iframe?.getAttribute('src')) return;
-  iframe.removeAttribute('src');
+  if (!iframe?.getAttribute('src') || iframe.getAttribute('src') === 'about:blank') return;
+  // Navigate away without collapsing the old widget to zero size mid-render.
+  iframe.setAttribute('src', 'about:blank');
+  iframe.tabIndex = -1;
   player?.classList.remove('is-loading-preview', 'is-preview-ready');
   player?.classList.add('is-unloaded');
   if (player) delete player.dataset.previewStartedAt;
 };
 
-const setPeekCarouselPosition = (track, slide, instant = false) => {
+const pendingPeekCarouselWraps = new WeakMap();
+
+const setPeekCarouselPosition = (track, slide, instant = false, wrapDirection = 0) => {
   if (!track || !slide) return;
-  const targetLeft = slide.offsetLeft - (track.clientWidth - slide.offsetWidth) / 2;
+  pendingPeekCarouselWraps.get(track)?.();
   const disableAnimation = instant || tabReducedMotion;
-  if (disableAnimation) {
-    track.style.transition = 'none';
+  const positionSlide = (target, skipAnimation) => {
+    const targetLeft = target.offsetLeft - (track.clientWidth - target.offsetWidth) / 2;
+    if (skipAnimation) track.style.transition = 'none';
+    const useLayoutPosition = track.matches('[data-soundcloud-episodes]') && tabMobileQuery.matches;
+    track.style.left = useLayoutPosition ? `${-targetLeft}px` : '';
+    track.style.transform = useLayoutPosition ? 'none' : `translateX(-${targetLeft}px)`;
+    if (skipAnimation) {
+      void track.offsetHeight;
+      track.style.transition = '';
+    }
+  };
+  const clone = wrapDirection > 0 ? track.lastElementChild : track.firstElementChild;
+  if (!wrapDirection || disableAnimation || !clone?.hasAttribute('aria-hidden')) {
+    positionSlide(slide, disableAnimation);
+    return;
   }
-  track.style.transform = `translateX(-${targetLeft}px)`;
-  if (disableAnimation) {
-    void track.offsetHeight;
-    track.style.transition = '';
+
+  // Cross the boundary using the adjacent clone, then silently return to the real card.
+  positionSlide(clone, false);
+  const finishWrap = () => {
+    if (pendingPeekCarouselWraps.get(track) !== finishWrap) return;
+    pendingPeekCarouselWraps.delete(track);
+    positionSlide(slide, true);
+  };
+  pendingPeekCarouselWraps.set(track, finishWrap);
+  const transition = track.getAnimations().find((animation) => ['transform', 'left'].includes(animation.transitionProperty));
+  if (transition) {
+    transition.finished.then(finishWrap, finishWrap);
+  } else {
+    finishWrap();
   }
 };
+
+const refreshMediaCarouselPositions = () => {
+  [...soundCloudEpisodeLists, ...liveSetsSessionLists, ...youtubeVideoLists].forEach((list) => {
+    if (!list.clientWidth) return;
+    const activeCard = list.querySelector('[aria-current="true"]');
+    if (activeCard) setPeekCarouselPosition(list, activeCard.parentElement, true);
+  });
+};
+
+window.addEventListener('cidirilk:tabchange', refreshMediaCarouselPositions);
+window.addEventListener('resize', () => requestAnimationFrame(refreshMediaCarouselPositions), { passive: true });
 
 const setActiveSoundCloudTrack = (trackIndex, options = {}) => {
   soundCloudSourcePlayers.forEach((frame) => {
@@ -626,11 +694,7 @@ const setActiveSoundCloudTrack = (trackIndex, options = {}) => {
         unloadPodcastCardPlayer(card);
       }
       if (active) {
-        if (options.instant && card) {
-          setPeekCarouselPosition(list, card.closest('.podcast-slide'), true);
-        } else {
-          setPeekCarouselPosition(list, card.closest('.podcast-slide'));
-        }
+        setPeekCarouselPosition(list, card.closest('.podcast-slide'), Boolean(options.instant), options.wrapDirection);
       }
     });
   });
@@ -675,18 +739,45 @@ const movePodcastCarousel = (direction) => {
   const wrapsAround =
     (direction < 0 && currentIndex === 0) ||
     (direction > 0 && currentIndex === buttons.length - 1);
-  setActiveSoundCloudTrack(nextIndex, { instant: wrapsAround });
+  setActiveSoundCloudTrack(nextIndex, { wrapDirection: wrapsAround ? direction : 0 });
 };
 
-const formatPodcastEpisodeLabel = (track, index) => {
+const formatPodcastEpisodeLabel = (track) => {
   const title = String(track?.title || '').trim();
   const episodeMatch = title.match(/#\s*(\d+)/);
   if (episodeMatch) return `#${episodeMatch[1].padStart(3, '0')}`;
-  return `#${String(index + 1).padStart(3, '0')}`;
+  return 'Episode';
 };
 
 const formatPodcastEpisodeTitle = () => {
   return 'Your Monthly Dose';
+};
+
+const getSoundCloudTrackUrl = (track) => {
+  const permalinkUrl = String(track?.permalink_url || '').trim();
+  if (permalinkUrl) return permalinkUrl;
+  const trackId = String(track?.id || '').trim();
+  return /^\d+$/.test(trackId) ? `https://api.soundcloud.com/tracks/${trackId}` : '';
+};
+
+const resolveSoundCloudEpisode = async (track, trackIndex) => {
+  const episode = {
+    ...track,
+    trackIndex: Number.isInteger(track?.trackIndex) ? track.trackIndex : trackIndex,
+  };
+  const trackUrl = getSoundCloudTrackUrl(episode);
+  if (String(episode.title || '').trim() || !trackUrl) return episode;
+
+  try {
+    const response = await fetch(
+      `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(trackUrl)}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!response.ok) return episode;
+    const metadata = await response.json();
+    episode.title = String(metadata?.title || '').trim();
+  } catch (e) {}
+  return episode;
 };
 
 const PODCAST_ARTWORK_CACHE_KEY = 'cidirilkPodcastPlaylistArtwork';
@@ -742,6 +833,7 @@ const fetchPodcastPlaylistArtwork = async (playlistUrl) => {
 
 const preparePodcastClone = (slide) => {
   const clone = slide.cloneNode(true);
+  clone.inert = true;
   clone.classList.remove('active');
   clone.dataset.podcastClone = 'true';
   clone.setAttribute('aria-hidden', 'true');
@@ -749,7 +841,6 @@ const preparePodcastClone = (slide) => {
     card.classList.remove('active');
     card.dataset.podcastClone = 'true';
     card.removeAttribute('data-soundcloud-track');
-    card.removeAttribute('data-soundcloud-url');
     card.removeAttribute('role');
     card.removeAttribute('tabindex');
     card.removeAttribute('aria-label');
@@ -772,14 +863,15 @@ const addPodcastCarouselClones = (list) => {
   list.appendChild(preparePodcastClone(slides[0]));
 };
 
-const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
+const renderSoundCloudEpisodes = async (tracks, playlistArtworkUrl = '') => {
   if (!soundCloudEpisodeLists.length || !tracks?.length) return;
   const selectedIndex = Number.parseInt(soundCloudSourcePlayers[0]?.dataset.soundcloudTrackIndex || '0', 10);
   const startIndex = Math.max(0, tracks.length - MEDIA_CAROUSEL_LIMIT);
-  const visibleTracks = tracks.slice(startIndex).map((track, index) => ({
-    ...track,
-    trackIndex: Number.isInteger(track?.trackIndex) ? track.trackIndex : startIndex + index,
-  }));
+  const visibleTracks = await Promise.all(
+    tracks.slice(startIndex)
+      .map((track, index) => resolveSoundCloudEpisode(track, startIndex + index))
+      .reverse()
+  );
   const activeIndex = Math.min(Number.isNaN(selectedIndex) ? 0 : selectedIndex, visibleTracks.length - 1);
   const playlistUrl = String(soundCloudSourcePlayers[0]?.dataset.soundcloudUrl || '').trim();
   const playlistArtwork = normalizeSoundCloudArtworkUrl(playlistArtworkUrl);
@@ -793,7 +885,8 @@ const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
       const active = index === activeIndex;
       card.className = `podcast-episode${active ? ' active' : ''}`;
       card.dataset.soundcloudTrack = String(index);
-      card.setAttribute('role', 'link');
+      card.setAttribute('role', 'group');
+      card.setAttribute('aria-label', `${formatPodcastEpisodeTitle()} ${formatPodcastEpisodeLabel(track)}`);
       card.setAttribute('tabindex', '0');
       card.setAttribute('aria-current', active ? 'true' : 'false');
       if (playlistArtwork) {
@@ -801,15 +894,8 @@ const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
         card.style.setProperty('--podcast-artwork', `url("${playlistArtwork}")`);
       }
 
-      const trackUrl = String(track?.permalink_url || '').trim();
+      const trackUrl = getSoundCloudTrackUrl(track);
       const playerUrl = trackUrl || playlistUrl;
-      if (playerUrl) {
-        card.dataset.soundcloudUrl = playerUrl;
-        card.setAttribute(
-          'aria-label',
-          `Open ${formatPodcastEpisodeTitle(track, index)} ${formatPodcastEpisodeLabel(track, index)} on SoundCloud`
-        );
-      }
       const playerIndex = Number.isInteger(track?.trackIndex) ? track.trackIndex : index;
       const player = document.createElement('span');
       player.className = `podcast-episode-player${active ? ' is-loading-preview' : ' is-unloaded'}`;
@@ -818,17 +904,14 @@ const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
       if (playerUrl) {
         const iframe = document.createElement('iframe');
         iframe.className = 'podcast-card-frame';
-        iframe.title = `${formatPodcastEpisodeLabel(track, index)} SoundCloud preview`;
-        iframe.loading = 'lazy';
+        iframe.title = `${formatPodcastEpisodeLabel(track)} SoundCloud preview`;
+        iframe.loading = 'eager';
         iframe.scrolling = 'no';
-        iframe.allow = 'autoplay';
+        iframe.allow = 'autoplay; encrypted-media';
         iframe.dataset.soundcloudCardFrame = '';
         iframe.dataset.soundcloudSrc = buildSoundCloudPlayerSrc(playerUrl, playerIndex, !trackUrl);
         iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
-        if (active) {
-          iframe.src = iframe.dataset.soundcloudSrc;
-          setTimeout(() => finishPodcastPreviewLoad(player), 2600);
-        }
+        // setActiveSoundCloudTrack loads the frame after the card is attached.
         player.appendChild(iframe);
       }
 
@@ -836,7 +919,7 @@ const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
       meta.className = 'podcast-episode-meta';
       const number = document.createElement('span');
       number.className = 'podcast-episode-number';
-      number.textContent = formatPodcastEpisodeLabel(track, index);
+      number.textContent = formatPodcastEpisodeLabel(track);
       meta.appendChild(number);
       card.append(meta, player);
       slide.appendChild(card);
@@ -848,27 +931,17 @@ const renderSoundCloudEpisodes = (tracks, playlistArtworkUrl = '') => {
   setActiveSoundCloudTrack(activeIndex, { instant: true });
 };
 
-soundCloudEpisodeLists.forEach((list) => {
-  list.addEventListener('click', (event) => {
-    const card = event.target.closest('.podcast-episode[data-soundcloud-url]');
-    if (!card) return;
-    window.open(card.dataset.soundcloudUrl, '_blank', 'noopener,noreferrer');
-  });
-
-  list.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') return;
-    const card = event.target.closest('.podcast-episode[data-soundcloud-url]');
-    if (!card) return;
-    event.preventDefault();
-    window.open(card.dataset.soundcloudUrl, '_blank', 'noopener,noreferrer');
-  });
-});
-
 podcastCarouselPrev?.addEventListener('click', () => movePodcastCarousel(-1));
 podcastCarouselNext?.addEventListener('click', () => movePodcastCarousel(1));
 
+let soundCloudEpisodesStarted = false;
+
 const initSoundCloudEpisodeLists = () => {
+  if (soundCloudEpisodesStarted) return;
   if (!soundCloudSourcePlayers.length || !soundCloudEpisodeLists.length) return;
+  // SoundCloud draws its waveform on a canvas; do not initialize in a hidden tab.
+  if (![...soundCloudEpisodeLists].some((list) => list.clientWidth > 0)) return;
+  soundCloudEpisodesStarted = true;
   renderSoundCloudEpisodeStatus('Getting signals from SoundCloud...', true);
   loadSoundCloudSourcePlayers();
   if (!window.SC?.Widget) {
@@ -885,7 +958,7 @@ const initSoundCloudEpisodeLists = () => {
         rendered = true;
         const playlistUrl = String(soundCloudSourcePlayers[0]?.dataset.soundcloudUrl || '').trim();
         const playlistArtworkUrl = await fetchPodcastPlaylistArtwork(playlistUrl);
-        renderSoundCloudEpisodes(tracks, playlistArtworkUrl);
+        await renderSoundCloudEpisodes(tracks, playlistArtworkUrl);
         releaseSoundCloudSourcePlayers();
       }
     });
@@ -895,6 +968,18 @@ const initSoundCloudEpisodeLists = () => {
     if (!rendered) renderSoundCloudEpisodeStatus('Still connecting to SoundCloud...');
   }, 4000);
 };
+
+window.addEventListener('cidirilk:tabchange', initSoundCloudEpisodeLists);
+window.addEventListener('resize', initSoundCloudEpisodeLists, { passive: true });
+
+const loadVisiblePodcastPreview = () => {
+  soundCloudEpisodeLists.forEach((list) => {
+    const card = list.querySelector('.podcast-episode.active');
+    if (card) loadPodcastCardPlayer(card);
+  });
+};
+window.addEventListener('cidirilk:tabchange', loadVisiblePodcastPreview);
+window.addEventListener('resize', loadVisiblePodcastPreview, { passive: true });
 
 const setTheme = (mode) => {
   root.setAttribute('data-theme', mode);
@@ -1697,7 +1782,11 @@ const loadYoutubeCardPlayer = (card, autoplay = false) => {
   const frame = card?.querySelector('[data-youtube-frame]');
   const player = card?.querySelector('[data-youtube-player]');
   if (!frame || frame.getAttribute('src')) return;
-  frame.src = autoplay ? frame.dataset.youtubeAutoplaySrc || '' : frame.dataset.youtubeSrc || '';
+  const src = autoplay ? frame.dataset.youtubeAutoplaySrc : frame.dataset.youtubeSrc;
+  if (!src) return;
+  const embedUrl = new URL(src);
+  if (window.location.origin !== 'null') embedUrl.searchParams.set('origin', window.location.origin);
+  frame.src = embedUrl.toString();
   player?.classList.add('is-loaded');
 };
 
@@ -1718,7 +1807,7 @@ const setActiveYoutubeVideo = (videoIndex, options = {}) => {
       card.setAttribute('aria-current', active ? 'true' : 'false');
       card.tabIndex = active ? 0 : -1;
       if (active) {
-        setPeekCarouselPosition(list, card.closest('.youtube-slide'), Boolean(options.instant));
+        setPeekCarouselPosition(list, card.closest('.youtube-slide'), Boolean(options.instant), options.wrapDirection);
       } else {
         unloadYoutubeCardPlayer(card);
       }
@@ -1744,11 +1833,7 @@ const setActiveLiveSetsSession = (sessionIndex, options = {}) => {
         return;
       }
 
-      if (options.instant) {
-        setPeekCarouselPosition(list, card.closest('.sessions-slide'), true);
-      } else {
-        setPeekCarouselPosition(list, card.closest('.sessions-slide'));
-      }
+      setPeekCarouselPosition(list, card.closest('.sessions-slide'), Boolean(options.instant), options.wrapDirection);
     });
   });
 };
@@ -1800,9 +1885,9 @@ const loadLiveSetsCardPlayer = async (card) => {
 };
 
 const playLiveSetsCard = async (card) => {
-  if (!card || !card.classList.contains('active')) return;
+  if (!card || !card.classList.contains('active') || card.classList.contains('is-loading-session')) return;
   const audio = await loadLiveSetsCardPlayer(card);
-  if (!audio) return;
+  if (!audio || !card.classList.contains('active')) return;
 
   getLiveSetsSessionCards().forEach((otherCard) => {
     if (otherCard !== card) pauseLiveSetsCardPlayer(otherCard);
@@ -1810,8 +1895,12 @@ const playLiveSetsCard = async (card) => {
 
   try {
     await audio.play();
+    setLiveSetsCardPlayerState(card, 'is-ready');
     card.classList.add('is-playing-session');
-  } catch (error) {}
+  } catch (error) {
+    if (error.name === 'AbortError' || !card.classList.contains('active')) return;
+    setLiveSetsCardPlayerState(card, 'has-error', 'Playback could not start. Try Play session again.');
+  }
 };
 
 const prepareLiveSetsSessionClone = (slide) => {
@@ -1897,10 +1986,7 @@ const renderYoutubeVideos = () => {
       const source = document.createElement('span');
       source.className = 'youtube-card-source';
       source.textContent = 'YouTube';
-      const count = document.createElement('span');
-      count.className = 'youtube-card-count';
-      count.textContent = `${String(index + 1).padStart(2, '0')} / ${String(YOUTUBE_VIDEOS.length).padStart(2, '0')}`;
-      top.append(source, count);
+      top.append(source);
 
       const player = document.createElement('span');
       player.className = 'youtube-card-player';
@@ -1910,6 +1996,7 @@ const renderYoutubeVideos = () => {
       frame.className = 'youtube-card-frame';
       frame.title = `${video.title} YouTube video`;
       frame.loading = 'lazy';
+      frame.referrerPolicy = 'strict-origin-when-cross-origin';
       frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
       frame.allowFullscreen = true;
       frame.dataset.youtubeFrame = '';
@@ -2046,7 +2133,7 @@ const moveLiveSetsSessions = (direction) => {
   const wrapsAround =
     (direction < 0 && currentIndex === 0) ||
     (direction > 0 && currentIndex === cards.length - 1);
-  setActiveLiveSetsSession(nextIndex, { instant: wrapsAround });
+  setActiveLiveSetsSession(nextIndex, { wrapDirection: wrapsAround ? direction : 0 });
 };
 
 const moveYoutubeCarousel = (direction) => {
@@ -2057,7 +2144,7 @@ const moveYoutubeCarousel = (direction) => {
   const wrapsAround =
     (direction < 0 && currentIndex === 0) ||
     (direction > 0 && currentIndex === cards.length - 1);
-  setActiveYoutubeVideo(nextIndex, { instant: wrapsAround });
+  setActiveYoutubeVideo(nextIndex, { wrapDirection: wrapsAround ? direction : 0 });
 };
 
 liveSetsSessionLists.forEach((list) => {
