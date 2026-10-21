@@ -1,0 +1,71 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R /F3 7 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 2246 >>
+stream
+0.051 0.043 0.102 rg 0 713.89 595.28 128 re f
+0.757 0.455 1.000 rg 0 709.89 595.28 4 re f
+1.000 1.000 1.000 rg BT /F2 26 Tf 56.00 779.89 Td (CIDIRILK) Tj ET
+0.890 0.800 1.000 rg BT /F3 12 Tf 56.00 749.89 Td (TECHNICAL RIDER) Tj ET
+0.890 0.800 1.000 rg BT /F1 11 Tf 442.81 749.89 Td (cidirilk@gmail.com) Tj ET
+0.310 0.310 0.337 rg BT /F1 11 Tf 56.00 665.89 Td (Please confirm availability of the setup below before the event. Anything that can't be) Tj ET
+0.310 0.310 0.337 rg BT /F1 11 Tf 56.00 649.89 Td (provided: let me know in advance so we can agree an alternative.) Tj ET
+0.427 0.157 0.851 rg BT /F3 9.5 Tf 56.00 613.89 Td (MIXER) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 613.89 Td (Allen & Heath Xone:96) Tj ET
+0.851 0.812 0.941 rg 56 596.89 483.28 0.6 re f
+0.427 0.157 0.851 rg BT /F3 9.5 Tf 56.00 578.89 Td (CONTROLLERS) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 578.89 Td (2 × Allen & Heath Xone:K2, connected over X:LINK: Xone:96 to) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 561.89 Td (Xone:K2 #1, then Xone:K2 #1 to Xone:K2 #2) Tj ET
+0.851 0.812 0.941 rg 56 544.89 483.28 0.6 re f
+0.427 0.157 0.851 rg BT /F3 9.5 Tf 56.00 526.89 Td (MONITORING) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 526.89 Td (2 × powered booth monitors, fed from the Xone:96 booth) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 509.89 Td (output, at ear height and facing the DJ) Tj ET
+0.851 0.812 0.941 rg 56 492.89 483.28 0.6 re f
+0.427 0.157 0.851 rg BT /F3 9.5 Tf 56.00 474.89 Td (BOOTH) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 474.89 Td (Sturdy, level DJ table, 110-120 cm high \(the artist is 1.85 m) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 457.89 Td (tall\), isolated from speaker and dance-floor vibration) Tj ET
+0.851 0.812 0.941 rg 56 440.89 483.28 0.6 re f
+0.427 0.157 0.851 rg BT /F3 9.5 Tf 56.00 422.89 Td (LAPTOP) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 422.89 Td (Space beside the mixer for a laptop, which runs the Xone:K2) Tj ET
+0.020 0.020 0.020 rg BT /F1 12 Tf 176.00 405.89 Td (controllers) Tj ET
+0.851 0.812 0.941 rg 56 72 483.28 0.6 re f
+0.310 0.310 0.337 rg BT /F1 9.5 Tf 56.00 54.00 Td (Bookings: cidirilk@gmail.com) Tj ET
+0.310 0.310 0.337 rg BT /F1 9.5 Tf 487.31 54.00 Td (cidirilk.com) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>
+endobj
+8 0 obj
+<< /Title (CIDIRILK Technical rider) /Author (CIDIRILK) >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000267 00000 n 
+0000002565 00000 n 
+0000002662 00000 n 
+0000002764 00000 n 
+0000002864 00000 n 
+trailer
+<< /Size 9 /Root 1 0 R /Info 8 0 R >>
+startxref
+2938
+%%EOF

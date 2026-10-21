@@ -1,0 +1,6196 @@
+/* ==========================================================================
+   CIDIRILK 3000 — redesign layer
+   Loaded after main.css. Restyles existing components only: no selectors,
+   data-attributes or JS hooks from main.css / script.js are removed, so every
+   tab, carousel, player, modal, chat and radio widget keeps working.
+   Desktop console layout lives in the (min-width: 1025px) block; shared
+   polish applies to every width; light theme keeps its own palette.
+   ========================================================================== */
+
+:root {
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --rd-radius-xl: 28px;
+  --rd-radius-lg: 20px;
+  --rd-radius-md: 14px;
+  --rd-glass: linear-gradient(160deg, rgba(28, 20, 52, 0.62), rgba(13, 11, 26, 0.78));
+  --rd-glass-border: rgba(176, 132, 255, 0.18);
+  --rd-glass-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 30px 60px -30px rgba(0, 0, 0, 0.8);
+  /* Owner choice: the mockup gradient, in both themes */
+  --rd-primary-grad: linear-gradient(135deg, #c174ff, #8945ff);
+  --rd-primary-grad-hover: linear-gradient(135deg, #cd8cff, #9655ff);
+  --rd-primary-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset, 0 10px 30px -8px rgba(193, 116, 255, 0.6);
+  --rd-feature-bg: radial-gradient(80% 80% at 100% 0%, rgba(193, 116, 255, 0.4), transparent 60%),
+    linear-gradient(160deg, #1b1236, #0a0716);
+}
+
+[data-theme='light'] {
+  --rd-glass: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(248, 246, 255, 0.86));
+  --rd-glass-border: rgba(123, 45, 255, 0.18);
+  --rd-glass-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 24px 50px -28px rgba(70, 30, 140, 0.35);
+  --rd-feature-bg: radial-gradient(80% 80% at 100% 0%, rgba(155, 69, 255, 0.16), transparent 60%),
+    linear-gradient(160deg, #ffffff, #f4efff);
+}
+
+/* --------------------------------------------------------------------------
+   Hero text
+   -------------------------------------------------------------------------- */
+.profile-text .eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  padding: 0.55rem 0.95rem;
+  margin-bottom: 1.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-neon) 35%, transparent);
+  background: color-mix(in srgb, var(--accent-neon) 7%, transparent);
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  color: color-mix(in srgb, var(--accent-neon) 55%, var(--text));
+  white-space: nowrap;
+}
+
+.profile-text h1,
+[data-theme='light'] .profile-text h1 {
+  font-size: clamp(2.5rem, 4.6vw, 4.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  margin: 0 0 1.5rem;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  color: var(--text);
+  animation: none;
+  filter: none;
+}
+
+.profile-text h1 .h1-accent {
+  display: block;
+  background: linear-gradient(120deg, #f4f0ff 0%, #d9b8ff 45%, #c174ff 75%, #8945ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 26px rgba(193, 116, 255, 0.35));
+}
+
+[data-theme='light'] .profile-text h1 .h1-accent {
+  background-image: linear-gradient(120deg, #1d1330 0%, #5a2db0 55%, #9b45ff 100%);
+  filter: none;
+}
+
+.profile-text .lede {
+  border-left: 0;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-size: clamp(1rem, 1.25vw, 1.15rem);
+  line-height: 1.65;
+  font-weight: 400;
+  color: color-mix(in srgb, var(--text) 86%, var(--accent-neon) 14%);
+  max-width: 34em;
+}
+
+.profile-text .lede + p {
+  font-style: italic;
+  color: var(--muted);
+  max-width: 36em;
+}
+
+/* --------------------------------------------------------------------------
+   Panels: headings, kickers, descriptions (all widths)
+   -------------------------------------------------------------------------- */
+.profile-cards .info-card h3,
+.tab-panel h3 {
+  font-size: clamp(1.5rem, 2.2vw, 1.9rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 0.4rem;
+}
+
+.profile-cards .info-card h3::after,
+.tab-panel h3::after {
+  display: none;
+}
+
+.tab-panel .section-description,
+.tab-panel .archive-hint {
+  font-size: 0.92rem;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+.event-date,
+.event-id,
+.shop-price,
+.shop-detail,
+.upcoming-event-tag,
+.upcoming-event-date .date-month {
+  font-family: var(--font-mono);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons (dark theme keeps neon primary as solid violet gradient)
+   -------------------------------------------------------------------------- */
+html:not([data-theme='light']) .btn:not(.ghost) {
+  background: var(--rd-primary-grad);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: var(--rd-primary-shadow);
+}
+
+html:not([data-theme='light']) .btn:not(.ghost):hover {
+  background: var(--rd-primary-grad-hover);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 14px 34px -8px rgba(193, 116, 255, 0.75);
+}
+
+html:not([data-theme='light']) .btn.ghost {
+  background: rgba(193, 116, 255, 0.06);
+  border-color: rgba(193, 116, 255, 0.35);
+  box-shadow: none;
+}
+
+html:not([data-theme='light']) .btn.ghost:hover {
+  background: rgba(193, 116, 255, 0.14);
+  border-color: rgba(213, 155, 255, 0.7);
+  box-shadow: none;
+}
+
+.btn {
+  letter-spacing: 0.12em;
+  min-height: 44px;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+/* --------------------------------------------------------------------------
+   Cards inside panels (glass, larger radius)
+   -------------------------------------------------------------------------- */
+html:not([data-theme='light']) .event-link,
+html:not([data-theme='light']) .upcoming-event-card {
+  background: var(--rd-feature-bg);
+  border: 1px solid rgba(193, 116, 255, 0.3);
+}
+
+.event-link,
+.upcoming-event-card,
+.collab-card,
+.shop-item,
+.sessions-card,
+.podcast-episode,
+.youtube-card,
+.guide-card {
+  border-radius: var(--rd-radius-lg);
+}
+
+.event-name {
+  letter-spacing: -0.01em;
+}
+
+/* Shop: keep titles from breaking letter-by-letter in narrow slides */
+.shop-item h4 {
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: manual;
+  min-width: 0;
+}
+
+.carousel-btn {
+  border-radius: 50%;
+}
+
+html:not([data-theme='light']) .carousel-dot.active {
+  background: var(--accent-neon);
+  box-shadow: 0 0 10px rgba(193, 116, 255, 0.6);
+}
+
+/* Subscribe form */
+.subscribe-box input[type='email'] {
+  min-height: 52px;
+  border-radius: var(--rd-radius-md);
+  font-size: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   Desktop console (tabbed) — ≥1025px
+   -------------------------------------------------------------------------- */
+@media (min-width: 1025px) {
+  .profile-layout {
+    max-width: 1320px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 640px);
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: center;
+  }
+
+  /* Console shell around tabs + panels */
+  .profile-cards {
+    padding: 10px;
+    gap: 10px;
+    border-radius: var(--rd-radius-xl);
+    background: var(--rd-glass);
+    border: 1px solid var(--rd-glass-border);
+    box-shadow: var(--rd-glass-shadow);
+    backdrop-filter: blur(16px) saturate(120%);
+    -webkit-backdrop-filter: blur(16px) saturate(120%);
+  }
+
+  .profile-cards::before {
+    display: none;
+  }
+
+  /* Labelled tab bar */
+  .card-tabs,
+  [data-theme='light'] .card-tabs {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: 4px;
+    padding: 4px;
+    border-radius: var(--rd-radius-lg);
+    border: 1px solid rgba(176, 132, 255, 0.12);
+    background: rgba(7, 6, 15, 0.55);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  [data-theme='light'] .card-tabs {
+    background: #f2eefb;
+    border-color: rgba(123, 45, 255, 0.12);
+  }
+
+  .tab-button,
+  [data-theme='light'] .tab-button {
+    height: 70px;
+    padding: 0 2px;
+    flex-direction: column;
+    gap: 0.45rem;
+    border: 0;
+    border-radius: var(--rd-radius-md);
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    color: var(--muted);
+    font-size: 0.64rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-transform: none;
+  }
+
+  .tab-icon {
+    font-size: 1.05rem;
+    color: inherit;
+  }
+
+  .tab-label {
+    display: block;
+    position: relative;
+    z-index: 1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tab-button::after {
+    display: none;
+  }
+
+  .tab-button:hover:not(.active),
+  [data-theme='light'] .tab-button:hover:not(.active) {
+    background: rgba(193, 116, 255, 0.1);
+    color: var(--text);
+  }
+
+  .tab-button.active,
+  [data-theme='light'] .tab-button.active {
+    background: var(--rd-primary-grad);
+    color: #ffffff;
+    font-weight: 600;
+    border: 0;
+    box-shadow: var(--rd-primary-shadow);
+    transform: none;
+  }
+
+  .tab-button.active .tab-icon,
+  [data-theme='light'] .tab-button.active .tab-icon {
+    color: #ffffff;
+    transform: none;
+  }
+
+  /* Panels sit flat inside the console */
+  .profile-cards .info-card,
+  [data-theme='light'] .profile-cards .info-card {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding: 1.25rem 0.95rem 0.95rem;
+  }
+
+  .profile-cards .info-card::before {
+    display: none;
+  }
+
+  .profile-cards .info-card:hover {
+    box-shadow: none;
+  }
+
+}
+
+/* --------------------------------------------------------------------------
+   Desktop single-screen layout — ≥1025px (merged: layout + refinements)
+   The whole page fits the viewport: no vertical page scroll. Hero sizing
+   scales with viewport height; the console panel has a fixed height per
+   viewport so it never moves between tabs, and long panel content scrolls
+   inside its own panel.
+   -------------------------------------------------------------------------- */
+@media (min-width: 1025px) {
+  main {
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  #home.profile {
+    height: 100%;
+    min-height: 0;
+    padding: clamp(0.75rem, 3vh, 2.5rem) clamp(1.5rem, 5vw, 5rem);
+  }
+
+  /* Balanced grid — console column scales with viewport width */
+  .profile-layout {
+    height: 100%;
+    max-height: 100%;
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) clamp(540px, 44vw, 640px);
+    column-gap: clamp(2rem, 4vw, 4.5rem);
+  }
+
+  .profile-text {
+    max-height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    justify-content: safe center;
+  }
+
+  .profile-text > * {
+    flex-shrink: 0;
+  }
+
+  .profile-text .eyebrow {
+    margin-bottom: clamp(0.6rem, 2vh, 1.4rem);
+  }
+
+  .profile-text h1,
+  [data-theme='light'] .profile-text h1 {
+    font-size: clamp(2rem, min(4.2vw, 6vh), 4.4rem);
+    text-wrap: balance;
+    margin-bottom: clamp(0.6rem, 2vh, 1.5rem);
+  }
+
+  .profile-text .lede {
+    font-size: clamp(0.92rem, 1.9vh, 1.12rem);
+    line-height: 1.55;
+    margin-bottom: clamp(0.4rem, 1.2vh, 0.8rem);
+  }
+
+  .profile-text .lede + p {
+    font-size: clamp(0.85rem, 1.7vh, 1rem);
+    line-height: 1.5;
+    margin-bottom: 0;
+  }
+
+  .profile-text p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Console: fixed panel height so the card never jumps between tabs */
+  .profile-cards {
+    max-height: 100%;
+  }
+
+  .tab-panel {
+    min-height: 0;
+    flex: 0 0 auto;
+    height: clamp(340px, calc(100dvh - 360px), 540px);
+    max-height: none;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(193, 116, 255, 0.35) transparent;
+  }
+
+  [data-theme='light'] .tab-panel {
+    scrollbar-color: rgba(122, 45, 255, 0.35) transparent;
+  }
+
+  .tab-panel::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .tab-panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .tab-panel::-webkit-scrollbar-thumb {
+    background: rgba(193, 116, 255, 0.35);
+    border-radius: 3px;
+  }
+
+  [data-theme='light'] .tab-panel::-webkit-scrollbar-thumb {
+    background: rgba(122, 45, 255, 0.35);
+  }
+
+  /* Tab bar sized by content so no label truncates */
+  .card-tabs,
+  [data-theme='light'] .card-tabs {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(max-content, 1fr);
+    gap: 2px;
+  }
+
+  .tab-button,
+  [data-theme='light'] .tab-button {
+    padding: 0 3px;
+    min-width: 0;
+  }
+
+  .tab-label {
+    font-size: 0.68rem;
+    letter-spacing: 0;
+    text-overflow: clip;
+  }
+
+  /* Tighter panel chrome so carousels fit without inner scroll */
+  .tab-panel .carousel-dots {
+    margin-top: 0.5rem;
+  }
+
+  .tab-panel > h3,
+  .tab-panel > .sessions-header,
+  .tab-panel > .podcast-header,
+  .tab-panel > .youtube-header,
+  .tab-panel > .shop-head {
+    margin-bottom: 0.75rem;
+  }
+
+  /* Live radio panel never runs off the top of short screens */
+  .live-popup-content {
+    max-height: calc(100dvh - 40px - 60px - 12px - 24px);
+    overflow-y: auto;
+  }
+}
+
+/* Short desktop windows (≤820px tall, e.g. 1366x768, 1280x720) */
+@media (min-width: 1025px) and (max-height: 820px) {
+  /* Keep the hero stats clear of the bottom-left chat button */
+  .profile-text {
+    padding-bottom: 56px;
+  }
+
+  /* Pin the console to the top so its bottom edge clears the fixed
+     chat button and live radio button (bottom-right) */
+  .profile-cards {
+    align-self: start;
+  }
+
+  /* Short screens: slimmer tab bar and carousels so the fixed-height panel
+     shows its carousel + dots without scrolling, and the console bottom
+     clears the live radio button */
+  #home.profile {
+    padding-top: 0.75rem;
+  }
+
+  .tab-button,
+  [data-theme='light'] .tab-button {
+    height: 58px;
+    gap: 0.3rem;
+  }
+
+  .tab-panel {
+    height: calc(100dvh - 310px);
+  }
+
+  .tab-panel :is(.sessions-carousel, .podcast-carousel, .youtube-carousel, .carousel:not(.guide-carousel), .shop-carousel) {
+    --carousel-card-height: clamp(180px, 25vh, 205px);
+  }
+}
+
+/* Very short: compact panel headers so carousels + dots fit unscrolled */
+@media (min-width: 1025px) and (max-height: 760px) {
+  .tab-panel > h3,
+  .tab-panel > .sessions-header,
+  .tab-panel > .podcast-header,
+  .tab-panel > .youtube-header,
+  .tab-panel > .shop-head {
+    margin-bottom: 0.5rem;
+  }
+
+  .tab-panel h3,
+  .profile-cards .info-card h3 {
+    font-size: 1.1rem;
+  }
+}
+
+/* Tall desktop screens — give the console more room */
+@media (min-width: 1025px) and (min-height: 1000px) {
+  .profile-cards {
+    align-self: center;
+  }
+
+  .tab-panel {
+    height: 600px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Light theme: primary / secondary buttons and accent contrast (D6, D7)
+   -------------------------------------------------------------------------- */
+[data-theme='light'] .btn:not(.ghost) {
+  background: var(--rd-primary-grad);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(138, 92, 255, 0.28);
+}
+
+[data-theme='light'] .btn:not(.ghost):hover {
+  background: var(--rd-primary-grad-hover);
+  color: #ffffff;
+  border-color: transparent;
+  filter: none;
+  box-shadow: 0 8px 22px rgba(138, 92, 255, 0.36);
+}
+
+[data-theme='light'] .btn.ghost,
+[data-theme='light'] .btn.ghost:hover {
+  background: #ffffff;
+  color: #5a2d91;
+  border: 1px solid rgba(138, 92, 255, 0.45);
+}
+
+[data-theme='light'] .btn.ghost:hover {
+  border-color: rgba(138, 92, 255, 0.8);
+}
+
+.btn.compact {
+  font-size: max(0.75rem, 12px);
+}
+
+[data-theme='light'] .upcoming-event-tag {
+  color: #6d28d9;
+}
+
+/* Gradient accents never fade lighter than #8a5cff on light surfaces */
+[data-theme='light'] .info-card h3 {
+  background-image: linear-gradient(135deg, var(--text) 60%, #7a2fe0 100%);
+}
+
+[data-theme='light'] .profile-text h1 .h1-accent {
+  background-image: linear-gradient(120deg, #1d1330 0%, #5a2db0 55%, #7a2fe0 100%);
+}
+
+/* --------------------------------------------------------------------------
+   Light theme: carousel card text (R1) and small purple labels (R4)
+   -------------------------------------------------------------------------- */
+[data-theme='light'] .sessions-card {
+  color: #1a1033;
+  background: linear-gradient(135deg, #f6efff, #efe6ff);
+  border-color: rgba(122, 45, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+[data-theme='light'] .sessions-card:hover,
+[data-theme='light'] .sessions-card:focus-visible {
+  box-shadow: 0 8px 18px rgba(123, 45, 255, 0.14);
+}
+
+[data-theme='light'] .sessions-card::after {
+  opacity: 0.14;
+}
+
+[data-theme='light'] .sessions-card-title {
+  color: #1a1033;
+}
+
+[data-theme='light'] .sessions-card-meta,
+[data-theme='light'] .sessions-card-chip,
+[data-theme='light'] .sessions-card-chip i,
+[data-theme='light'] .sessions-card-duration,
+[data-theme='light'] .sessions-card-player-status {
+  color: #4b3a6b;
+}
+
+[data-theme='light'] .sessions-card-chip {
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(138, 92, 255, 0.1);
+  border: 1px solid rgba(138, 92, 255, 0.25);
+}
+
+[data-theme='light'] :is(.event-tag, .event-tag.chacha, .guide-card-category, .podcast-episode-number, .youtube-card-source, .sessions-card-source, .shop-status) {
+  color: #6d28d9;
+}
+
+[data-theme='light'] .sessions-card-source {
+  background: rgba(109, 40, 217, 0.08);
+  border-color: rgba(109, 40, 217, 0.28);
+}
+
+/* Turnstile slot reads as a placeholder until the widget renders (D4) */
+.subscribe-turnstile {
+  min-height: 65px;
+  border-radius: 10px;
+  background: color-mix(in srgb, rgba(176, 132, 255, 0.12) 60%, transparent);
+}
+
+[data-theme='light'] .subscribe-turnstile {
+  background: rgba(122, 45, 255, 0.05);
+}
+
+/* --------------------------------------------------------------------------
+   Tablet + phone bottom nav (R2) — icon-only items at every width ≤1024px.
+   main.css' '.socials-card .social-links a' (stacked desktop layout with
+   visible labels) otherwise out-specifies the mobile rules at 641–1024px.
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  :root {
+    --bottom-nav-h: 72px;
+  }
+
+  .socials-card .social-links,
+  .socials-card .social-links.is-stacked {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    flex-direction: row;
+    gap: 0.55rem;
+    max-width: 430px;
+    margin: 0 auto;
+  }
+
+  .socials-card .social-links a,
+  .socials-card .social-links.is-stacked a {
+    width: 100%;
+    height: 52px;
+    min-width: 0;
+    min-height: 48px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .socials-card .social-links a i {
+    width: auto;
+    flex: 0 0 auto;
+  }
+
+  /* Label stays in the DOM (JS updates it) — visually hidden only */
+  .socials-card .social-links a .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Production bottom bar stays flush (0 inset) at all times: it never runs
+     the tabPanelReveal entrance (scale .98 + 18px) that read as a floating dock */
+  .profile-cards .socials-card,
+  .profile-cards .socials-card.active {
+    animation: none;
+    transform: none;
+    margin: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Desktop shell — mockup match (≥1025px): header lockup + controls, hero
+   rhythm, tab bar states, numbered panel headers, floating buttons.
+   No hero orb (owner decision): the header logo is the only planet.
+   -------------------------------------------------------------------------- */
+@media (min-width: 1025px) {
+  /* Header: glass bar; logo and theme button sit on the same 1.5rem edge
+     lines as the floating chat (left) and radio (right) buttons */
+  .site-header {
+    padding-inline: 1.5rem;
+    background: color-mix(in srgb, var(--bg) 60%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom-color: rgba(176, 132, 255, 0.12);
+  }
+
+  [data-theme='light'] .site-header {
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    border-bottom-color: rgba(123, 45, 255, 0.12);
+  }
+
+  .logo {
+    gap: 0.75rem;
+  }
+
+  /* Production size (cidirilk.com): 42px planet + 1.32rem wordmark; the
+     mockup's 18px wordmark read too small on large screens */
+  .logo-symbol {
+    width: 42px;
+    height: 42px;
+    filter: drop-shadow(0 0 7px rgba(155, 69, 255, 0.6));
+  }
+
+  .logo-text {
+    font-size: 1.32rem;
+    letter-spacing: 0.42em;
+    text-shadow: 0 0 10px rgba(155, 69, 255, 0.45);
+  }
+
+  /* Header control: round ghost glass, matching the floating chat/radio buttons */
+  .header-actions .theme-toggle {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(13, 11, 26, 0.85);
+    border: 1px solid rgba(193, 116, 255, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 30px -10px rgba(137, 69, 255, 0.55);
+    color: #e3ccff;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease,
+      border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .header-actions .theme-toggle::before {
+    border-radius: inherit;
+  }
+
+  .header-actions .theme-toggle:hover {
+    transform: translateY(-2px);
+    background: rgba(30, 22, 56, 0.9);
+    border-color: #d59bff;
+    box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 12px 30px rgba(137, 69, 255, 0.45),
+      0 0 24px rgba(193, 116, 255, 0.35);
+  }
+
+  [data-theme='light'] .header-actions .theme-toggle,
+  [data-theme='light'] .header-actions .theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.92);
+    color: #3b1d6e;
+    border: 1px solid rgba(122, 45, 255, 0.45);
+    box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 8px 22px rgba(123, 45, 255, 0.16);
+  }
+
+  [data-theme='light'] .header-actions .theme-toggle:hover {
+    border-color: var(--color-primary-strong);
+    box-shadow: 0 8px 20px rgba(123, 45, 255, 0.16);
+  }
+
+  /* Hero: mockup scale (68px h1 on tall screens), tighter stats rhythm */
+  .profile-text h1,
+  [data-theme='light'] .profile-text h1 {
+    font-size: clamp(2.25rem, min(4.4vw, 6.4vh), 4.25rem);
+    font-weight: 600;
+  }
+
+  .profile-text .eyebrow {
+    color: #e3ccff;
+    border-color: rgba(176, 132, 255, 0.25);
+    background: rgba(193, 116, 255, 0.06);
+  }
+
+  [data-theme='light'] .profile-text .eyebrow {
+    color: #5a2db0;
+    border-color: rgba(122, 45, 255, 0.28);
+    background: rgba(122, 45, 255, 0.06);
+  }
+
+  /* Tab bar: equal 4px rhythm, smooth idle/hover/active, visible focus */
+  .card-tabs,
+  [data-theme='light'] .card-tabs {
+    gap: 4px;
+  }
+
+  .tab-button,
+  [data-theme='light'] .tab-button {
+    transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .tab-button .tab-icon {
+    font-size: 1.125rem;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .tab-button:hover:not(.active) .tab-icon {
+    transform: translateY(-2px);
+  }
+
+  .tab-button:focus-visible {
+    outline: 2px solid var(--accent-neon);
+    outline-offset: -2px;
+  }
+
+  [data-theme='light'] .tab-button:hover:not(.active) {
+    background: rgba(122, 45, 255, 0.08);
+    color: #050505;
+  }
+
+  /* Panel header pattern: mono label above a plain 30px heading (no numbering, as on mobile) */
+  .tab-panel[data-panel='subscribe'] { --rd-panel-num: 'NEWSLETTER'; }
+  .tab-panel[data-panel='sessions'] { --rd-panel-num: 'LIVESETS'; }
+  .tab-panel[data-panel='events'] { --rd-panel-num: 'ARCHIVE'; }
+  .tab-panel[data-panel='podcast'] { --rd-panel-num: 'SOUNDCLOUD'; }
+  .tab-panel[data-panel='youtube'] { --rd-panel-num: 'VIDEO'; }
+  .tab-panel[data-panel='collab'] { --rd-panel-num: 'COLLECTIVES'; }
+  .tab-panel[data-panel='shop'] { --rd-panel-num: 'SHOP'; }
+  .tab-panel[data-panel='guides'] { --rd-panel-num: 'DJ GUIDES'; }
+  .tab-panel[data-panel='social'] { --rd-panel-num: 'CHANNELS'; }
+
+  .profile-cards .tab-panel.info-card::before {
+    content: var(--rd-panel-num, none);
+    display: block;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0 0 0.45rem;
+    background: none;
+    opacity: 1;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    line-height: 1.2;
+    color: var(--accent-neon);
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel.info-card::before {
+    color: #6d28d9;
+  }
+
+  .profile-cards .tab-panel > h3,
+  .profile-cards .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header, .shop-head) > h3,
+  [data-theme='light'] .profile-cards .tab-panel > h3,
+  [data-theme='light'] .profile-cards .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header, .shop-head) > h3 {
+    font-size: clamp(1.5rem, 2.1vw, 1.875rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: var(--text);
+  }
+
+  .tab-panel > :is(.section-description, .archive-hint),
+  .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header) > .section-description {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  /* Optional right-side chip (Artifacts "Preview") */
+  .tab-panel > .shop-head {
+    align-items: flex-end;
+  }
+
+  .tab-panel > .shop-head .shop-status {
+    min-height: 0;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(193, 116, 255, 0.5);
+    background: transparent;
+    color: #e3ccff;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+  }
+
+  [data-theme='light'] .tab-panel > .shop-head .shop-status {
+    border-color: rgba(109, 40, 217, 0.45);
+    color: #6d28d9;
+  }
+
+  /* Panel scroll area: mockup thin violet scrollbar */
+  .tab-panel {
+    scrollbar-color: rgba(193, 116, 255, 0.5) transparent;
+  }
+
+  .tab-panel::-webkit-scrollbar-thumb {
+    background: rgba(193, 116, 255, 0.5);
+  }
+
+  /* Floating chat + radio: production round icons in mockup ghost glass */
+  .chat-toggle,
+  .live-popup.is-collapsed:not(.is-live) {
+    background: rgba(13, 11, 26, 0.85);
+    border-color: rgba(193, 116, 255, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 30px -10px rgba(137, 69, 255, 0.55);
+  }
+
+  .chat-toggle i,
+  .live-popup.is-collapsed:not(.is-live) .live-popup-headphones {
+    color: #e3ccff;
+  }
+
+  .chat-toggle:hover,
+  .live-popup.is-collapsed:not(.is-live):hover {
+    background: rgba(30, 22, 56, 0.9);
+    border-color: #d59bff;
+    box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.3), 0 12px 30px rgba(137, 69, 255, 0.45),
+      0 0 24px rgba(193, 116, 255, 0.35);
+  }
+
+  [data-theme='light'] .chat-toggle,
+  [data-theme='light'] .live-popup.is-collapsed:not(.is-live) {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(122, 45, 255, 0.45);
+    box-shadow: 0 1px 2px rgba(17, 12, 34, 0.06), 0 8px 22px rgba(123, 45, 255, 0.16);
+  }
+
+  [data-theme='light'] .chat-toggle i,
+  [data-theme='light'] .live-popup.is-collapsed:not(.is-live) .live-popup-headphones {
+    color: #3b1d6e;
+  }
+
+  [data-theme='light'] .chat-toggle:hover,
+  [data-theme='light'] .live-popup.is-collapsed:not(.is-live):hover {
+    background: #ffffff;
+    border-color: var(--color-primary-strong);
+  }
+}
+
+/* Short desktop windows: keep the panel header readable but compact */
+@media (min-width: 1025px) and (max-height: 760px) {
+  .profile-cards .tab-panel > h3,
+  .profile-cards .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header, .shop-head) > h3,
+  [data-theme='light'] .profile-cards .tab-panel > h3,
+  [data-theme='light'] .profile-cards .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header, .shop-head) > h3 {
+    font-size: 1.35rem;
+  }
+
+  .profile-cards .tab-panel.info-card::before {
+    margin-bottom: 0.25rem;
+  }
+
+  /* Number line costs ~16px: win it back from panel chrome */
+  .profile-cards .info-card.tab-panel,
+  [data-theme='light'] .profile-cards .info-card.tab-panel {
+    padding-top: 0.6rem;
+  }
+
+  .profile-cards .tab-panel > h3,
+  .profile-cards .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header, .shop-head) > h3 {
+    margin-bottom: 0.2rem;
+  }
+
+  .tab-panel > :is(.section-description, .archive-hint),
+  .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header) > .section-description {
+    margin-bottom: 0.55rem;
+  }
+}
+
+@media (min-width: 1025px) and (prefers-reduced-motion: reduce) {
+  .tab-button .tab-icon,
+  .header-actions .theme-toggle {
+    transition: none;
+  }
+
+  .tab-button:hover:not(.active) .tab-icon,
+  .header-actions .theme-toggle:hover {
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Console panels — mockup match (>=1025px): Channels rows, Sessions featured
+   card, Monthly Dose player card, YouTube cards, Stay Tuned event + form.
+   Real widgets (carousels, SoundCloud/YouTube/LiveSets players) untouched;
+   only their visual shell changes.
+   -------------------------------------------------------------------------- */
+.channel-meta {
+  display: none;
+}
+
+@media (min-width: 1025px) {
+  /* Hero rhythm: one 26px-style gap between blocks, centred on the console */
+  .profile-layout {
+    height: auto;
+    align-content: start;
+    align-items: center;
+  }
+
+  .profile-cards {
+    align-self: center;
+  }
+
+  .profile-text {
+    gap: clamp(14px, 2.9vh, 26px);
+  }
+
+  .profile-text > .eyebrow,
+  .profile-text > h1,
+  [data-theme='light'] .profile-text > h1,
+  .profile-text > p,
+  .profile-text > .lede {
+    margin: 0;
+  }
+
+  /* Tab bar: mockup 10px labels so the 9 tabs share the width evenly;
+     max-content stays the floor so no label is ever clipped */
+  .tab-label {
+    font-size: 10px;
+    letter-spacing: -0.01em;
+  }
+
+  .tab-button,
+  [data-theme='light'] .tab-button {
+    padding: 0;
+  }
+
+  .tab-button .tab-icon {
+    width: 1.25em;
+    text-align: center;
+  }
+
+  /* ---- Channels: icon tile + name + mono meta + arrow ------------------ */
+  .profile-cards .socials-card .social-links {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 0.25rem;
+  }
+
+  .profile-cards .socials-card .social-links a {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 14px;
+    row-gap: 2px;
+    align-items: center;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    padding: 12px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(176, 132, 255, 0.2);
+    background: rgba(7, 6, 15, 0.45);
+    box-shadow: none;
+    color: var(--text);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .profile-cards .socials-card .social-links a i {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(193, 116, 255, 0.3), rgba(137, 69, 255, 0.12));
+    border: 1px solid rgba(193, 116, 255, 0.3);
+    color: #e3ccff;
+    font-size: 1.05rem;
+  }
+
+  .profile-cards .socials-card .social-links a .sr-only {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .profile-cards .socials-card .channel-meta {
+    display: block;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 0.656rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    line-height: 1.3;
+    color: #9a8fbf;
+  }
+
+  .profile-cards .socials-card .social-links a::before {
+    content: '\2197';
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--accent-neon);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .profile-cards .socials-card .social-links a:hover,
+  .profile-cards .socials-card .social-links a:focus-visible {
+    transform: translateY(-2px);
+    background: rgba(193, 116, 255, 0.1);
+    border-color: rgba(193, 116, 255, 0.5);
+    box-shadow: 0 8px 22px -10px rgba(137, 69, 255, 0.55);
+  }
+
+  .profile-cards .socials-card .social-links a:hover i {
+    transform: none;
+    color: #ffffff;
+    border-color: rgba(213, 155, 255, 0.6);
+  }
+
+  .profile-cards .socials-card .social-links a:hover::before {
+    transform: translate(2px, -2px);
+  }
+
+  [data-theme='light'] .profile-cards .socials-card .social-links a {
+    background: #ffffff;
+    border-color: rgba(123, 45, 255, 0.18);
+    color: #050505;
+    box-shadow: 0 1px 2px rgba(17, 12, 34, 0.05);
+  }
+
+  [data-theme='light'] .profile-cards .socials-card .social-links a i,
+  [data-theme='light'] .profile-cards .socials-card .social-links a:hover i {
+    background: linear-gradient(135deg, rgba(155, 69, 255, 0.18), rgba(122, 45, 255, 0.06));
+    border-color: rgba(122, 45, 255, 0.28);
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .profile-cards .socials-card .channel-meta {
+    color: #5b5470;
+  }
+
+  [data-theme='light'] .profile-cards .socials-card .social-links a::before {
+    color: #6d28d9;
+  }
+
+  [data-theme='light'] .profile-cards .socials-card .social-links a:hover,
+  [data-theme='light'] .profile-cards .socials-card .social-links a:focus-visible {
+    background: #faf7ff;
+    border-color: rgba(122, 45, 255, 0.5);
+    box-shadow: 0 8px 20px rgba(123, 45, 255, 0.14);
+  }
+
+  /* ---- Sessions: featured card with radial violet glow ------------------ */
+  .profile-cards .sessions-card,
+  .profile-cards .podcast-episode,
+  .profile-cards .youtube-card {
+    border-radius: var(--rd-radius-lg);
+  }
+
+  html:not([data-theme='light']) .profile-cards .sessions-card {
+    background: radial-gradient(80% 90% at 100% 0%, rgba(193, 116, 255, 0.4), transparent 60%),
+      linear-gradient(160deg, #1b1236, #0a0716);
+    border-color: rgba(193, 116, 255, 0.3);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  html:not([data-theme='light']) .profile-cards .sessions-card:hover,
+  html:not([data-theme='light']) .profile-cards .sessions-card:focus-visible {
+    border-color: rgba(213, 155, 255, 0.75);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 32px -12px rgba(193, 116, 255, 0.55);
+  }
+
+  .profile-cards .sessions-card {
+    padding: 18px;
+  }
+
+  /* Mono kicker instead of a boxed chip */
+  .profile-cards :is(.sessions-card-source, .youtube-card-source, .podcast-episode-meta) {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    color: #e3ccff;
+  }
+
+  .profile-cards .podcast-episode-number {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+  }
+
+  .profile-cards .sessions-card-duration {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: #bcb2dd;
+  }
+
+  .profile-cards .sessions-card-title {
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .profile-cards .sessions-card-meta {
+    gap: 0.9rem;
+    font-family: var(--font-mono);
+    font-size: 0.656rem;
+    letter-spacing: 0.04em;
+    color: #9a8fbf;
+  }
+
+  .profile-cards .sessions-card-chip i {
+    color: var(--accent-neon);
+  }
+
+  /* Play affordance = mockup solid primary (btn-p) */
+  .profile-cards .sessions-card-action,
+  .profile-cards .youtube-card-play {
+    min-height: 40px;
+    padding: 0 1.05rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--rd-primary-grad);
+    color: #ffffff;
+    box-shadow: var(--rd-primary-shadow);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+  }
+
+  .profile-cards .youtube-card-play:hover,
+  .profile-cards .youtube-card-play:focus-visible {
+    background: var(--rd-primary-grad-hover);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 14px 34px -8px rgba(193, 116, 255, 0.75);
+  }
+
+  .profile-cards .youtube-card-play:focus-visible {
+    outline: 2px solid var(--accent-neon);
+    outline-offset: 3px;
+  }
+
+  [data-theme='light'] .profile-cards .sessions-card-action {
+    background: var(--rd-primary-grad);
+    color: #ffffff;
+    box-shadow: 0 6px 18px rgba(138, 92, 255, 0.28);
+  }
+
+  [data-theme='light'] .profile-cards .sessions-card {
+    background: radial-gradient(80% 90% at 100% 0%, rgba(155, 69, 255, 0.2), transparent 60%),
+      linear-gradient(160deg, #ffffff, #f4efff);
+    border-color: rgba(122, 45, 255, 0.24);
+  }
+
+  [data-theme='light'] .profile-cards :is(.sessions-card-source, .youtube-card-source, .podcast-episode-meta) {
+    background: none;
+    border: 0;
+    color: #6d28d9;
+  }
+
+  [data-theme='light'] .profile-cards .sessions-card-duration {
+    color: #4b3a6b;
+  }
+
+  [data-theme='light'] .profile-cards .sessions-card-meta,
+  [data-theme='light'] .profile-cards .sessions-card-chip {
+    color: #5b5470;
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+
+  [data-theme='light'] .profile-cards .sessions-card-chip i {
+    color: #6d28d9;
+  }
+
+  /* ---- Monthly Dose: dark gradient player card --------------------------- */
+  html:not([data-theme='light']) .profile-cards .podcast-episode {
+    background: radial-gradient(70% 80% at 0% 0%, rgba(193, 116, 255, 0.22), transparent 65%),
+      linear-gradient(160deg, #1b1236, #0a0716);
+    border-color: rgba(193, 116, 255, 0.3);
+  }
+
+  html:not([data-theme='light']) .profile-cards .podcast-episode:hover,
+  html:not([data-theme='light']) .profile-cards .podcast-episode:focus-visible {
+    border-color: rgba(213, 155, 255, 0.75);
+    box-shadow: 0 14px 32px -12px rgba(193, 116, 255, 0.55);
+  }
+
+  .profile-cards .podcast-episode {
+    padding: 0.8rem 18px 18px;
+    gap: 0.6rem;
+  }
+
+  .profile-cards .podcast-episode-player {
+    width: 100%;
+    border-radius: var(--rd-radius-md);
+    border-color: rgba(193, 116, 255, 0.25);
+  }
+
+  [data-theme='light'] .profile-cards .podcast-episode {
+    background: radial-gradient(70% 80% at 0% 0%, rgba(155, 69, 255, 0.14), transparent 65%),
+      linear-gradient(160deg, #ffffff, #f4efff);
+    border-color: rgba(122, 45, 255, 0.24);
+  }
+
+  /* ---- YouTube: dark card, rounded thumb, primary play ------------------- */
+  html:not([data-theme='light']) .profile-cards .youtube-card {
+    background: rgba(7, 6, 15, 0.45);
+    border-color: rgba(176, 132, 255, 0.18);
+  }
+
+  html:not([data-theme='light']) .profile-cards .youtube-card:hover,
+  html:not([data-theme='light']) .profile-cards .youtube-card:focus-visible {
+    background: rgba(193, 116, 255, 0.08);
+    border-color: rgba(193, 116, 255, 0.5);
+    box-shadow: 0 14px 32px -12px rgba(193, 116, 255, 0.5);
+  }
+
+  .profile-cards .youtube-card {
+    padding: 12px;
+    gap: 0.6rem;
+  }
+
+  .profile-cards .youtube-card-player {
+    width: 100%;
+    border-radius: var(--rd-radius-md);
+    border-color: rgba(176, 132, 255, 0.2);
+  }
+
+  .profile-cards .youtube-card-top {
+    padding-inline: 2px;
+  }
+
+  .profile-cards .youtube-card-note {
+    padding-inline: 2px;
+    font-family: var(--font-mono);
+    font-size: 0.656rem;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: #9a8fbf;
+  }
+
+  [data-theme='light'] .profile-cards .youtube-card {
+    background: #ffffff;
+    border-color: rgba(123, 45, 255, 0.18);
+  }
+
+  [data-theme='light'] .profile-cards .youtube-card-note {
+    color: #5b5470;
+  }
+
+  /* ---- Stay Tuned: event card + subscribe form card ---------------------- */
+  .profile-cards .subscribe-card [data-next-event-container] > h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    line-height: 1.2;
+    text-transform: uppercase;
+    color: #e3ccff;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+
+  [data-theme='light'] .profile-cards .subscribe-card [data-next-event-container] > h3 {
+    color: #6d28d9;
+  }
+
+  .profile-cards .upcoming-event-card {
+    padding: 18px;
+    border-radius: var(--rd-radius-lg);
+  }
+
+  .profile-cards .upcoming-event-date {
+    width: 84px;
+    padding: 10px 0;
+    border-radius: 16px;
+    background: rgba(7, 6, 15, 0.6);
+    border: 1px solid rgba(193, 116, 255, 0.35);
+    box-shadow: none;
+  }
+
+  .profile-cards .upcoming-event-date .date-day {
+    font-size: 2.25rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .profile-cards .upcoming-event-date .date-month {
+    font-size: 0.6875rem;
+    letter-spacing: 0.2em;
+    color: var(--accent-neon);
+  }
+
+  [data-theme='light'] .profile-cards .upcoming-event-date {
+    background: #ffffff;
+    border-color: rgba(122, 45, 255, 0.3);
+  }
+
+  [data-theme='light'] .profile-cards .upcoming-event-date .date-day {
+    color: #050505;
+  }
+
+  [data-theme='light'] .profile-cards .upcoming-event-date .date-month {
+    color: #6d28d9;
+  }
+
+  .profile-cards .upcoming-event-title {
+    font-size: 1.1875rem;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .profile-cards .upcoming-event-tag {
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: #e3ccff;
+    border-color: rgba(193, 116, 255, 0.45);
+    background: rgba(193, 116, 255, 0.08);
+  }
+
+  .profile-cards .upcoming-event-time {
+    font-family: var(--font-mono);
+    font-size: 0.656rem;
+  }
+
+  .profile-cards .subscribe-card .subscribe-box {
+    margin-top: 14px;
+    padding: 22px;
+    gap: 12px;
+    border-radius: 22px;
+    border: 1px solid rgba(193, 116, 255, 0.3);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(193, 116, 255, 0.35), transparent 60%), #0d0b1a;
+  }
+
+  [data-theme='light'] .profile-cards .subscribe-card .subscribe-box {
+    border-color: rgba(122, 45, 255, 0.24);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(155, 69, 255, 0.14), transparent 60%), #ffffff;
+    box-shadow: 0 1px 2px rgba(17, 12, 34, 0.05);
+  }
+
+  .profile-cards .subscribe-card .subscribe-box > label {
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.656rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+  }
+
+  .profile-cards .subscribe-card input[type='email'] {
+    min-height: 54px;
+    padding: 0 16px;
+    border-radius: var(--rd-radius-md);
+    border: 1px solid rgba(193, 116, 255, 0.35);
+    background: rgba(7, 6, 15, 0.6);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  [data-theme='light'] .profile-cards .subscribe-card input[type='email'] {
+    background: #ffffff;
+    border-color: rgba(122, 45, 255, 0.35);
+  }
+
+  .profile-cards .subscribe-card [data-subscribe-submit] {
+    min-height: 54px;
+    border-radius: var(--rd-radius-md);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+  }
+
+  .profile-cards .subscribe-card .subscribe-consent {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: #9a8fbf;
+  }
+
+  [data-theme='light'] .profile-cards .subscribe-card .subscribe-consent {
+    color: #5b5470;
+  }
+}
+
+/* Short desktop windows: tighter form card and rows */
+@media (min-width: 1025px) and (max-height: 820px) {
+  /* Hero and console are centred on each other, so the old chat-button
+     clearance padding is no longer needed (it pushed the hero upward) */
+  .profile-text {
+    padding-bottom: 0;
+  }
+
+  .profile-cards .subscribe-card .subscribe-box {
+    margin-top: 8px;
+    padding: 14px;
+    gap: 8px;
+  }
+
+  .profile-cards .subscribe-card input[type='email'],
+  .profile-cards .subscribe-card [data-subscribe-submit] {
+    min-height: 46px;
+  }
+
+  .profile-cards .socials-card .social-links {
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .profile-cards .socials-card .social-links a {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    padding: 9px 14px;
+  }
+
+  .profile-cards .socials-card .social-links a i {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 0.95rem;
+  }
+}
+
+@media (min-width: 1025px) and (max-height: 760px) {
+  .profile-cards .subscribe-card .subscribe-box {
+    padding: 12px 14px;
+  }
+
+  .profile-cards .subscribe-card input[type='email'],
+  .profile-cards .subscribe-card [data-subscribe-submit] {
+    min-height: 44px;
+  }
+}
+
+@media (min-width: 1025px) and (prefers-reduced-motion: reduce) {
+  .profile-cards .socials-card .social-links a::before {
+    transition: none;
+  }
+
+  .profile-cards .socials-card .social-links a:hover,
+  .profile-cards .socials-card .social-links a:focus-visible,
+  .profile-cards .socials-card .social-links a:hover::before {
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Console panels — mockup match (>=1025px): Gigs (featured event +
+   event rows), Collabs (2-col collective cards), Artifacts (2-col shop
+   cards), Guides (numbered guide rows). On desktop script.js leaves these
+   carousels in "list mode" (consoleListQuery): no transform, every real slide
+   interactive, clones hidden. Mobile keeps the swipe carousels.
+   -------------------------------------------------------------------------- */
+@media (min-width: 1025px) {
+  /* ---- Shared: carousel shells become plain lists -------------------- */
+  .tab-panel :is([data-carousel], [data-carousel-collab], [data-shop-carousel], [data-guides-carousel]) {
+    padding: 2px 2px 6px;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .tab-panel :is([data-carousel-track], [data-carousel-track-collab], [data-shop-track], [data-guides-track]) {
+    transform: none !important;
+    transition: none;
+    will-change: auto;
+    height: auto;
+  }
+
+  .tab-panel :is([data-carousel], [data-carousel-collab], [data-shop-carousel], [data-guides-carousel])
+    :is(.carousel-btn, .carousel-dots) {
+    display: none;
+  }
+
+  .tab-panel :is([data-carousel], [data-carousel-collab], [data-guides-carousel]) .carousel-slide,
+  .tab-panel [data-shop-carousel] .shop-slide {
+    flex: none;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .tab-panel :is(.carousel-slide, .shop-slide).is-carousel-clone {
+    display: none;
+  }
+
+  .tab-panel [data-shop-carousel] .shop-viewport {
+    height: auto;
+    clip-path: none;
+  }
+
+  /* ---- Gigs ----------------------------------------------------------- */
+  .tab-panel [data-carousel-track] {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child {
+    margin-bottom: 6px;
+  }
+
+  .tab-panel [data-carousel-track] .event-link {
+    height: auto;
+    min-height: 0;
+  }
+
+  /* Featured (latest) event: mockup gradient card with CTA */
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-link {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "top top"
+      "name name"
+      "venue cta"
+      "id cta";
+    column-gap: 12px;
+    row-gap: 6px;
+    padding: 20px;
+    border-radius: var(--rd-radius-lg);
+    border: 1px solid rgba(193, 116, 255, 0.3);
+    background: var(--rd-feature-bg);
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-top {
+    grid-area: top;
+    margin-bottom: 6px;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child :is(.event-tag, .event-tag.chacha) {
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(193, 116, 255, 0.5);
+    background: transparent;
+    color: #e3ccff;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-date {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    color: #e3ccff;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-name {
+    grid-area: name;
+    font-size: 24px;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-venue {
+    grid-area: venue;
+    font-size: 13px;
+    color: #d6cdee;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-id {
+    grid-area: id;
+    margin-top: 0;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--color-text-muted);
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-link::after {
+    content: "Event info \2197";
+    grid-area: cta;
+    align-self: end;
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 12px;
+    background: var(--rd-primary-grad);
+    box-shadow: var(--rd-primary-shadow);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-link:hover::after {
+    background: var(--rd-primary-grad-hover);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 14px 34px -8px rgba(193, 116, 255, 0.75);
+  }
+
+  /* Archive rows: mono date | title + venue | label chip */
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-link,
+  html:not([data-theme='light']) .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-link {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 12px;
+    row-gap: 2px;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: var(--rd-radius-md);
+    border: 1px solid rgba(176, 132, 255, 0.12);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-link:hover,
+  html:not([data-theme='light']) .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-link:hover {
+    transform: translateY(-1px);
+    background: rgba(193, 116, 255, 0.1);
+    border-color: rgba(193, 116, 255, 0.5);
+    box-shadow: 0 6px 18px -8px rgba(137, 69, 255, 0.55);
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-top {
+    display: contents;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-date {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--accent-neon);
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-name {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-venue {
+    grid-column: 2;
+    grid-row: 2;
+    display: block;
+    min-width: 0;
+    font-size: 11.5px;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-venue i {
+    display: none;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) :is(.event-tag, .event-tag.chacha) {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    padding: 4px 7px;
+    border-radius: 6px;
+    border: 1px solid rgba(176, 132, 255, 0.25);
+    background: transparent;
+    color: #e3ccff;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-id {
+    display: none;
+  }
+
+  /* ---- Collabs -------------------------------------------------------- */
+  .tab-panel [data-carousel-track-collab] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  /* Odd count: the last real card (a clone follows it) spans both columns */
+  .tab-panel [data-carousel-track-collab] > .carousel-slide:nth-last-child(2):nth-child(even) {
+    grid-column: 1 / -1;
+  }
+
+  .tab-panel [data-carousel-track-collab] .collab-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 12px;
+    height: auto;
+    min-height: 0;
+    padding: 18px;
+    text-align: left;
+    border-radius: 18px;
+    border: 1px solid rgba(176, 132, 255, 0.18);
+    background: rgba(7, 6, 15, 0.45);
+    box-shadow: none;
+  }
+
+  .tab-panel [data-carousel-track-collab] .collab-card:hover,
+  .tab-panel [data-carousel-track-collab] .collab-card:focus-visible {
+    transform: translateY(-3px);
+    background: rgba(193, 116, 255, 0.1);
+    border-color: rgba(193, 116, 255, 0.5);
+    box-shadow: 0 10px 26px -10px rgba(137, 69, 255, 0.6);
+  }
+
+  .tab-panel [data-carousel-track-collab] .collab-card:focus-visible {
+    outline: 2px solid var(--accent-neon);
+    outline-offset: 3px;
+  }
+
+  .tab-panel [data-carousel-track-collab] .collab-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--rd-radius-md);
+    background: linear-gradient(135deg, rgba(193, 116, 255, 0.35), rgba(137, 69, 255, 0.15));
+    border: 1px solid rgba(193, 116, 255, 0.35);
+    box-shadow: none;
+    color: #f3f0fc;
+    font-size: 1.05rem;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .tab-panel [data-carousel-track-collab] .collab-card:hover .collab-icon {
+    transform: translateY(-2px);
+  }
+
+  .tab-panel [data-carousel-track-collab] .collab-name {
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .tab-panel [data-carousel-track-collab] .collab-description {
+    max-width: none;
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  /* ---- Artifacts ------------------------------------------------------ */
+  /* Compact 2x2 cards (art left, copy right, payment buttons full width)
+     so all four products and their buttons fit the panel without scrolling */
+  .tab-panel [data-shop-track] {
+    --rd-shop-art: 96px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .tab-panel [data-shop-track] .shop-item {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--rd-shop-art) minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+    gap: 4px 12px;
+    height: auto;
+    min-height: 0;
+    padding: 10px;
+    border-radius: 18px;
+    border: 1px solid rgba(176, 132, 255, 0.18);
+    background: rgba(7, 6, 15, 0.45);
+    box-shadow: none;
+    cursor: default;
+  }
+
+  .tab-panel [data-shop-track] .shop-item:hover {
+    transform: translateY(-3px);
+    border-color: rgba(193, 116, 255, 0.5);
+    box-shadow: 0 10px 26px -10px rgba(137, 69, 255, 0.6);
+  }
+
+  .tab-panel [data-shop-track] .shop-image-button {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    width: var(--rd-shop-art);
+    height: var(--rd-shop-art);
+    padding: 6px;
+    border-radius: 12px;
+    background: radial-gradient(70% 60% at 50% 40%, rgba(193, 116, 255, 0.22), transparent 70%),
+      linear-gradient(180deg, #17112c, #0b0918);
+  }
+
+  .tab-panel [data-shop-track] .shop-image-button img {
+    object-fit: contain;
+  }
+
+  /* Body children join the card grid directly */
+  .tab-panel [data-shop-track] .shop-item-body {
+    display: contents;
+  }
+
+  .tab-panel [data-shop-track] .shop-item-body > * {
+    grid-column: 2;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .tab-panel [data-shop-track] .shop-item-top {
+    display: block;
+  }
+
+  .tab-panel [data-shop-track] .shop-item h4 {
+    font-size: 14.5px;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  /* Price chip sits on the artwork (top-right), as in the mockup */
+  .tab-panel [data-shop-track] .shop-price {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 2;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(7, 6, 15, 0.7);
+    border: 1px solid rgba(193, 116, 255, 0.35);
+    color: #f3f0fc;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  .tab-panel [data-shop-track] .shop-item-body > p:not(.shop-detail) {
+    font-size: 12.5px;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .tab-panel [data-shop-track] .shop-item .shop-detail {
+    align-self: end;
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: none;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    font-size: 10px;
+    line-height: 1.4;
+    color: #9a8fbf;
+  }
+
+  .tab-panel [data-shop-track] .shop-item-body > .shop-actions {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    display: flex;
+    gap: 6px;
+    padding-top: 2px;
+  }
+
+  .tab-panel [data-shop-track] .shop-actions .btn,
+  html:not([data-theme='light']) .tab-panel [data-shop-track] .shop-actions .btn:not(.ghost) {
+    flex: 1;
+    min-height: 36px;
+    height: 36px;
+    padding: 0 6px;
+    border-radius: 10px;
+    border: 1px solid rgba(193, 116, 255, 0.35);
+    background: rgba(193, 116, 255, 0.06);
+    color: #f3f0fc;
+    box-shadow: none;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    opacity: 0.8;
+  }
+
+  /* ---- Guides --------------------------------------------------------- */
+  .tab-panel [data-guides-track] {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    counter-reset: rd-guide;
+  }
+
+  .tab-panel [data-guides-track] > .carousel-slide {
+    counter-increment: rd-guide;
+  }
+
+  .tab-panel [data-guides-track] .guide-card {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    column-gap: 14px;
+    height: auto;
+    min-height: 0;
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(176, 132, 255, 0.18);
+    background: rgba(7, 6, 15, 0.45);
+    box-shadow: none;
+  }
+
+  .tab-panel [data-guides-track] .guide-card:hover {
+    transform: translateY(-2px);
+    background: rgba(193, 116, 255, 0.07);
+    border-color: rgba(193, 116, 255, 0.5);
+    box-shadow: 0 10px 26px -12px rgba(137, 69, 255, 0.6);
+  }
+
+  .tab-panel [data-guides-track] .guide-card::after {
+    content: counter(rd-guide, decimal-leading-zero);
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    z-index: 1;
+    font-family: var(--font-mono);
+    font-size: 20px;
+    line-height: 1.1;
+    color: var(--accent-neon);
+  }
+
+  .tab-panel [data-guides-track] .guide-card-body {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 10px;
+    height: auto;
+    padding: 0;
+  }
+
+  .tab-panel [data-guides-track] .guide-card-body > :not(.guide-card-meta, .guide-card-actions) {
+    grid-column: 1 / -1;
+  }
+
+  .tab-panel [data-guides-track] .guide-card-category {
+    justify-self: start;
+    padding: 4px 9px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(193, 116, 255, 0.12);
+    color: #e3ccff;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+  }
+
+  .profile-cards .tab-panel [data-guides-track] .guide-card .guide-card-title,
+  [data-theme='light'] .profile-cards .tab-panel [data-guides-track] .guide-card .guide-card-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: var(--text);
+  }
+
+  .tab-panel [data-guides-track] .guide-card-description {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .tab-panel [data-guides-track] .guide-card-meta {
+    grid-column: 1;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: #9a8fbf;
+  }
+
+  .tab-panel [data-guides-track] .guide-card-meta span,
+  [data-theme='light'] .tab-panel [data-guides-track] .guide-card-meta span {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+  }
+
+  .tab-panel [data-guides-track] .guide-card-actions {
+    grid-column: 2;
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+  }
+
+  .tab-panel [data-guides-track] .guide-card-actions .btn {
+    width: auto;
+    min-height: 36px;
+    height: 36px;
+    padding: 0 14px;
+    gap: 0.4rem;
+    border-radius: 10px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    white-space: nowrap;
+  }
+
+  html:not([data-theme='light']) .tab-panel [data-guides-track] .guide-card-actions .btn.ghost {
+    background: rgba(193, 116, 255, 0.06);
+    border-color: rgba(193, 116, 255, 0.35);
+    box-shadow: none;
+  }
+
+  /* ---- Light theme ---------------------------------------------------- */
+  [data-theme='light'] .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-link {
+    border-color: rgba(122, 45, 255, 0.28);
+    box-shadow: 0 1px 2px rgba(17, 12, 34, 0.04);
+  }
+
+  [data-theme='light'] .tab-panel [data-carousel-track] > .carousel-slide:first-child :is(.event-tag, .event-tag.chacha) {
+    border-color: rgba(109, 40, 217, 0.45);
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-date {
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-venue {
+    color: #3d3550;
+  }
+
+  [data-theme='light'] .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-link {
+    border-color: rgba(122, 45, 255, 0.16);
+    background: rgba(255, 255, 255, 0.7);
+    box-shadow: none;
+  }
+
+  [data-theme='light'] .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-link:hover {
+    background: #ffffff;
+    border-color: rgba(122, 45, 255, 0.5);
+    box-shadow: 0 6px 18px -8px rgba(123, 45, 255, 0.35);
+  }
+
+  [data-theme='light'] .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) .event-date {
+    color: #6d28d9;
+  }
+
+  [data-theme='light'] .tab-panel [data-carousel-track] > .carousel-slide:not(:first-child) :is(.event-tag, .event-tag.chacha) {
+    border-color: rgba(109, 40, 217, 0.3);
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .tab-panel :is([data-carousel-track-collab] .collab-card, [data-shop-track] .shop-item, [data-guides-track] .guide-card) {
+    background: rgba(255, 255, 255, 0.75);
+    border-color: rgba(122, 45, 255, 0.16);
+    box-shadow: 0 1px 2px rgba(17, 12, 34, 0.04);
+  }
+
+  [data-theme='light'] .tab-panel :is([data-carousel-track-collab] .collab-card, [data-shop-track] .shop-item, [data-guides-track] .guide-card):hover {
+    background: #ffffff;
+    border-color: rgba(122, 45, 255, 0.5);
+    box-shadow: 0 10px 24px -10px rgba(123, 45, 255, 0.35);
+  }
+
+  [data-theme='light'] .tab-panel [data-carousel-track-collab] .collab-icon {
+    background: linear-gradient(135deg, rgba(155, 69, 255, 0.16), rgba(122, 45, 255, 0.06));
+    border-color: rgba(122, 45, 255, 0.3);
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .tab-panel [data-shop-track] .shop-image-button {
+    background: radial-gradient(70% 60% at 50% 40%, rgba(155, 69, 255, 0.14), transparent 70%),
+      linear-gradient(180deg, #f7f2ff, #ece3ff);
+  }
+
+  [data-theme='light'] .tab-panel [data-shop-track] .shop-price {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(122, 45, 255, 0.35);
+    color: #3b1d6e;
+  }
+
+  [data-theme='light'] .tab-panel [data-shop-track] .shop-item .shop-detail,
+  [data-theme='light'] .tab-panel [data-guides-track] .guide-card-meta {
+    color: #5b4d78;
+  }
+
+  [data-theme='light'] .tab-panel [data-shop-track] .shop-actions .btn {
+    background: #ffffff;
+    border-color: rgba(138, 92, 255, 0.45);
+    color: #5a2d91;
+  }
+
+  [data-theme='light'] .tab-panel [data-guides-track] .guide-card::after {
+    color: #6d28d9;
+  }
+
+  [data-theme='light'] .tab-panel [data-guides-track] .guide-card-category {
+    background: rgba(122, 45, 255, 0.1);
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .tab-panel [data-guides-track] .guide-card-description {
+    color: #4f4f56;
+    opacity: 1;
+  }
+
+  [data-theme='light'] .tab-panel [data-guides-track] .guide-card-actions .btn:not(.ghost),
+  [data-theme='light'] .tab-panel [data-guides-track] .guide-card-actions .btn:not(.ghost):hover {
+    background: var(--rd-primary-grad);
+    border-color: transparent;
+    color: #ffffff;
+  }
+}
+
+/* Short desktop windows: tighter cards so more rows show per screen */
+@media (min-width: 1025px) and (max-height: 820px) {
+  .tab-panel [data-shop-track] {
+    --rd-shop-art: 76px;
+  }
+
+  .tab-panel [data-shop-track] .shop-item-body > p:not(.shop-detail) {
+    display: none;
+  }
+
+  /* The "soon" payment buttons already say details are pending */
+  .tab-panel [data-shop-track] .shop-item .shop-detail {
+    display: none;
+  }
+
+  .tab-panel [data-shop-track] .shop-actions .btn,
+  html:not([data-theme='light']) .tab-panel [data-shop-track] .shop-actions .btn:not(.ghost) {
+    min-height: 32px;
+    height: 32px;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-link {
+    padding: 16px 18px;
+  }
+
+  .tab-panel [data-carousel-track] > .carousel-slide:first-child .event-name {
+    font-size: 20px;
+  }
+
+  .tab-panel [data-carousel-track-collab] .collab-card {
+    padding: 14px 16px;
+    gap: 8px;
+  }
+
+  .tab-panel [data-guides-track] .guide-card {
+    padding: 14px 16px;
+  }
+}
+
+@media (min-width: 1025px) and (prefers-reduced-motion: reduce) {
+  .tab-panel :is([data-carousel-track], [data-carousel-track-collab], [data-shop-track], [data-guides-track])
+    :is(.event-link, .collab-card, .collab-icon, .shop-item, .guide-card),
+  .tab-panel :is([data-carousel-track], [data-carousel-track-collab], [data-shop-track], [data-guides-track])
+    :is(.event-link, .collab-card, .collab-icon, .shop-item, .guide-card):hover {
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Mobile + tablet — mockup match (<=1024px, mobile.source.html).
+   Hero orb cropped to its artwork so the headline starts higher, stat values
+   at mockup scale, sections read as open sections (mono kicker + 34px
+   heading) instead of boxed cards, Stay Tuned stays a glowing feature card,
+   and the platform bar becomes a floating dock. Desktop is untouched.
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  /* ---- Hero ------------------------------------------------------------ */
+  .mobile-orbit-intro {
+    overflow: visible;
+  }
+
+  .mobile-orbit-stage {
+    width: clamp(200px, 62vw, 300px);
+    aspect-ratio: auto;
+    padding-block: 0;
+  }
+
+  /* The PNG has ~20% empty space above and ~25% below the planet */
+  .mobile-orbit-image,
+  .mobile-orbit-stage img {
+    width: clamp(200px, 62vw, 300px);
+    height: auto;
+    margin-block: -16% -20%;
+  }
+
+  /* ---- Header: 16px gutter like the content, 8px between actions ------- */
+  .site-header {
+    padding-inline: 16px;
+  }
+
+  .site-header .header-actions {
+    gap: 8px;
+  }
+
+  /* 44px tap targets in the header */
+  .site-header .icon-button,
+  .header-actions .icon-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* ---- Radio popover: near-opaque surface, 44px actions --------------- */
+  .mobile-radio-popover {
+    background: linear-gradient(145deg, rgba(8, 5, 19, 0.97), rgba(24, 13, 45, 0.97));
+    -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    backdrop-filter: blur(16px) saturate(1.2);
+  }
+
+  [data-theme='light'] .mobile-radio-popover {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(250, 247, 255, 0.97));
+  }
+
+  .mobile-radio-popover .btn {
+    min-height: 44px;
+  }
+
+  /* Hero copy uses the full width of the device: the pill spans the column */
+  .profile-text .eyebrow {
+    align-self: stretch;
+    width: 100%;
+    max-width: none;
+    white-space: normal;
+    text-wrap: balance;
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+    margin-bottom: 1.25rem;
+  }
+
+  .profile-text h1,
+  [data-theme='light'] .profile-text h1 {
+    font-size: clamp(2.4rem, 11.2vw, 3.25rem);
+    line-height: 0.98;
+    margin-bottom: 1.25rem;
+  }
+
+  /* Gradient line: paint room for the g/y descenders (no layout shift) */
+  .profile-text h1 .h1-accent {
+    padding-bottom: 0.1em;
+    margin-bottom: -0.1em;
+  }
+
+  .profile-text .lede {
+    font-size: 1rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  .profile-text .lede + p {
+    font-size: 0.875rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  /* ---- Sections: open layout, mono kicker, 34px heading --------------- */
+  .profile-cards .tab-panel.info-card:not(.socials-card) {
+    margin-top: 1.5rem;
+  }
+
+  .profile-cards .tab-panel.info-card:not(.socials-card, .subscribe-card),
+  .profile-cards .tab-panel.info-card:not(.socials-card, .subscribe-card):hover,
+  [data-theme='light'] .profile-cards .tab-panel.info-card:not(.socials-card, .subscribe-card) {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .tab-panel[data-panel='subscribe'] { --rd-m-kicker: 'NEWSLETTER'; }
+  .tab-panel[data-panel='youtube'] { --rd-m-kicker: 'VIDEO'; }
+  .tab-panel[data-panel='events'] { --rd-m-kicker: 'ARCHIVE'; }
+  .tab-panel[data-panel='sessions'] { --rd-m-kicker: 'LIVESETS'; }
+  .tab-panel[data-panel='collab'] { --rd-m-kicker: 'COLLECTIVES'; }
+  .tab-panel[data-panel='podcast'] { --rd-m-kicker: 'SOUNDCLOUD'; }
+  .tab-panel[data-panel='guides'] { --rd-m-kicker: 'PROTOCOLS'; }
+  .tab-panel[data-panel='shop'] { --rd-m-kicker: 'SHOP'; }
+
+  .profile-cards .tab-panel.info-card:not(.socials-card)::before {
+    content: var(--rd-m-kicker, none);
+    display: block;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0 0 0.4rem;
+    background: none;
+    opacity: 1;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.24em;
+    line-height: 1.2;
+    color: var(--accent-neon);
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel.info-card:not(.socials-card)::before {
+    color: #6d28d9;
+  }
+
+  .profile-cards .tab-panel > h3,
+  .profile-cards .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header, .shop-head) > h3,
+  [data-theme='light'] .profile-cards .tab-panel > h3,
+  [data-theme='light'] .profile-cards .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header, .shop-head) > h3 {
+    font-size: clamp(1.875rem, 8.7vw, 2.125rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin: 0 0 0.4rem;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: var(--text);
+  }
+
+  .tab-panel > :is(.section-description, .archive-hint),
+  .tab-panel > :is(.sessions-header, .podcast-header, .youtube-header) > .section-description {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: var(--muted);
+    margin-bottom: 0.9rem;
+  }
+
+  /* Artifacts: PREVIEW chip next to the heading, mockup outline pill */
+  .tab-panel > .shop-head {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .tab-panel > .shop-head .shop-status {
+    min-height: 0;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(193, 116, 255, 0.5);
+    background: transparent;
+    color: #e3ccff;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+  }
+
+  [data-theme='light'] .tab-panel > .shop-head .shop-status {
+    border-color: rgba(109, 40, 217, 0.45);
+    color: #6d28d9;
+  }
+
+  /* ---- Stay Tuned: the one boxed feature card -------------------------- */
+  .profile-cards .subscribe-card.info-card {
+    padding: 1.6rem 1.25rem;
+    border-radius: 26px;
+    border: 1px solid rgba(193, 116, 255, 0.3);
+    background:
+      radial-gradient(90% 60% at 100% 0%, rgba(193, 116, 255, 0.42), transparent 60%),
+      radial-gradient(70% 60% at 0% 100%, rgba(137, 69, 255, 0.3), transparent 60%),
+      #0d0b1a;
+    box-shadow: var(--rd-glass-shadow);
+  }
+
+  [data-theme='light'] .profile-cards .subscribe-card.info-card {
+    border-color: rgba(123, 45, 255, 0.22);
+    background:
+      radial-gradient(90% 60% at 100% 0%, rgba(155, 69, 255, 0.16), transparent 60%),
+      radial-gradient(70% 60% at 0% 100%, rgba(122, 45, 255, 0.1), transparent 60%),
+      #ffffff;
+  }
+
+  .subscribe-card .subscribe-box > label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .subscribe-card .subscribe-box input[type='email'] {
+    font-family: var(--font-body);
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  html:not([data-theme='light']) .subscribe-card .subscribe-box input[type='email'] {
+    background: rgba(7, 6, 15, 0.6);
+    border-color: rgba(193, 116, 255, 0.35);
+  }
+
+  /* Focus must out-rank the resting border above */
+  html:not([data-theme='light']) .subscribe-card .subscribe-box input[type='email']:is(:focus, :focus-visible) {
+    border-color: var(--accent-neon);
+    box-shadow: 0 0 0 3px rgba(193, 116, 255, 0.35);
+    outline: none;
+  }
+
+  [data-theme='light'] .subscribe-card .subscribe-box input[type='email']:is(:focus, :focus-visible) {
+    border-color: #6d28d9;
+    box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.25);
+    outline: none;
+  }
+
+  /* Empty status line takes no room; script.js fills it on submit */
+  .subscribe-card .subscribe-inline-status:empty {
+    display: none;
+  }
+
+  .subscribe-card .subscribe-box .subscribe-consent {
+    margin-top: 2px;
+  }
+
+  .subscribe-card .subscribe-box .btn {
+    min-height: 52px;
+    border-radius: var(--rd-radius-md);
+    font-family: var(--font-mono);
+    letter-spacing: 0.14em;
+  }
+
+  /* Artifacts body never shrinks its copy into the line below */
+  .shop-item-body > p {
+    flex-shrink: 0;
+  }
+
+  /* ---- Carousels: controls row under the card -------------------------
+     Arrows leave the card (they covered Play, event text, guide copy and
+     artwork) and sit either side of the dots in one 44px row. Swipe stays
+     on the track; classes and data-* hooks are untouched. */
+  .profile-cards :is(.carousel, .sessions-carousel, .podcast-carousel, .youtube-carousel, .shop-carousel) {
+    /* One inline padding for every carousel: card edges line up per viewport */
+    padding: 12px 18.4px 0.5rem;
+    /* Fade the neighbour-slide peeks at the edges; the 64px controls row
+       below stays fully opaque */
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%),
+      linear-gradient(#000, #000);
+    mask-image:
+      linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%),
+      linear-gradient(#000, #000);
+    -webkit-mask-size: 100% calc(100% - 64px), 100% 64px;
+    mask-size: 100% calc(100% - 64px), 100% 64px;
+    -webkit-mask-position: top, bottom;
+    mask-position: top, bottom;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+  }
+
+  .carousel-btn,
+  .shop-carousel-prev,
+  .shop-carousel-next {
+    width: 44px;
+    height: 44px;
+  }
+
+  .btn.compact,
+  .shop-actions .btn,
+  .youtube-card-play {
+    min-height: 44px;
+  }
+
+  .profile-cards :is(.carousel, .sessions-carousel, .podcast-carousel, .youtube-carousel, .shop-carousel) > .carousel-btn {
+    top: auto;
+    bottom: 0.5rem;
+    transform: none;
+    /* Ring only: a soft drop glow would be cut hard by the carousel clip */
+    box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .profile-cards :is(.carousel, .sessions-carousel, .podcast-carousel, .youtube-carousel, .shop-carousel) > .carousel-btn:is(:hover, :focus-visible) {
+    box-shadow: 0 0 0 1px rgba(193, 116, 255, 0.35), inset 0 0 12px rgba(193, 116, 255, 0.25);
+  }
+
+  .profile-cards :is(.carousel, .sessions-carousel, .podcast-carousel, .youtube-carousel, .shop-carousel) > .carousel-prev {
+    left: 0.25rem;
+    right: auto;
+  }
+
+  .profile-cards :is(.carousel, .sessions-carousel, .podcast-carousel, .youtube-carousel, .shop-carousel) > .carousel-next {
+    right: 0.25rem;
+    left: auto;
+  }
+
+  .profile-cards :is(.carousel, .sessions-carousel, .podcast-carousel, .youtube-carousel, .shop-carousel) > .carousel-btn:hover {
+    transform: scale(1.06);
+  }
+
+  .profile-cards :is(.carousel, .sessions-carousel, .podcast-carousel, .youtube-carousel, .shop-carousel) > .carousel-btn:active {
+    transform: scale(0.97);
+  }
+
+  .profile-cards :is(.carousel, .sessions-carousel, .podcast-carousel, .youtube-carousel, .shop-carousel) > .carousel-dots {
+    min-height: 44px;
+    margin: 0.75rem 56px 0;
+    padding-bottom: 0;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: nowrap;
+  }
+
+  /* Short dot rows (<=6): 8px dots, 44px-tall hit areas 8px apart */
+  .carousel-dot {
+    position: relative;
+  }
+
+  .carousel-dot::after {
+    content: '';
+    position: absolute;
+    inset: -18px -2px;
+  }
+
+  /* Long dot rows (7+): one compact decorative line; the 44px arrows and
+     swipe are the touch controls. Dots stay in the DOM and keyboard-focusable. */
+  .profile-cards .carousel-dots:has(> .carousel-dot:nth-child(7)) {
+    gap: 6px;
+  }
+
+  .profile-cards .carousel-dots:has(> .carousel-dot:nth-child(7)) > .carousel-dot {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    pointer-events: none;
+  }
+
+  .profile-cards .carousel-dots:has(> .carousel-dot:nth-child(7)) > .carousel-dot::after {
+    content: none;
+  }
+
+  /* ---- Card micro-labels: mono 10px; body/meta never under 12px ------- */
+  .profile-cards :is(.sessions-card-source, .youtube-card-source, .podcast-episode-number, .event-tag, .guide-card-category) {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+  }
+
+  .profile-cards .shop-carousel .shop-price {
+    font-size: 0.75rem;
+  }
+
+  .profile-cards :is(.sessions-card-duration, .sessions-card-chip, .sessions-card-action, .youtube-card-note, .youtube-card-play, .subscribe-consent, .guide-card-meta span) {
+    font-size: 0.75rem;
+  }
+
+  .profile-cards .shop-item-body > p:not(.shop-detail) {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+  }
+
+  /* ---- Clamped copy: whole lines only, never squashed by the card ----- */
+  .profile-cards .guide-card-description {
+    flex-shrink: 0;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    line-height: 1.45;
+    max-height: calc(2 * 1.45em + 1px);
+    padding-bottom: 1px;
+  }
+
+  .profile-cards .collab-description {
+    line-height: 1.45;
+    max-height: calc(3 * 1.45em + 1px);
+    padding-bottom: 1px;
+  }
+
+  /* ---- YouTube: true 16:9 preview, card grows to fit ------------------ */
+  .youtube-carousel {
+    --carousel-card-height: auto;
+  }
+
+  .profile-cards .youtube-card-player,
+  .profile-cards .youtube-card-frame {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    flex-shrink: 0;
+  }
+
+  /* ---- Disabled shop button reads as disabled, not a faded primary ---- */
+  .profile-cards .shop-actions .btn:disabled {
+    opacity: 1;
+    background: rgba(193, 116, 255, 0.06);
+    border: 1px dashed rgba(193, 116, 255, 0.45);
+    color: var(--muted);
+    box-shadow: none;
+  }
+
+  [data-theme='light'] .profile-cards .shop-actions .btn:disabled {
+    background: rgba(122, 45, 255, 0.05);
+    border-color: rgba(109, 40, 217, 0.4);
+    color: #4f4f56;
+  }
+
+  /* ---- SoundCloud card: same 16px top inset as the YouTube card --------
+     (the 148px player keeps main.css' intentional crop of the 166px
+     widget's footer row) */
+  .profile-cards .podcast-episode {
+    padding: 16px 18.4px;
+  }
+
+  /* ---- Card media ----------------------------------------------------- */
+  /* Letterbox bars blend into the product shot's black backdrop */
+  .profile-cards .shop-image-button,
+  [data-theme='light'] .profile-cards .shop-image-button {
+    background: #050505;
+  }
+
+  [data-theme='light'] .profile-cards .sessions-card::after {
+    opacity: 0.4;
+  }
+
+  /* ---- Last section → footer: one 32px section gap -------------------- */
+  main,
+  .profile {
+    padding-bottom: 0;
+  }
+
+  /* Footer clears the fixed bottom nav */
+  .site-footer {
+    margin-top: 2rem;
+    padding-bottom: calc(var(--bottom-nav-h) + 1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Phones: the stacked shop card needs room for name, 2-line copy, TBA and
+   the two 44px buttons under the 4:3 artwork */
+@media (max-width: 480px) {
+  .shop-carousel {
+    --carousel-card-height: 396px;
+  }
+}
+
+/* Phones: give guide cards room for the 2-line title plus a 2-line
+   description so the featured card's copy is never squashed */
+@media (max-width: 640px) {
+  .guide-carousel {
+    --carousel-card-height: 262px;
+  }
+
+}
+
+/* Tablet: hero and sections share one 600px column; comfortable measure */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .profile-layout > .profile-text {
+    width: 100%;
+    max-width: 600px;
+    margin-inline: auto;
+  }
+
+  /* No single-word orphan ("Real.") in the 600px column */
+  .profile-text h1 .h1-accent {
+    text-wrap: balance;
+  }
+
+  .profile-text .lede,
+  .profile-text .lede + p {
+    max-width: none;
+  }
+
+  /* Header aligns to the same 600px content column */
+  .site-header {
+    padding-inline: max(16px, calc((100vw - 600px) / 2));
+  }
+
+  /* Gigs: cards size to their copy (no 66px dead gap); copy stacks
+     from the top and the RA id sits at the card foot */
+  .profile-cards .carousel[data-carousel] {
+    --carousel-card-height: auto;
+  }
+
+  .profile-cards [data-carousel-track] .event-link {
+    justify-content: flex-start;
+  }
+
+  .profile-cards [data-carousel-track] .event-link .event-id {
+    margin-top: auto;
+  }
+}
+
+/* Tall desktop windows: larger Artifacts art and 2-line copy (all four cards still fit) */
+@media (min-width: 1025px) and (min-height: 1000px) {
+  .tab-panel [data-shop-track] {
+    --rd-shop-art: 120px;
+  }
+
+  .tab-panel [data-shop-track] .shop-item-body > p:not(.shop-detail) {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Hero actions: primary "Listen to sessions" + ghost "Bookings" (RA)
+   -------------------------------------------------------------------------- */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 1.5rem;
+}
+
+.hero-action {
+  min-height: 48px;
+  padding: 0 1.35rem;
+  gap: 0.6rem;
+}
+
+/* Icons at the caps size, optically centred on the uppercase label (the
+   text box includes descender space, so the caps sit ~1px above centre) */
+.hero-action i {
+  width: 1.1em;
+  font-size: 1em;
+  line-height: 1;
+  text-align: center;
+  transform: translateY(-1px);
+}
+
+@media (min-width: 1025px) {
+  .hero-actions {
+    margin-top: clamp(0.25rem, 1.2vh, 0.75rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-action {
+    flex: 1 1 0;
+    padding: 0 1rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Bookings dialog (opened from the hero "Bookings" button)
+   -------------------------------------------------------------------------- */
+.booking-dialog {
+  width: min(500px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 28px 24px 22px;
+  overflow: auto;
+  border-radius: var(--rd-radius-xl);
+  border: 1px solid var(--rd-glass-border);
+  background: radial-gradient(90% 70% at 100% 0%, rgba(193, 116, 255, 0.28), transparent 60%),
+    linear-gradient(160deg, #1b1236, #0a0716);
+  box-shadow: var(--rd-glass-shadow), 0 40px 80px -30px rgba(0, 0, 0, 0.85);
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
+.booking-dialog::backdrop {
+  background: rgba(5, 3, 12, 0.66);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.booking-dialog[open] {
+  animation: bookingIn 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bookingIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.booking-close-form {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  margin: 0;
+}
+
+.booking-close {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 1px solid rgba(193, 116, 255, 0.35);
+  background: rgba(193, 116, 255, 0.06);
+  color: #e3ccff;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.booking-close:hover,
+.booking-close:focus-visible {
+  background: rgba(193, 116, 255, 0.16);
+  border-color: #d59bff;
+}
+
+.booking-kicker {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent-neon);
+}
+
+.booking-dialog h2 {
+  margin: 0 56px 8px 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.booking-lede {
+  margin: 0 0 14px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.booking-list {
+  list-style: none;
+  margin: 0 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.booking-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+}
+
+.booking-list i {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 9px;
+  font-size: 0.75rem;
+  color: #e3ccff;
+  background: linear-gradient(135deg, rgba(193, 116, 255, 0.3), rgba(137, 69, 255, 0.12));
+  border: 1px solid rgba(193, 116, 255, 0.3);
+}
+
+.booking-email {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 6px 6px 6px 14px;
+  border-radius: var(--rd-radius-md);
+  border: 1px solid rgba(176, 132, 255, 0.25);
+  background: rgba(7, 6, 15, 0.5);
+}
+
+.booking-address {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.booking-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(193, 116, 255, 0.35);
+  background: rgba(193, 116, 255, 0.08);
+  color: #f3f0fc;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.booking-copy:hover,
+.booking-copy:focus-visible {
+  background: rgba(193, 116, 255, 0.18);
+  border-color: #d59bff;
+}
+
+.booking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.booking-actions .btn {
+  flex: 1 1 auto;
+  min-height: 48px;
+  gap: 0.55rem;
+}
+
+.booking-status {
+  min-height: 1.2em;
+  margin: 10px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--accent-neon);
+}
+
+/* Light theme */
+[data-theme='light'] .booking-dialog {
+  background: radial-gradient(90% 70% at 100% 0%, rgba(155, 69, 255, 0.14), transparent 60%),
+    linear-gradient(160deg, #ffffff, #f4efff);
+  box-shadow: var(--rd-glass-shadow), 0 40px 80px -30px rgba(70, 30, 140, 0.35);
+}
+
+[data-theme='light'] .booking-dialog::backdrop {
+  background: rgba(30, 16, 60, 0.35);
+}
+
+[data-theme='light'] .booking-kicker,
+[data-theme='light'] .booking-status {
+  color: #6d28d9;
+}
+
+[data-theme='light'] .booking-close,
+[data-theme='light'] .booking-list i {
+  color: #5a2db0;
+  border-color: rgba(122, 45, 255, 0.3);
+  background: rgba(122, 45, 255, 0.06);
+}
+
+[data-theme='light'] .booking-email {
+  background: #ffffff;
+  border-color: rgba(122, 45, 255, 0.22);
+}
+
+[data-theme='light'] .booking-copy {
+  color: #3b1d6e;
+  background: rgba(122, 45, 255, 0.06);
+  border-color: rgba(122, 45, 255, 0.35);
+}
+
+@media (max-width: 480px) {
+  .booking-dialog {
+    padding: 24px 18px 18px;
+  }
+
+  .booking-actions .btn {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-dialog[open] {
+    animation: none;
+  }
+}
+
+/* Technical rider (collapsible, inside the bookings dialog) */
+.booking-rider {
+  margin: 0 0 14px;
+  border-radius: var(--rd-radius-md);
+  border: 1px solid rgba(176, 132, 255, 0.25);
+  background: rgba(7, 6, 15, 0.4);
+}
+
+.booking-rider summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  list-style: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-radius: var(--rd-radius-md);
+}
+
+.booking-rider summary::-webkit-details-marker {
+  display: none;
+}
+
+.booking-rider summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.booking-rider summary span i {
+  color: var(--accent-neon);
+}
+
+.booking-rider summary:hover,
+.booking-rider summary:focus-visible {
+  background: rgba(193, 116, 255, 0.1);
+}
+
+.booking-rider-chevron {
+  font-size: 0.75rem;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.booking-rider[open] .booking-rider-chevron {
+  transform: rotate(180deg);
+}
+
+.booking-rider-list {
+  margin: 0;
+  padding: 2px 14px 6px;
+}
+
+.booking-rider-row {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid rgba(176, 132, 255, 0.14);
+}
+
+.booking-rider-row dt {
+  padding-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-neon);
+}
+
+.booking-rider-row dd {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.booking-rider-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0 14px 14px;
+  border-radius: 12px;
+  border: 1px dashed rgba(193, 116, 255, 0.45);
+  color: #e3ccff;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.booking-rider-download:hover,
+.booking-rider-download:focus-visible {
+  background: rgba(193, 116, 255, 0.12);
+  border-color: #d59bff;
+}
+
+[data-theme='light'] .booking-rider {
+  background: #ffffff;
+  border-color: rgba(122, 45, 255, 0.22);
+}
+
+[data-theme='light'] .booking-rider summary span i,
+[data-theme='light'] .booking-rider-row dt {
+  color: #6d28d9;
+}
+
+[data-theme='light'] .booking-rider-row {
+  border-top-color: rgba(122, 45, 255, 0.12);
+}
+
+[data-theme='light'] .booking-rider-download {
+  color: #5a2db0;
+  border-color: rgba(122, 45, 255, 0.4);
+}
+
+@media (max-width: 480px) {
+  .booking-rider-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-rider-chevron {
+    transition: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Linked panel labels (Tour Dates + Archive, LiveSets, SoundCloud, YouTube) — real links
+   to the Channels URLs; they replace the CSS-drawn label on these panels.
+   -------------------------------------------------------------------------- */
+.tab-panel:is([data-panel='sessions'], [data-panel='events'], [data-panel='podcast'], [data-panel='youtube']) {
+  --rd-panel-num: none;
+  --rd-m-kicker: none;
+}
+
+.panel-kicker {
+  display: none;
+}
+
+.profile-cards .tab-panel .panel-kicker {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.45em;
+  width: fit-content;
+  margin: 0 0 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--accent-neon);
+  border-radius: 6px;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.profile-cards .tab-panel .panel-kicker i {
+  font-size: 0.85em;
+  opacity: 0.7;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+
+.profile-cards .tab-panel .panel-kicker:hover,
+.profile-cards .tab-panel .panel-kicker:focus-visible {
+  color: #e3ccff;
+  text-shadow: 0 0 12px rgba(193, 116, 255, 0.6);
+}
+
+.profile-cards .tab-panel .panel-kicker:hover i,
+.profile-cards .tab-panel .panel-kicker:focus-visible i {
+  opacity: 1;
+  transform: translate(2px, -2px);
+}
+
+.profile-cards .tab-panel .panel-kicker:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 4px;
+}
+
+[data-theme='light'] .profile-cards .tab-panel .panel-kicker {
+  color: #6d28d9;
+}
+
+[data-theme='light'] .profile-cards .tab-panel .panel-kicker:hover,
+[data-theme='light'] .profile-cards .tab-panel .panel-kicker:focus-visible {
+  color: #4c1d95;
+  text-shadow: none;
+}
+
+/* Phones/tablet: 44px tap area without changing the visual spacing */
+@media (max-width: 1024px) {
+  .profile-cards .tab-panel .panel-kicker {
+    min-height: 44px;
+    margin: -14px 0 calc(0.4rem - 14px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-cards .tab-panel .panel-kicker i {
+    transition: none;
+  }
+}
+
+/* Phones: the tagline fills its full-width pill edge to edge. JetBrains Mono
+   advances exactly 0.6em (6px at 10px), so tracking = (inner width - 44 x 6px) / 44
+   chars, measured against the text column (cqw) */
+@media (max-width: 640px) {
+  .profile-text {
+    container-type: inline-size;
+  }
+
+  .profile-text .eyebrow {
+    padding-inline: 12px;
+    text-align: center;
+    white-space: nowrap;
+    letter-spacing: 0.06em;
+    letter-spacing: clamp(0px, calc((100cqw - 291px) / 44), 3px);
+  }
+}
+
+/* Very narrow phones: let the tagline wrap rather than overflow */
+@media (max-width: 340px) {
+  .profile-text .eyebrow {
+    white-space: normal;
+    letter-spacing: 0.06em;
+  }
+}
+
+/* Tablet: a 600px pill would over-stretch the tagline, so the pill hugs it */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .profile-text .eyebrow {
+    align-self: flex-start;
+    width: auto;
+    letter-spacing: 0.16em;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Phone hero polish: planet, tagline, headline, copy and both actions fit
+   the first screen above the fixed bottom nav, with an even vertical rhythm
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .mobile-orbit-stage,
+  .mobile-orbit-image,
+  .mobile-orbit-stage img {
+    width: clamp(180px, 60vw, 270px);
+  }
+
+  .profile-text .eyebrow {
+    margin-top: 0;
+    margin-bottom: 18px;
+  }
+
+  .profile-text h1,
+  [data-theme='light'] .profile-text h1 {
+    margin-bottom: 14px;
+  }
+
+  .profile-text .lede {
+    margin-bottom: 10px;
+  }
+
+  .profile-text .lede + p {
+    margin-bottom: 0;
+  }
+
+  /* Both actions on one row (main.css stacks .hero-actions and makes .btn full width on phones) */
+  .hero-actions {
+    flex-direction: row;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .hero-action {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    padding: 0 0.9rem;
+    white-space: nowrap;
+  }
+
+  .hero-action[data-hero-listen] {
+    flex-grow: 1.4;
+  }
+}
+
+/* Narrow phones: shorter label and slightly smaller copy */
+@media (max-width: 400px) {
+  .hero-action-more {
+    display: none;
+  }
+
+  .profile-text .lede {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+
+  .profile-text .lede + p {
+    font-size: 0.8125rem;
+    line-height: 1.55;
+  }
+}
+
+/* Tabs marked [hidden] (Channels: mobile bottom nav only) stay out of the
+   desktop tab bar; .tab-button's display:flex would otherwise override it */
+.card-tabs .tab-button[hidden] {
+  display: none !important;
+}
+
+/* Phones/tablet: sections follow the desktop tab order — listen
+   (Sessions, SoundCloud, YouTube), credibility (Gigs, Collabs),
+   extras (Guides, Artifacts), then Stay Tuned as the closing call to action */
+@media (max-width: 1024px) {
+  .profile-cards .tab-panel[data-panel='sessions'] { order: 3; }
+  .profile-cards .tab-panel[data-panel='podcast'] { order: 4; }
+  .profile-cards .tab-panel[data-panel='youtube'] { order: 5; }
+  .profile-cards .tab-panel[data-panel='events'] { order: 6; }
+  .profile-cards .tab-panel[data-panel='collab'] { order: 7; }
+  .profile-cards .tab-panel[data-panel='guides'] { order: 8; }
+  .profile-cards .tab-panel[data-panel='shop'] { order: 9; }
+  .profile-cards .tab-panel[data-panel='subscribe'] { order: 10; }
+}
+
+/* --------------------------------------------------------------------------
+   Dark theme background = mockup: near-black #07060f base, violet used only
+   as light (two soft glows) plus the faint 64px grid. Replaces main.css'
+   stacked violet gradients, breathing glows, bloom and fog.
+   -------------------------------------------------------------------------- */
+html:not([data-theme='light']) body {
+  background: radial-gradient(55% 60% at 22% 30%, rgba(137, 69, 255, 0.3), transparent 70%),
+    radial-gradient(40% 50% at 90% 90%, rgba(193, 116, 255, 0.14), transparent 70%),
+    #07060f;
+  background-attachment: fixed;
+}
+
+html:not([data-theme='light']) body::before {
+  inset: 0;
+  background-image: linear-gradient(rgba(176, 132, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(176, 132, 255, 0.05) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mix-blend-mode: normal;
+  opacity: 1;
+  animation: none;
+}
+
+html:not([data-theme='light']) body::after,
+html:not([data-theme='light']) .bg-fx-bloom,
+html:not([data-theme='light']) .bg-fx-fog {
+  display: none;
+}
+
+/* Phones/tablet: the mockup's mobile light, concentrated at the top behind the planet */
+@media (max-width: 1024px) {
+  html:not([data-theme='light']) body {
+    background: radial-gradient(120% 30% at 80% 2%, rgba(137, 69, 255, 0.34), transparent 70%),
+      radial-gradient(90% 20% at 0% 12%, rgba(193, 116, 255, 0.16), transparent 70%),
+      #07060f;
+    background-attachment: fixed;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Sessions — desktop console = mockup: featured latest session + list rows.
+   The carousel (mobile) is untouched; these pieces are hidden below 1025px.
+   -------------------------------------------------------------------------- */
+.sessions-card :is(.sessions-card-kicker, .sessions-card-line, .sessions-card-play, .sessions-card-hq, .sessions-card-wave) {
+  display: none;
+}
+
+@media (min-width: 1025px) {
+  /* List layout: no sliding track, arrows, dots or clones */
+  .tab-panel[data-panel='sessions'] .sessions-carousel {
+    padding: 0;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-carousel > :is(.carousel-btn, .carousel-dots) {
+    display: none;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-track {
+    flex-direction: column;
+    gap: 8px;
+    transform: none !important;
+    transition: none;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-slide[data-sessions-clone] {
+    display: none;
+  }
+
+  /* The selected set is the featured player at the top */
+  .tab-panel[data-panel='sessions'] .sessions-slide:has(> .sessions-card.active) {
+    order: -1;
+  }
+
+  /* Buffering after a skip: the play button pulses */
+  .tab-panel[data-panel='sessions'] .sessions-card.is-buffering .sessions-card-play {
+    animation: sessionsBuffering 1s ease-in-out infinite;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-slide {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+  }
+
+  /* Shared card reset (featured and rows) */
+  .tab-panel[data-panel='sessions'] .sessions-card,
+  html:not([data-theme='light']) .tab-panel[data-panel='sessions'] .sessions-card {
+    display: grid;
+    align-items: center;
+    height: auto;
+    min-height: 0;
+    pointer-events: auto;
+    cursor: pointer;
+    transform: none;
+    box-shadow: none;
+    transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card::before,
+  .tab-panel[data-panel='sessions'] .sessions-card.active::after,
+  .tab-panel[data-panel='sessions'] .sessions-card :is(.sessions-card-source, .sessions-card-meta, .sessions-card-action, .sessions-card-audio) {
+    display: none;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card-top {
+    display: contents;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card-duration {
+    grid-area: dur;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: #bcb2dd;
+    background: none;
+    border: 0;
+    padding: 0;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card-title {
+    grid-area: title;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #f3f0fc;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card-play {
+    grid-area: play;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card-play .fa-pause,
+  .tab-panel[data-panel='sessions'] .sessions-card.is-playing-session .sessions-card-play .fa-play {
+    display: none;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.is-playing-session .sessions-card-play .fa-pause {
+    display: inline;
+  }
+
+  /* Loading / error text from the LiveSets player */
+  .tab-panel[data-panel='sessions'] .sessions-card-player {
+    grid-area: status;
+    display: none;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card-player:is(.is-loading, .has-error) {
+    display: block;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card-player-status {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: #e3ccff;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card:focus-visible {
+    outline: 2px solid var(--accent-neon);
+    outline-offset: 2px;
+  }
+
+  /* ---- Featured: the selected set (the latest one until another is chosen) */
+  .tab-panel[data-panel='sessions'] .sessions-card.active,
+  html:not([data-theme='light']) .tab-panel[data-panel='sessions'] .sessions-card.active {
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "play kicker dur"
+      "play title dur"
+      "wave wave wave"
+      "status status status";
+    column-gap: 14px;
+    row-gap: 4px;
+    padding: 18px;
+    border-radius: 20px;
+    border: 1px solid rgba(193, 116, 255, 0.3);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(193, 116, 255, 0.4), transparent 60%),
+      linear-gradient(160deg, #1b1236, #0a0716);
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.active:hover {
+    border-color: rgba(213, 155, 255, 0.6);
+    box-shadow: 0 14px 34px -14px rgba(137, 69, 255, 0.6);
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.active .sessions-card-play {
+    width: 56px;
+    height: 56px;
+    font-size: 18px;
+    color: #ffffff;
+    background: var(--rd-primary-grad);
+    box-shadow: var(--rd-primary-shadow);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.active:hover .sessions-card-play {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 14px 34px -8px rgba(193, 116, 255, 0.75);
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.active .sessions-card-kicker {
+    grid-area: kicker;
+    display: block;
+    align-self: end;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #e3ccff;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.active .sessions-card-title {
+    align-self: start;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.active .sessions-card-wave {
+    grid-area: wave;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 36px;
+    margin-top: 10px;
+    cursor: pointer;
+  }
+
+  .sessions-card-wave span {
+    flex: 1;
+    border-radius: 2px;
+    background: rgba(193, 116, 255, 0.28);
+    transition: background 0.2s ease;
+  }
+
+  .sessions-card-wave span.is-played {
+    background: #c174ff;
+  }
+
+  /* ---- Rows: the other sessions ------------------------------------------ */
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active),
+  html:not([data-theme='light']) .tab-panel[data-panel='sessions'] .sessions-card:not(.active) {
+    position: relative;
+    overflow: hidden;
+    grid-template-columns: 40px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "play title dur hq"
+      "play line dur hq"
+      "status status status status";
+    column-gap: 14px;
+    row-gap: 2px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(176, 132, 255, 0.12);
+    background: transparent;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active):hover,
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active).is-playing-session {
+    background: rgba(193, 116, 255, 0.1);
+    border-color: rgba(193, 116, 255, 0.5);
+  }
+
+  /* Thin progress line while a row plays (replaces the artwork ::after) */
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active)::after {
+    content: '';
+    display: block;
+    position: absolute;
+    inset: auto auto 0 0;
+    width: var(--sessions-progress, 0%);
+    height: 2px;
+    aspect-ratio: auto;
+    transform: none;
+    filter: none;
+    opacity: 1;
+    background: var(--accent-neon);
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active) .sessions-card-play {
+    width: 40px;
+    height: 40px;
+    font-size: 12px;
+    color: #f3f0fc;
+    background: rgba(193, 116, 255, 0.06);
+    border: 1px solid rgba(193, 116, 255, 0.35);
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active):hover .sessions-card-play,
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active).is-playing-session .sessions-card-play {
+    background: var(--rd-primary-grad);
+    border-color: transparent;
+    color: #ffffff;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active) .sessions-card-title {
+    align-self: end;
+    font-size: 14.5px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active) .sessions-card-line {
+    grid-area: line;
+    display: block;
+    align-self: start;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: #9a8fbf;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card:not(.active) .sessions-card-hq {
+    grid-area: hq;
+    display: inline-block;
+    padding: 4px 7px;
+    border-radius: 6px;
+    border: 1px solid rgba(176, 132, 255, 0.25);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    color: #e3ccff;
+  }
+
+  /* ---- Light theme ------------------------------------------------------- */
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card.active {
+    border-color: rgba(122, 45, 255, 0.25);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(155, 69, 255, 0.18), transparent 60%),
+      linear-gradient(160deg, #ffffff, #f4efff);
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card:not(.active) {
+    border-color: rgba(122, 45, 255, 0.14);
+    background: #ffffff;
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card:not(.active):hover,
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card:not(.active).is-playing-session {
+    background: rgba(122, 45, 255, 0.06);
+    border-color: rgba(122, 45, 255, 0.4);
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card[data-livesets-session] .sessions-card-title {
+    color: #1a1033;
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card[data-livesets-session] :is(.sessions-card-duration, .sessions-card-line) {
+    color: #5b4d78;
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card[data-livesets-session] :is(.sessions-card-kicker, .sessions-card-hq, .sessions-card-player-status) {
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card[data-livesets-session] .sessions-card-hq {
+    border-color: rgba(122, 45, 255, 0.3);
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='sessions'] .sessions-card:not(.active) .sessions-card-play {
+    color: #3b1d6e;
+    background: rgba(122, 45, 255, 0.06);
+    border-color: rgba(122, 45, 255, 0.35);
+  }
+
+  [data-theme='light'] .sessions-card-wave span {
+    background: rgba(122, 45, 255, 0.2);
+  }
+
+  [data-theme='light'] .sessions-card-wave span.is-played {
+    background: #8945ff;
+  }
+}
+
+@media (min-width: 1025px) and (prefers-reduced-motion: reduce) {
+  .tab-panel[data-panel='sessions'] .sessions-card.active .sessions-card-play {
+    transition: none;
+  }
+}
+
+/* Sessions waveform: loaded part (brighter) and played part (violet) */
+@media (min-width: 1025px) {
+  /* Loaded (skippable) part of the set: brighter than not-yet-loaded bars */
+  .sessions-card-wave span.is-loaded {
+    background: rgba(193, 116, 255, 0.5);
+  }
+
+  .sessions-card-wave span.is-played {
+    background: #c174ff;
+  }
+
+  [data-theme='light'] .sessions-card-wave span.is-loaded {
+    background: rgba(122, 45, 255, 0.4);
+  }
+
+  [data-theme='light'] .sessions-card-wave span.is-played {
+    background: #8945ff;
+  }
+
+  /* Short note after a skip past the loaded part */
+  .tab-panel[data-panel='sessions'] .sessions-card-player.has-notice {
+    display: block;
+    margin-top: 6px;
+  }
+}
+
+@keyframes sessionsBuffering {
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-panel[data-panel='sessions'] .sessions-card.is-buffering .sessions-card-play {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* Elapsed / total time keeps a steady width while it ticks */
+.tab-panel[data-panel='sessions'] .sessions-card-duration {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Light theme background = mirror of the dark one: white (#ffffff) base,
+   violet only as two soft glows plus the faint 64px grid. Replaces
+   main.css' stacked violet gradients, breathing glows, bloom and fog.
+   -------------------------------------------------------------------------- */
+html[data-theme='light'] body {
+  background: radial-gradient(55% 60% at 22% 30%, rgba(155, 69, 255, 0.1), transparent 70%),
+    radial-gradient(40% 50% at 90% 90%, rgba(193, 116, 255, 0.07), transparent 70%),
+    #ffffff;
+  background-attachment: fixed;
+}
+
+html[data-theme='light'] body::before {
+  inset: 0;
+  background-image: linear-gradient(rgba(122, 45, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(122, 45, 255, 0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mix-blend-mode: normal;
+  opacity: 1;
+  animation: none;
+}
+
+html[data-theme='light'] body::after,
+html[data-theme='light'] .bg-fx-bloom,
+html[data-theme='light'] .bg-fx-fog {
+  display: none;
+}
+
+/* Phones/tablet: the soft light sits at the top, behind the planet */
+@media (max-width: 1024px) {
+  html[data-theme='light'] body {
+    background: radial-gradient(120% 30% at 80% 2%, rgba(155, 69, 255, 0.12), transparent 70%),
+      radial-gradient(90% 20% at 0% 12%, rgba(193, 116, 255, 0.08), transparent 70%),
+      #ffffff;
+    background-attachment: fixed;
+  }
+}
+
+/* Light theme header: white glass to match the white page */
+html[data-theme='light'] .site-header {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+/* --------------------------------------------------------------------------
+   Your Monthly Dose: own player (mockup) over the SoundCloud widget.
+   The widget iframe stays loaded and sized (it streams the audio and the
+   Widget API needs it) but is invisible: no white SoundCloud box.
+   -------------------------------------------------------------------------- */
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode,
+html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode {
+  --dose-art: clamp(104px, 30%, 170px);
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--dose-art) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  height: auto;
+  min-height: 170px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(193, 116, 255, 0.3);
+  background: linear-gradient(160deg, #1b1236, #0a0716);
+  box-shadow: none;
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode::before,
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode::after {
+  display: none;
+}
+
+/* Hidden SoundCloud widget (keeps its size so it renders and plays) */
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-player {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-player .podcast-card-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 166px;
+}
+
+/* Artwork tile with the episode number */
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-meta {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 0;
+  margin: 0;
+  background:
+    linear-gradient(180deg, rgba(7, 6, 15, 0.1), rgba(7, 6, 15, 0.55)),
+    var(--podcast-artwork, radial-gradient(circle at 50% 45%, #c174ff 0, #6326d6 25%, #1a0b40 55%, #07060f 85%)) center / cover no-repeat,
+    radial-gradient(circle at 50% 45%, #c174ff 0, #6326d6 25%, #1a0b40 55%, #07060f 85%);
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-number {
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(7, 6, 15, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #f3f0fc;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+}
+
+/* Controls column */
+.podcast-ui {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 18px;
+}
+
+.podcast-ui-kicker {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #e3ccff;
+}
+
+.podcast-ui-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #f3f0fc;
+}
+
+/* 4px bar inside a 16px hit area */
+.podcast-ui-progress {
+  position: relative;
+  display: block;
+  height: 16px;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.podcast-ui-progress::before,
+.podcast-ui-fill {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.podcast-ui-progress::before {
+  right: 0;
+  background: rgba(193, 116, 255, 0.2);
+}
+
+.podcast-ui-fill {
+  width: var(--podcast-progress, 0%);
+  background: #c174ff;
+}
+
+.podcast-ui-progress:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 2px;
+}
+
+.podcast-ui-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.podcast-ui-time {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #bcb2dd;
+}
+
+.podcast-ui-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.podcast-ui-btn {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(193, 116, 255, 0.35);
+  background: rgba(193, 116, 255, 0.06);
+  color: #f3f0fc;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.podcast-ui-btn:hover,
+.podcast-ui-btn:focus-visible {
+  background: rgba(193, 116, 255, 0.16);
+  border-color: #d59bff;
+}
+
+.podcast-ui-btn:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 2px;
+}
+
+.podcast-ui-play {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  color: #ffffff;
+  font-size: 17px;
+  background: var(--rd-primary-grad);
+  box-shadow: var(--rd-primary-shadow);
+}
+
+.podcast-ui-play:hover,
+.podcast-ui-play:focus-visible {
+  background: var(--rd-primary-grad-hover);
+  transform: scale(1.06);
+}
+
+.podcast-ui-play .fa-pause,
+.podcast-episode.is-playing-episode .podcast-ui-play .fa-play {
+  display: none;
+}
+
+.podcast-episode.is-playing-episode .podcast-ui-play .fa-pause {
+  display: inline;
+}
+
+/* Only the active episode is interactive; carousel peeks stay passive */
+.podcast-episode:not(.active) .podcast-ui {
+  pointer-events: none;
+}
+
+/* ---- Light theme ---------------------------------------------------------- */
+[data-theme='light'] .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode {
+  border-color: rgba(122, 45, 255, 0.25);
+  background: radial-gradient(80% 90% at 100% 0%, rgba(155, 69, 255, 0.14), transparent 60%),
+    linear-gradient(160deg, #ffffff, #f4efff);
+}
+
+[data-theme='light'] .podcast-ui-kicker {
+  color: #5a2db0;
+}
+
+[data-theme='light'] .podcast-ui-title {
+  color: #1a1033;
+}
+
+[data-theme='light'] .podcast-ui-time {
+  color: #5b4d78;
+}
+
+[data-theme='light'] .podcast-ui-progress::before {
+  background: rgba(122, 45, 255, 0.16);
+}
+
+[data-theme='light'] .podcast-ui-fill {
+  background: #8945ff;
+}
+
+[data-theme='light'] .podcast-ui-btn:not(.podcast-ui-play) {
+  color: #3b1d6e;
+  background: rgba(122, 45, 255, 0.06);
+  border-color: rgba(122, 45, 255, 0.35);
+}
+
+/* ---- Phones: compact layout ------------------------------------------- */
+@media (max-width: 480px) {
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode,
+  html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode {
+    --dose-art: 96px;
+    min-height: 0;
+  }
+
+  .podcast-ui {
+    gap: 8px;
+    padding: 14px;
+  }
+
+  .podcast-ui-title {
+    font-size: 17px;
+  }
+
+  .podcast-ui-bottom {
+    flex-wrap: wrap;
+  }
+
+  .podcast-ui-buttons {
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .podcast-ui-btn {
+    transition: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   YouTube cards = mockup: 16:9 thumbnail with violet tint, round glass play
+   button and "Unlisted" chip; body with title + Play video / HQ audio in
+   Sessions. Desktop: 2×2 grid, the playing video spans the full width at
+   the top. Phones keep the swipe carousel with the same card design.
+   -------------------------------------------------------------------------- */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card,
+html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='youtube'] .youtube-card {
+  height: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(176, 132, 255, 0.18);
+  background: rgba(7, 6, 15, 0.45);
+  box-shadow: none;
+  transform: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card::before,
+.profile-cards .tab-panel[data-panel='youtube'] :is(.youtube-card-top, .youtube-card-note) {
+  display: none;
+}
+
+/* Thumbnail */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(70% 80% at 30% 30%, rgba(193, 116, 255, 0.28), transparent 70%),
+    linear-gradient(160deg, rgba(27, 18, 54, 0.35), rgba(7, 6, 15, 0.55)),
+    var(--youtube-thumb) center / cover no-repeat,
+    linear-gradient(160deg, #1b1236, #07060f);
+  box-shadow: none;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player::after {
+  background: linear-gradient(180deg, transparent 55%, rgba(7, 6, 15, 0.45));
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-frame {
+  width: 100%;
+  height: 100%;
+}
+
+/* Round glass play button in the middle (label kept for screen readers) */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-play {
+  width: 52px;
+  height: 52px;
+  min-height: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(7, 6, 15, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 10px 26px -8px rgba(0, 0, 0, 0.6);
+  font-size: 0;
+  letter-spacing: 0;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-play i {
+  font-size: 17px;
+  margin-left: 2px;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card:hover .youtube-card-play,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-play:focus-visible {
+  background: var(--rd-primary-grad);
+  border-color: transparent;
+  box-shadow: var(--rd-primary-shadow);
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+.youtube-card-chip {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: rgba(7, 6, 15, 0.7);
+  color: #e3ccff;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.youtube-card-player.is-loaded .youtube-card-chip {
+  display: none;
+}
+
+/* Body */
+.youtube-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.youtube-card-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #f3f0fc;
+}
+
+.youtube-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.youtube-card-cta {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(193, 116, 255, 0.35);
+  background: rgba(193, 116, 255, 0.06);
+  color: #f3f0fc;
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.youtube-card-cta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.youtube-card-cta i {
+  font-size: 0.85em;
+}
+
+.youtube-card-cta:hover,
+.youtube-card-cta:focus-visible {
+  background: rgba(193, 116, 255, 0.16);
+  border-color: #d59bff;
+}
+
+.youtube-card-cta.is-primary {
+  border-color: transparent;
+  background: var(--rd-primary-grad);
+  box-shadow: var(--rd-primary-shadow);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.youtube-card-cta.is-primary:hover,
+.youtube-card-cta.is-primary:focus-visible {
+  background: var(--rd-primary-grad-hover);
+  transform: translateY(-1px);
+}
+
+.youtube-card-cta:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 2px;
+}
+
+/* Once the video loads, our overlay (play button, chip, tint) gets out of
+   the way so YouTube's own controls, incl. "Watch on YouTube", are usable */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player.is-loaded :is(.youtube-card-play, .youtube-card-chip),
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player.is-loaded::after {
+  display: none;
+}
+
+/* "Play video" becomes "Open on YouTube" while the embed is loaded */
+.youtube-card-open,
+.youtube-card-player.is-loaded ~ .youtube-card-body .youtube-card-cta[data-youtube-play] {
+  display: none;
+}
+
+.youtube-card-player.is-loaded ~ .youtube-card-body .youtube-card-open {
+  display: inline-flex;
+}
+
+/* ---- Desktop console: 2×2 grid, playing video full width at the top --- */
+@media (min-width: 1025px) {
+  .tab-panel[data-panel='youtube'] .youtube-carousel {
+    padding: 0;
+    overflow: visible;
+    min-height: 0;
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-carousel > :is(.carousel-btn, .carousel-dots) {
+    display: none;
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-track {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    transform: none !important;
+    transition: none;
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-slide[data-youtube-clone] {
+    display: none;
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-slide {
+    width: auto;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-card {
+    pointer-events: auto;
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-card:hover {
+    border-color: rgba(193, 116, 255, 0.5);
+    box-shadow: 0 14px 30px -14px rgba(137, 69, 255, 0.6);
+    transform: translateY(-2px);
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-slide:has(.youtube-card-player.is-loaded) {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-slide:has(.youtube-card-player.is-loaded) .youtube-card {
+    transform: none;
+    border-color: rgba(193, 116, 255, 0.5);
+  }
+}
+
+/* ---- Light theme ---------------------------------------------------------- */
+[data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card {
+  border-color: rgba(122, 45, 255, 0.16);
+  background: #ffffff;
+}
+
+[data-theme='light'] .youtube-card-title {
+  color: #1a1033;
+}
+
+[data-theme='light'] .youtube-card-cta:not(.is-primary) {
+  color: #3b1d6e;
+  background: rgba(122, 45, 255, 0.06);
+  border-color: rgba(122, 45, 255, 0.35);
+}
+
+[data-theme='light'] .tab-panel[data-panel='youtube'] .youtube-card:hover {
+  border-color: rgba(122, 45, 255, 0.4);
+  box-shadow: 0 14px 30px -16px rgba(70, 30, 140, 0.35);
+}
+
+/* ---- Phones: 44px tap targets ----------------------------------------- */
+@media (max-width: 1024px) {
+  .youtube-card-cta {
+    min-height: 44px;
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .youtube-card-cta,
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card {
+    transition: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Play buttons, one system: Sessions (featured), SoundCloud and YouTube use
+   the same 52px violet-gradient circle with an 18px white icon; Sessions
+   rows keep the 40px outlined secondary style. The play triangle is nudged
+   right so it reads optically centred (its geometric centre looks left).
+   -------------------------------------------------------------------------- */
+.podcast-ui-play,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-play {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  grid-template-columns: auto;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--rd-primary-grad);
+  box-shadow: var(--rd-primary-shadow);
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.podcast-ui-play i,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-play i {
+  font-size: 18px;
+  margin: 0;
+}
+
+/* Optical centring of the triangle (all round play buttons, incl. rows) */
+:is(.sessions-card-play, .podcast-ui-play, .youtube-card-play) .fa-play {
+  transform: translateX(1.5px);
+}
+
+/* Shared hover: grow slightly + stronger glow */
+.podcast-ui-play:hover,
+.podcast-ui-play:focus-visible {
+  background: var(--rd-primary-grad-hover);
+  transform: scale(1.06);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 14px 34px -8px rgba(193, 116, 255, 0.75);
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card:hover .youtube-card-play,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-play:hover,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-play:focus-visible {
+  background: var(--rd-primary-grad-hover);
+  transform: translate(-50%, -50%) scale(1.06);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 14px 34px -8px rgba(193, 116, 255, 0.75);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .podcast-ui-play,
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-play {
+    transition: none;
+  }
+}
+
+/* Sessions featured play button: same system, desktop console only
+   (the mobile carousel has no play button) */
+@media (min-width: 1025px) {
+  .tab-panel[data-panel='sessions'] .sessions-card.active .sessions-card-play {
+    width: 52px;
+    height: 52px;
+    font-size: 18px;
+    background: var(--rd-primary-grad);
+    box-shadow: var(--rd-primary-shadow);
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.active .sessions-card-play i {
+    font-size: 18px;
+  }
+
+  .tab-panel[data-panel='sessions'] .sessions-card.active:hover .sessions-card-play {
+    background: var(--rd-primary-grad-hover);
+    transform: scale(1.06);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18) inset, 0 14px 34px -8px rgba(193, 116, 255, 0.75);
+  }
+}
+
+/* Monthly Dose artwork fills its whole column (main.css sizes the meta box
+   to its content, which left an empty strip next to the artwork) */
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-meta {
+  width: 100%;
+  max-width: none;
+  justify-self: stretch;
+  align-self: stretch;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+}
+
+/* --------------------------------------------------------------------------
+   YouTube generated covers (replace YouTube's own thumbnails). The SVG reads
+   these variables, so it follows the theme: near-black + violet in dark,
+   white + lilac in light.
+   -------------------------------------------------------------------------- */
+.youtube-card-art {
+  --yt-bg-a: #1b1236;
+  --yt-bg-b: #07060f;
+  --yt-glow: #c174ff;
+  --yt-glow-a: 0.45;
+  --yt-line: rgba(193, 116, 255, 0.6);
+  --yt-text: #f3f0fc;
+  --yt-muted: #bcb2dd;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.youtube-card-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+[data-theme='light'] .youtube-card-art {
+  --yt-bg-a: #ffffff;
+  --yt-bg-b: #ece2ff;
+  --yt-glow: #9b45ff;
+  --yt-glow-a: 0.22;
+  --yt-line: rgba(122, 45, 255, 0.5);
+  --yt-text: #1a1033;
+  --yt-muted: #5b4d78;
+}
+
+/* The cover replaces the screenshot; hide it once the video plays */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player {
+  background: #07060f;
+}
+
+[data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player {
+  background: #ffffff;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player::after {
+  display: none;
+}
+
+.youtube-card-player.is-loaded .youtube-card-art {
+  display: none;
+}
+
+/* Light covers: the chip reads as a light glass pill */
+[data-theme='light'] .youtube-card-chip {
+  background: rgba(255, 255, 255, 0.85);
+  color: #5a2db0;
+  border: 1px solid rgba(122, 45, 255, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Artifacts showcase (desktop console): featured product + compact tiles.
+   Overrides the earlier compact 2×2 grid.
+   -------------------------------------------------------------------------- */
+@media (min-width: 1025px) {
+  .tab-panel[data-panel='shop'] [data-shop-track] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+
+  /* ---- Featured product ---------------------------------------------- */
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item {
+    --rd-shop-art: min(38%, 24vh);
+    grid-template-columns: var(--rd-shop-art) minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr auto;
+    column-gap: 18px;
+    row-gap: 8px;
+    padding: 14px;
+    border-radius: 20px;
+    border-color: rgba(193, 116, 255, 0.3);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(193, 116, 255, 0.22), transparent 60%),
+      linear-gradient(160deg, #1b1236, #0a0716);
+    cursor: default;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item:hover {
+    transform: none;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-image-button {
+    grid-row: 1 / -1;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1;
+    align-self: center;
+    padding: 12px;
+    border-radius: 16px;
+    cursor: zoom-in;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-top {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-top::before {
+    content: 'ARTIFACT ' var(--shop-index, '');
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: #e3ccff;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item h4 {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-price {
+    position: static;
+    align-self: flex-start;
+    padding: 5px 10px;
+    font-size: 13px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    display: block;
+    -webkit-line-clamp: unset;
+    line-clamp: none;
+    overflow: visible;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: #d6cdee;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item .shop-detail {
+    display: block;
+    grid-row: auto;
+    align-self: start;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > .shop-actions {
+    grid-column: 2;
+    grid-row: auto;
+    padding-top: 4px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-actions .btn,
+  html:not([data-theme='light']) .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-actions .btn:not(.ghost) {
+    min-height: 40px;
+    height: 40px;
+  }
+
+  /* ---- Tiles: the other products ------------------------------------- */
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item {
+    --rd-shop-art: 56px;
+    grid-template-columns: var(--rd-shop-art) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 2px;
+    padding: 8px;
+    border-radius: 14px;
+    cursor: pointer;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item:hover,
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item:focus-visible {
+    border-color: rgba(193, 116, 255, 0.55);
+    background: rgba(193, 116, 255, 0.08);
+    transform: translateY(-2px);
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item:focus-visible {
+    outline: 2px solid var(--accent-neon);
+    outline-offset: 2px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-image-button {
+    grid-row: 1 / -1;
+    width: 56px;
+    height: 56px;
+    padding: 4px;
+    border-radius: 10px;
+    pointer-events: none;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item-top {
+    display: block;
+    align-self: end;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item h4 {
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-price {
+    position: static;
+    display: inline-block;
+    margin-top: 3px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #bcb2dd;
+    font-size: 10.5px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) :is(.shop-item-body > p, .shop-actions) {
+    display: none;
+  }
+
+  /* ---- Light theme ------------------------------------------------------ */
+  [data-theme='light'] .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item {
+    border-color: rgba(122, 45, 255, 0.25);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(155, 69, 255, 0.12), transparent 60%),
+      linear-gradient(160deg, #ffffff, #f4efff);
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-top::before {
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    color: #3d3355;
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-price {
+    color: #5b4d78;
+  }
+
+  [data-theme='light'] .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item:hover {
+    border-color: rgba(122, 45, 255, 0.4);
+    background: rgba(122, 45, 255, 0.05);
+  }
+}
+
+/* Short desktop windows: tighter featured copy so tiles stay in view */
+@media (min-width: 1025px) and (max-height: 820px) {
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 13px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item h4 {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 1025px) and (prefers-reduced-motion: reduce) {
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item:hover {
+    transform: none;
+  }
+}
+
+/* Very short desktop windows (≤760px, e.g. 1280x720): featured + tiles fit */
+@media (min-width: 1025px) and (max-height: 760px) {
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item {
+    --rd-shop-art: min(32%, 22vh);
+    row-gap: 6px;
+    padding: 12px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+  }
+
+  /* The "soon" payment buttons already say details are pending */
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item .shop-detail {
+    display: none;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-actions .btn,
+  html:not([data-theme='light']) .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-actions .btn:not(.ghost) {
+    min-height: 36px;
+    height: 36px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item {
+    --rd-shop-art: 46px;
+    padding: 6px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-image-button {
+    width: 46px;
+    height: 46px;
+  }
+}
+
+/* Artifacts featured card keeps one height for every product: the title
+   always reserves two lines and the description a fixed number of lines */
+@media (min-width: 1025px) {
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item h4 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.4em; /* 2 × line-height 1.2 */
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 4.5em; /* 3 × line-height 1.5 */
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item .shop-detail {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (min-width: 1025px) and (max-height: 820px) {
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    min-height: 3em;
+  }
+}
+
+@media (min-width: 1025px) and (max-height: 760px) {
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    min-height: 1.5em;
+  }
+}
+
+@media (min-width: 1025px) and (max-height: 820px) {
+  /* The "soon" payment buttons already say details are pending */
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item .shop-detail {
+    display: none;
+  }
+}
+
+@media (min-width: 1025px) and (max-height: 820px) {
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-item {
+    --rd-shop-art: 46px;
+    padding: 6px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide:not(.is-featured) .shop-image-button {
+    width: 46px;
+    height: 46px;
+  }
+}
+
+@media (min-width: 1025px) and (max-height: 820px) {
+  .tab-panel[data-panel='shop'] [data-shop-track] {
+    gap: 8px;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item {
+    padding: 12px;
+    row-gap: 6px;
+  }
+}
+
+/* Light theme: Artifacts and Guides card titles use the same dark violet as
+   the Sessions and SoundCloud titles (#1a1033) instead of plain black. */
+html[data-theme='light'] .profile-cards .tab-panel[data-panel='shop'] .shop-item h4,
+html[data-theme='light'] .profile-cards .tab-panel [data-guides-track] .guide-card .guide-card-title {
+  color: #1a1033;
+}
+
+/* Artifacts product frames take the colour of the photo's own side edges
+   (--shop-art-bg, sampled in script.js), so the letterbox around each shot
+   blends into it in both themes; a hairline ring keeps the frame shape. */
+.tab-panel[data-panel='shop'] [data-shop-track] .shop-image-button,
+[data-theme='light'] .tab-panel[data-panel='shop'] [data-shop-track] .shop-image-button,
+[data-theme='light'] .profile-cards .tab-panel[data-panel='shop'] .shop-image-button {
+  background: var(--shop-art-bg, #0b0918);
+  box-shadow: inset 0 0 0 1px rgba(193, 116, 255, 0.18);
+}
+
+[data-theme='light'] .tab-panel[data-panel='shop'] [data-shop-track] .shop-image-button,
+[data-theme='light'] .profile-cards .tab-panel[data-panel='shop'] .shop-image-button {
+  background: var(--shop-art-bg, #f4efff);
+  box-shadow: inset 0 0 0 1px rgba(122, 45, 255, 0.16), 0 8px 20px -14px rgba(40, 20, 90, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   Card hover = the Artifacts / production hover: a violet light sweeps
+   across the card (::before, left -100% → 100%, 0.5s) while the border
+   lights up and the card glows. Sessions, SoundCloud and YouTube cards.
+   -------------------------------------------------------------------------- */
+.profile-cards .tab-panel[data-panel='sessions'] .sessions-card,
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-cards .tab-panel[data-panel='sessions'] .sessions-card::before,
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode::before,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  background: linear-gradient(90deg, transparent, rgba(193, 116, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.profile-cards .tab-panel[data-panel='sessions'] .sessions-card:hover::before,
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode:hover::before,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card:hover::before {
+  left: 100%;
+}
+
+/* No sweep over a playing YouTube video */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card:has(.is-loaded)::before {
+  display: none;
+}
+
+:root body .profile-cards .tab-panel[data-panel='sessions'] .sessions-card:hover,
+:root body .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode:hover,
+:root body .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:hover {
+  border-color: rgba(193, 116, 255, 0.55);
+  box-shadow: 0 10px 26px -12px rgba(137, 69, 255, 0.55);
+}
+
+[data-theme='light'] .profile-cards .tab-panel[data-panel='sessions'] .sessions-card::before,
+[data-theme='light'] .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode::before,
+[data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card::before {
+  background: linear-gradient(90deg, transparent, rgba(155, 69, 255, 0.14), transparent);
+}
+
+:root[data-theme='light'] body .profile-cards .tab-panel[data-panel='sessions'] .sessions-card:hover,
+:root[data-theme='light'] body .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode:hover,
+:root[data-theme='light'] body .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:hover {
+  border-color: rgba(122, 45, 255, 0.45);
+  box-shadow: 0 12px 28px -16px rgba(70, 30, 140, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card::before,
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode::before,
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card::before {
+    transition: none;
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Gigs panel = two sections, each: link label → title → description →
+   content. "Tour Dates ↗" / Upcoming Gigs (the next event card; the whole
+   section is hidden when no event is upcoming), then "Archive ↗" / Past Gigs
+   (the archive list). Stay Tuned is the newsletter only (NEWSLETTER label).
+   -------------------------------------------------------------------------- */
+.profile-cards .tab-panel > .gigs-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* No upcoming event: the whole Upcoming Gigs section is hidden (the panel
+   starts with .gigs-none; script.js removes it while an event is upcoming) */
+.profile-cards .tab-panel.gigs-none > :is(.gigs-upcoming-part, .gigs-upcoming) {
+  display: none;
+}
+
+/* Upcoming block closes the first section with a divider */
+.profile-cards .tab-panel > .gigs-upcoming {
+  margin: 14px 0 22px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(193, 116, 255, 0.16);
+}
+
+.gigs-upcoming [data-next-event-container] {
+  margin: 0;
+}
+
+[data-theme='light'] .profile-cards .tab-panel > .gigs-upcoming {
+  border-bottom-color: rgba(122, 45, 255, 0.14);
+}
+
+
+
+/* --------------------------------------------------------------------------
+   "Join the Signal" prompts (Sessions, Gigs, Artifacts): one pattern, under
+   each section description and above its content: a short line + a ghost
+   link that opens the Signal (newsletter) tab / scrolls to it.
+   -------------------------------------------------------------------------- */
+.profile-cards .tab-panel .signal-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 12px 0 14px;
+  padding: 10px 12px 10px 14px;
+  border: 1px solid rgba(193, 116, 255, 0.18);
+  border-radius: 14px;
+  background: rgba(193, 116, 255, 0.05);
+}
+
+.signal-cta-text {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.signal-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(193, 116, 255, 0.4);
+  border-radius: 10px;
+  background: rgba(193, 116, 255, 0.08);
+  color: #f3f0fc;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.signal-cta-btn i {
+  font-size: 0.85em;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.signal-cta-btn:hover,
+.signal-cta-btn:focus-visible {
+  border-color: #d59bff;
+  background: rgba(193, 116, 255, 0.18);
+}
+
+.signal-cta-btn:hover i,
+.signal-cta-btn:focus-visible i {
+  transform: translateX(3px);
+}
+
+.signal-cta-btn:focus-visible {
+  outline: 2px solid var(--accent-neon);
+  outline-offset: 2px;
+}
+
+[data-theme='light'] .profile-cards .tab-panel .signal-cta {
+  border-color: rgba(122, 45, 255, 0.16);
+  background: rgba(122, 45, 255, 0.04);
+}
+
+[data-theme='light'] .signal-cta-text {
+  color: #5b4d78;
+}
+
+[data-theme='light'] .signal-cta-btn {
+  border-color: rgba(122, 45, 255, 0.35);
+  background: rgba(122, 45, 255, 0.06);
+  color: #3b1d6e;
+}
+
+[data-theme='light'] .signal-cta-btn:hover,
+[data-theme='light'] .signal-cta-btn:focus-visible {
+  border-color: #7a2dff;
+  background: rgba(122, 45, 255, 0.12);
+}
+
+/* Phones/tablet: 44px tap target */
+@media (max-width: 1024px) {
+  .signal-cta-btn {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signal-cta-btn,
+  .signal-cta-btn i {
+    transition: none;
+  }
+}
+
+/* Phones/tablet: the Artifacts heading never breaks mid-word; the Signal
+   prompts keep the button on the right when it wraps. */
+@media (max-width: 1024px) {
+  .profile-cards .tab-panel > .shop-head {
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 10px;
+  }
+
+  .profile-cards .tab-panel > .shop-head h3 {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .profile-cards .tab-panel .signal-cta-btn {
+    margin-left: auto;
+  }
+}
+
+/* Desktop console: slimmer Signal prompts (all three panels) */
+@media (min-width: 1025px) {
+  .profile-cards .tab-panel .signal-cta {
+    margin: 10px 0 12px;
+    padding: 6px 6px 6px 14px;
+  }
+
+  .profile-cards .tab-panel .signal-cta .signal-cta-btn {
+    min-height: 30px;
+  }
+}
+
+/* Desktop Artifacts with the Signal prompt above the showcase: the featured
+   product gives up copy (never its name) on shorter windows so the tiles
+   stay in view; its height stays constant for every product per tier. */
+@media (min-width: 1025px) and (max-height: 960px) {
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    min-height: 3em;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item .shop-detail {
+    display: none;
+  }
+}
+
+@media (min-width: 1025px) and (max-height: 880px) {
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item-body > p:not(.shop-detail) {
+    display: none;
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item {
+    --rd-shop-art: min(30%, 20vh);
+  }
+
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-price {
+    padding: 3px 8px;
+    font-size: 12px;
+  }
+
+  .profile-cards .tab-panel[data-panel='shop'] > .shop-head {
+    margin-bottom: 0.35rem;
+  }
+
+  .profile-cards .tab-panel[data-panel='shop'] .signal-cta {
+    margin: 6px 0 8px;
+    padding: 4px 4px 4px 12px;
+  }
+
+  .profile-cards .tab-panel[data-panel='shop'] .signal-cta .signal-cta-btn {
+    min-height: 28px;
+  }
+}
+
+@media (min-width: 1025px) and (max-height: 760px) {
+  .tab-panel[data-panel='shop'] .shop-slide.is-featured .shop-item {
+    --rd-shop-art: min(28%, 19vh);
+  }
+}
+
+/* "Join the Signal" buttons: never underlined (main.css underlines every
+   .info-card link on hover) */
+.info-card .signal-cta-btn,
+.info-card .signal-cta-btn:hover,
+.info-card .signal-cta-btn:focus,
+.info-card .signal-cta-btn:focus-visible {
+  text-decoration: none;
+}
+
+/* Phones/tablet: bigger logo, like desktop, scaled to the screen so it
+   never crowds the three round header buttons (32px/14.7px before) */
+@media (max-width: 1024px) {
+  .logo {
+    gap: 0.55rem;
+  }
+
+  .logo-symbol {
+    width: clamp(34px, 10vw, 42px);
+    height: clamp(34px, 10vw, 42px);
+  }
+
+  .logo-text {
+    font-size: clamp(1rem, 4.9vw, 1.32rem);
+    letter-spacing: clamp(0.2em, 1.1vw, 0.42em);
+  }
+}
+
+/* Very small phones (≤340px): keep clear of the header buttons */
+@media (max-width: 340px) {
+  .logo {
+    gap: 0.45rem;
+  }
+
+  .logo-symbol {
+    width: 32px;
+    height: 32px;
+  }
+
+  .logo-text {
+    font-size: 0.95rem;
+    letter-spacing: 0.16em;
+  }
+}
+
+/* Sessions: the prompt sits as close to the description as in Gigs and
+   Artifacts (the header's own margin + the prompt's margin stacked to ~38px
+   in the flex column; now only the description's 16px remains) */
+.profile-cards .tab-panel[data-panel='sessions'] > .sessions-header:has(+ .signal-cta) {
+  margin-bottom: 0;
+}
+
+.profile-cards .tab-panel[data-panel='sessions'] > .sessions-header + .signal-cta {
+  margin-top: 0;
+}
+
+/* --------------------------------------------------------------------------
+   ChaCha hybrid sets (SoundCloud tab, under Your Monthly Dose): label, title,
+   description, then the same card carousel as Monthly Dose (.podcast-*
+   classes; styles shared).
+   -------------------------------------------------------------------------- */
+.profile-cards .tab-panel > .chacha-kicker {
+  margin-top: 28px;
+}
+
+/* --------------------------------------------------------------------------
+   SoundCloud card artwork (Monthly Dose + ChaCha): covers are square, so the
+   whole cover is always shown (contain) and the rest of the tile is filled
+   with a soft, blurred copy of it instead of cropping. Phones: the card turns
+   into a player layout with a real square cover next to the title.
+   -------------------------------------------------------------------------- */
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-meta {
+  overflow: hidden;
+  isolation: isolate;
+  background: radial-gradient(circle at 50% 45%, #c174ff 0, #6326d6 25%, #1a0b40 55%, #07060f 85%);
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode.has-artwork .podcast-episode-meta::before {
+  content: '';
+  position: absolute;
+  inset: -24px;
+  z-index: 0;
+  background: var(--podcast-artwork) center / cover no-repeat;
+  filter: blur(14px) saturate(1.15) brightness(0.62);
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-meta::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(7, 6, 15, 0) 55%, rgba(7, 6, 15, 0.35)),
+    var(--podcast-artwork, radial-gradient(circle at 50% 45%, #c174ff 0, #6326d6 25%, #1a0b40 55%, #07060f 85%)) center / contain no-repeat;
+  pointer-events: none;
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-number {
+  position: relative;
+  z-index: 2;
+}
+
+/* Phones: square cover top-left beside label + title; progress and
+   controls run full width underneath */
+@media (max-width: 640px) {
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode,
+  html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode {
+    grid-template-columns: 84px minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto;
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 6px;
+    min-height: 0;
+    padding: 14px;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-meta {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    width: 84px;
+    height: 84px;
+    min-height: 0;
+    align-self: start;
+    border-radius: 12px;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode.has-artwork .podcast-episode-meta::before {
+    display: none;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-meta::after {
+    background-size: auto, cover;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-episode-number {
+    align-self: end;
+    justify-self: start;
+    margin: 0 0 6px 6px;
+    padding: 3px 6px;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui {
+    display: contents;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-kicker {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: end;
+    position: relative;
+    z-index: 1;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-title {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    position: relative;
+    z-index: 1;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-progress {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    margin-top: 6px;
+    z-index: 1;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-bottom {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* ChaCha header sits as close to its cards as Monthly Dose's does (its
+   description is a direct panel child with its own bottom margin) */
+.profile-cards .tab-panel[data-panel='podcast'] > .chacha-title + .section-description {
+  margin-bottom: 0;
+}
+
+/* Phones: one-line label, and time + controls on a single row */
+@media (max-width: 640px) {
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-kicker {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    letter-spacing: 0.12em;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-bottom {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-time {
+    min-width: 0;
+    font-size: 11px;
+    letter-spacing: -0.02em;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-buttons {
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+}
+
+/* Very narrow phones: controls get their own centred row */
+@media (max-width: 359px) {
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-bottom {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-ui-time {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Sessions on phones/tablet: every carousel card is the desktop featured
+   player (play/pause, "LATEST · LIVESETS · GENRE", title, duration →
+   elapsed / total, seekable waveform). Swipe, arrows and dots unchanged.
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card,
+  html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='sessions'] .sessions-card {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "play kicker dur"
+      "play title title"
+      "wave wave wave"
+      "status status status";
+    align-items: center;
+    align-content: center;
+    column-gap: 12px;
+    row-gap: 4px;
+    height: auto;
+    min-height: 0;
+    padding: 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(193, 116, 255, 0.3);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(193, 116, 255, 0.4), transparent 60%),
+      linear-gradient(160deg, #1b1236, #0a0716);
+    box-shadow: none;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card.active {
+    cursor: pointer;
+  }
+
+  /* The old carousel pieces (artwork, LiveSets chip, genre chips, button, audio bar) */
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card::after,
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card :is(.sessions-card-source, .sessions-card-meta, .sessions-card-action, .sessions-card-audio, .sessions-card-line, .sessions-card-hq) {
+    display: none;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-top {
+    display: contents;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-duration {
+    grid-area: dur;
+    align-self: end;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: #bcb2dd;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-kicker {
+    grid-area: kicker;
+    display: block;
+    align-self: end;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #e3ccff;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-title {
+    grid-area: title;
+    align-self: start;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #f3f0fc;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-play {
+    grid-area: play;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    color: #ffffff;
+    font-size: 18px;
+    background: var(--rd-primary-grad);
+    box-shadow: var(--rd-primary-shadow);
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-play .fa-pause,
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card.is-playing-session .sessions-card-play .fa-play {
+    display: none;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card.is-playing-session .sessions-card-play .fa-pause {
+    display: inline;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card.is-buffering .sessions-card-play,
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card.is-loading-session .sessions-card-play {
+    animation: sessionsBuffering 1s ease-in-out infinite;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-wave {
+    grid-area: wave;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 40px;
+    margin-top: 12px;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-wave span {
+    flex: 1;
+    border-radius: 2px;
+    background: rgba(193, 116, 255, 0.28);
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-wave span.is-loaded {
+    background: rgba(193, 116, 255, 0.5);
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-wave span.is-played {
+    background: #c174ff;
+  }
+
+  /* Loading / error / skip notice under the waveform */
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-player {
+    grid-area: status;
+    display: none;
+    margin: 6px 0 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-player:is(.is-loading, .has-error, .has-notice) {
+    display: block;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-player-status {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: #e3ccff;
+  }
+
+  /* Light theme */
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='sessions'] .sessions-card {
+    border-color: rgba(122, 45, 255, 0.25);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(155, 69, 255, 0.18), transparent 60%),
+      linear-gradient(160deg, #ffffff, #f4efff);
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-title {
+    color: #1a1033;
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-duration {
+    color: #5b4d78;
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='sessions'] :is(.sessions-card-kicker, .sessions-card-player-status) {
+    color: #5a2db0;
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-wave span {
+    background: rgba(122, 45, 255, 0.2);
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-wave span.is-loaded {
+    background: rgba(122, 45, 255, 0.4);
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-wave span.is-played {
+    background: #8945ff;
+  }
+}
+
+@media (max-width: 1024px) and (prefers-reduced-motion: reduce) {
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card.is-buffering .sessions-card-play,
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card.is-loading-session .sessions-card-play {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* Phones: label and title get the full width; the time sits under the
+   waveform on the right (it grows to "elapsed / total" while playing) */
+@media (max-width: 1024px) {
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card,
+  html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='sessions'] .sessions-card {
+    grid-template-areas:
+      "play kicker kicker"
+      "play title title"
+      "wave wave wave"
+      "status status dur";
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-duration {
+    align-self: start;
+    justify-self: end;
+    margin-top: 6px;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-player {
+    align-self: start;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-kicker {
+    letter-spacing: 0.1em;
+  }
+}
+
+/* Narrow phones (≤380px): a little smaller so label and title fit */
+@media (max-width: 380px) {
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card,
+  html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='sessions'] .sessions-card {
+    column-gap: 10px;
+    padding: 14px;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-kicker {
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+  }
+
+  .profile-cards .tab-panel[data-panel='sessions'] .sessions-card-title {
+    font-size: 18px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   YouTube, aligned with the rest of the page (Sessions pattern):
+   - one play button per video (the round one on the cover; no "Play video")
+   - body = "VIDEO 01 · UNLISTED" label + Open on YouTube / HQ audio
+   - quieter covers: black leads, violet only as light
+   - desktop: the selected video is featured at the top, the others are
+     compact rows (thumb, name, label, play) that feature + play on click
+   -------------------------------------------------------------------------- */
+.youtube-card-art {
+  --yt-bg-a: #140d28;
+  --yt-bg-b: #07060f;
+  --yt-glow-a: 0.24;
+  --yt-line: rgba(193, 116, 255, 0.42);
+}
+
+[data-theme='light'] .youtube-card-art {
+  --yt-bg-a: #ffffff;
+  --yt-bg-b: #f4efff;
+  --yt-glow-a: 0.16;
+  --yt-line: rgba(122, 45, 255, 0.4);
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] :is(.youtube-card-chip, .youtube-card-cta[data-youtube-play], .youtube-card-rowplay, .youtube-card-name) {
+  display: none;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-open {
+  display: inline-flex;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-body {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.youtube-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.youtube-card-kicker {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #e3ccff;
+}
+
+.youtube-card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+  color: #f3f0fc;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-actions {
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-cta {
+  flex: 0 0 auto;
+  border-color: rgba(193, 116, 255, 0.35);
+  background: rgba(193, 116, 255, 0.06);
+  box-shadow: none;
+  color: #f3f0fc;
+  font-weight: 500;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-cta:hover,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-cta:focus-visible {
+  border-color: #d59bff;
+  background: rgba(193, 116, 255, 0.16);
+  text-decoration: none;
+}
+
+[data-theme='light'] .youtube-card-kicker {
+  color: #5a2db0;
+}
+
+[data-theme='light'] .youtube-card-name {
+  color: #1a1033;
+}
+
+[data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-cta {
+  color: #3b1d6e;
+  background: rgba(122, 45, 255, 0.06);
+  border-color: rgba(122, 45, 255, 0.35);
+}
+
+/* ---- Desktop console: featured video + rows -------------------------------- */
+@media (min-width: 1025px) {
+  .tab-panel[data-panel='youtube'] .youtube-track {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tab-panel[data-panel='youtube'] .youtube-slide:has(.youtube-card.active) {
+    order: -1;
+    margin-bottom: 4px;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card.active,
+  html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='youtube'] .youtube-card.active {
+    border-color: rgba(193, 116, 255, 0.3);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(193, 116, 255, 0.22), transparent 60%),
+      linear-gradient(160deg, #1b1236, #0a0716);
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card.active:hover {
+    transform: none;
+  }
+
+  /* Rows */
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active),
+  html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) {
+    display: grid;
+    grid-template-columns: 112px minmax(0, 1fr) 40px;
+    align-items: center;
+    column-gap: 14px;
+    padding: 10px 14px 10px 10px;
+    border-radius: 14px;
+    border-color: rgba(176, 132, 255, 0.12);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active):hover,
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active):focus-visible {
+    transform: none;
+    border-color: rgba(193, 116, 255, 0.45);
+    background: rgba(193, 116, 255, 0.05);
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active):focus-visible {
+    outline: 2px solid var(--accent-neon);
+    outline-offset: 2px;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) .youtube-card-player {
+    width: 112px;
+    border-radius: 8px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) :is(.youtube-card-play, .youtube-card-actions) {
+    display: none;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) .youtube-card-body {
+    padding: 0;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) .youtube-card-name {
+    display: block;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) .youtube-card-rowplay {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(193, 116, 255, 0.45);
+    background: rgba(193, 116, 255, 0.08);
+    color: #f3f0fc;
+    font-size: 14px;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-rowplay .fa-play {
+    transform: translateX(1.5px);
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active):hover .youtube-card-rowplay {
+    border-color: transparent;
+    background: var(--rd-primary-grad);
+    color: #ffffff;
+  }
+
+  /* Light theme */
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card.active {
+    border-color: rgba(122, 45, 255, 0.25);
+    background: radial-gradient(80% 90% at 100% 0%, rgba(155, 69, 255, 0.12), transparent 60%),
+      linear-gradient(160deg, #ffffff, #f4efff);
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) {
+    border-color: rgba(122, 45, 255, 0.14);
+    background: #ffffff;
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active):hover {
+    border-color: rgba(122, 45, 255, 0.4);
+    background: #faf7ff;
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) .youtube-card-rowplay {
+    border-color: rgba(122, 45, 255, 0.35);
+    background: rgba(122, 45, 255, 0.06);
+    color: #3b1d6e;
+  }
+
+  [data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active):hover .youtube-card-rowplay {
+    border-color: transparent;
+    background: var(--rd-primary-grad);
+    color: #ffffff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-rowplay {
+    transition: none;
+  }
+}
+
+/* Phones/tablet: label on its own line, the two actions share the width */
+@media (max-width: 1024px) {
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-actions {
+    display: flex;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-cta {
+    flex: 1 1 0;
+  }
+}
+
+/* YouTube: our play/pause (only while the video is loaded) and the
+   "can't play here" note when YouTube blocks a video on this device */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-toggle,
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-error {
+  display: none;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player.is-loaded ~ .youtube-card-body .youtube-card-toggle {
+  display: inline-flex;
+  border-color: transparent;
+  background: var(--rd-primary-grad);
+  box-shadow: var(--rd-primary-shadow);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card.has-yt-error .youtube-card-toggle {
+  display: none;
+}
+
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card.has-yt-error .youtube-card-error {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  color: #e3ccff;
+}
+
+/* Blocked video: the YouTube button becomes the main action */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card.has-yt-error .youtube-card-open {
+  border-color: transparent;
+  background: var(--rd-primary-grad);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+[data-theme='light'] .profile-cards .tab-panel[data-panel='youtube'] .youtube-card.has-yt-error .youtube-card-error {
+  color: #5a2db0;
+}
+
+@media (min-width: 1025px) {
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card.has-yt-error .youtube-card-body {
+    flex-wrap: wrap;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card.has-yt-error .youtube-card-error {
+    flex: 1 1 100%;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card:not(.active) :is(.youtube-card-toggle, .youtube-card-error) {
+    display: none;
+  }
+}
+
+/* Phones: while a video is loaded, Pause/Play gets its own full-width row */
+@media (max-width: 1024px) {
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player.is-loaded ~ .youtube-card-body .youtube-card-actions {
+    flex-wrap: wrap;
+  }
+
+  .profile-cards .tab-panel[data-panel='youtube'] .youtube-card-player.is-loaded ~ .youtube-card-body .youtube-card-toggle {
+    flex: 1 1 100%;
+  }
+}
+
+/* Blocked video: no Play/Pause, the YouTube button is the way to watch */
+.profile-cards .tab-panel[data-panel='youtube'] .youtube-card.has-yt-error .youtube-card-player.is-loaded ~ .youtube-card-body .youtube-card-toggle {
+  display: none;
+}
+
+/* Phones (≤480px, fixed 396px shop card): the artwork no longer grows with
+   the screen width, so the payment buttons stay inside the card on large
+   phones too (e.g. iPhone 16 Pro Max at 440px pushed them out) */
+@media (max-width: 480px) {
+  .profile-cards .tab-panel[data-panel='shop'] .shop-image-button {
+    max-height: 196px;
+  }
+
+  .profile-cards .tab-panel[data-panel='shop'] .shop-image-button img {
+    max-height: 100%;
+    object-fit: contain;
+  }
+}
+
+/* SoundCloud: the cards sit ~16px under their description (Monthly Dose
+   and ChaCha), like Sessions and Gigs, instead of 30–58px */
+.profile-cards .tab-panel[data-panel='podcast'] > .podcast-header,
+.profile-cards .tab-panel[data-panel='podcast'] > .podcast-header .section-description,
+.profile-cards .tab-panel[data-panel='podcast'] > .chacha-title + .section-description {
+  margin-bottom: 0;
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] .podcast-carousel {
+  padding-top: 8px;
+}
+
+/* Signal card on phones: iOS Safari clipped its bottom border (backdrop blur
+   + will-change + paint containment on a rounded, overflow-hidden card).
+   The background is near-opaque, so the blur adds nothing; drop the extra
+   compositing so Safari draws the full rounded border. */
+@media (max-width: 1024px) {
+  .profile-cards .subscribe-card.info-card,
+  [data-theme='light'] .profile-cards .subscribe-card.info-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    will-change: auto;
+    contain: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Consistent section rhythm: title → description 2px everywhere, and
+   description → first card 16px on desktop / 14px on phones (as in
+   Sessions, SoundCloud, Gigs, Artifacts and Signal).
+   -------------------------------------------------------------------------- */
+/* Artifacts: the title sits in .shop-head, whose margins added 12px */
+.profile-cards .tab-panel[data-panel='shop'] > .shop-head {
+  margin-bottom: 0;
+}
+
+.profile-cards .tab-panel[data-panel='shop'] > .shop-head h3 {
+  margin-bottom: 0;
+}
+
+/* YouTube, Collabs, Guides: their carousels added top padding */
+@media (min-width: 1025px) {
+  .profile-cards .tab-panel :is([data-carousel-collab], [data-guides-carousel]) {
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 1024px) {
+  .profile-cards .tab-panel :is(.youtube-carousel, [data-carousel-collab], [data-guides-carousel]) {
+    padding-top: 0;
+  }
+}
+
+.profile-cards .tab-panel[data-panel='shop'] > .shop-head {
+  margin-bottom: 0.4rem;
+}
+
+@media (max-width: 1024px) {
+  /* These carousels start their first card 6px down */
+  .profile-cards .tab-panel:is([data-panel='collab'], [data-panel='guides']) > .section-description,
+  .profile-cards .tab-panel[data-panel='youtube'] > .youtube-header > .section-description {
+    margin-bottom: 8px;
+  }
+}
+
+/* YouTube: its header wrapper added a 12px margin on top of the description's */
+.profile-cards .tab-panel[data-panel='youtube'] > .youtube-header {
+  margin-bottom: 0;
+}
+
+/* Short desktop windows (≤760px): the compact 9px rhythm everywhere */
+@media (min-width: 1025px) and (max-height: 760px) {
+  .profile-cards .tab-panel[data-panel='podcast'] .podcast-carousel {
+    padding-top: 1px;
+  }
+
+  .profile-cards .tab-panel[data-panel='shop'] > .shop-head {
+    margin-bottom: 0.2rem;
+  }
+}
+
+/* Radio popups: "Listen Live" is a violet gradient button, so its headphones
+   icon is white like the label (main.css tinted it violet → invisible) */
+.live-popup.is-live .live-radio-btn .live-listen-icon,
+.mobile-radio-popover.is-live .live-radio-btn .live-listen-icon,
+[data-theme='light'] .live-popup.is-live .live-radio-btn .live-listen-icon,
+[data-theme='light'] .mobile-radio-popover.is-live .live-radio-btn .live-listen-icon {
+  color: currentColor;
+  font-size: 1em;
+}
+
+.live-popup .live-radio-btn,
+.mobile-radio-popover .live-radio-btn,
+.live-popup .live-popup-actions .btn.ghost,
+.mobile-radio-popover .live-popup-actions .btn.ghost {
+  gap: 0.5rem;
+}
+
+/* Live radio in the page: note under the buttons, "Tuning in…" pulse */
+.live-popup-note {
+  margin: 10px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  color: #e3ccff;
+}
+
+.live-popup-note[hidden] {
+  display: none;
+}
+
+[data-theme='light'] .live-popup-note {
+  color: #5a2db0;
+}
+
+.live-popup .live-radio-btn.is-radio-starting,
+.mobile-radio-popover .live-radio-btn.is-radio-starting {
+  animation: sessionsBuffering 1s ease-in-out infinite;
+}
+
+.live-popup .live-radio-btn.is-radio-playing,
+.mobile-radio-popover .live-radio-btn.is-radio-playing {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 10px 28px -8px rgba(193, 116, 255, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-popup .live-radio-btn.is-radio-starting,
+  .mobile-radio-popover .live-radio-btn.is-radio-starting {
+    animation: none;
+    opacity: 0.75;
+  }
+}

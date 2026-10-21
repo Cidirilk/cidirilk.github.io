@@ -17,3 +17,4 @@ Thumbs.db
 # Editor / local AI tooling config (not part of the site)
 .vscode/
 .cursor/
+.claude/

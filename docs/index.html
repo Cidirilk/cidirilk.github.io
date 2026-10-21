@@ -43,8 +43,13 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://w.soundcloud.com" />
+    <link rel="preconnect" href="https://widget.sndcdn.com" />
+    <link rel="preconnect" href="https://api-widget.soundcloud.com" />
+    <link rel="preconnect" href="https://soundcloud.com" crossorigin />
+    <link rel="dns-prefetch" href="https://i1.sndcdn.com" />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link
@@ -66,6 +71,7 @@
       />
     </noscript>
     <link rel="stylesheet" href="./assets/css/main.css?v=dark-loader-default-20261005" />
+    <link rel="stylesheet" href="./assets/css/redesign.css?v=3000-20261026h" />
     <noscript>
       <style>
         body {
@@ -254,10 +260,9 @@
             >
             <a
               class="btn compact ghost"
-              href="https://livesets.com/cidirilk/sessions"
-              target="_blank"
-              rel="noopener"
+              href="#sessions"
               data-live-sessions-link
+              aria-label="Go to Sessions on this page"
               ><i class="fa-solid fa-folder-open live-sessions-icon" aria-hidden="true"></i
               ><span data-live-sessions-text>Sessions</span></a
             >
@@ -282,7 +287,7 @@
           </div>
           <div class="profile-text reveal-on-load">
             <p class="eyebrow">if you can't pronounce it, read it backwards</p>
-            <h1>Human After All. Looking for Something Real.</h1>
+            <h1>Human After All. <span class="h1-accent">Looking for Something Real.</span></h1>
             <p class="lede">
               In a world full of noise, Cidirilk is an attempt to listen a
               little closer. Since 2017, the project has followed curiosity
@@ -294,16 +299,16 @@
               destination. Sometimes, what we find was never what we were
               looking for.
             </p>
-            <p>
-              <a
-                class="profile-bio-link"
-                href="https://ra.co/dj/cidirilk"
-                target="_blank"
-                rel="noopener"
-                aria-label="Cidirilk on Resident Advisor (opens in a new tab)"
-                title="Resident Advisor (opens in a new tab)"
-              >Resident Advisor <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-            </p>
+            <div class="hero-actions">
+              <a class="btn hero-action" href="#sessions" data-hero-listen aria-label="Listen to sessions">
+                <i class="fa-solid fa-play" aria-hidden="true"></i>
+                <span>Listen<span class="hero-action-more"> to sessions</span></span>
+              </a>
+              <a class="btn ghost hero-action" href="mailto:cidirilk@gmail.com?subject=Booking%20enquiry" data-booking-open aria-haspopup="dialog">
+                <i class="fa-solid fa-calendar-check" aria-hidden="true"></i>
+                Bookings
+              </a>
+            </div>
           </div>
           <div class="profile-cards reveal-on-load" data-card-tabs>
             <div class="card-tabs" role="tablist">
@@ -311,20 +316,8 @@
                 class="tab-button active"
                 type="button"
                 role="tab"
-                aria-label="Stay Tuned"
-                aria-selected="true"
-                title="Stay Tuned"
-                data-tab="subscribe"
-              >
-                <i class="fa-solid fa-envelope-open-text tab-icon" aria-hidden="true"></i>
-                <span class="tab-label">Stay Tuned</span>
-              </button>
-              <button
-                class="tab-button"
-                type="button"
-                role="tab"
                 aria-label="Sessions"
-                aria-selected="false"
+                aria-selected="true"
                 title="Sessions"
                 data-tab="sessions"
               >
@@ -335,25 +328,13 @@
                 class="tab-button"
                 type="button"
                 role="tab"
-                aria-label="Fragments"
+                aria-label="SoundCloud: Your Monthly Dose"
                 aria-selected="false"
-                title="Fragments"
-                data-tab="events"
-              >
-                <i class="fa-solid fa-box-archive tab-icon" aria-hidden="true"></i>
-                <span class="tab-label">Fragments</span>
-              </button>
-              <button
-                class="tab-button"
-                type="button"
-                role="tab"
-                aria-label="Your Monthly Dose"
-                aria-selected="false"
-                title="Your Monthly Dose"
+                title="SoundCloud: Your Monthly Dose"
                 data-tab="podcast"
               >
                 <i class="fa-brands fa-soundcloud tab-icon" aria-hidden="true"></i>
-                <span class="tab-label">Podcast</span>
+                <span class="tab-label">SoundCloud</span>
               </button>
               <button
                 class="tab-button"
@@ -371,25 +352,25 @@
                 class="tab-button"
                 type="button"
                 role="tab"
-                aria-label="Convergence"
+                aria-label="Gigs"
                 aria-selected="false"
-                title="Convergence"
-                data-tab="collab"
+                title="Gigs"
+                data-tab="events"
               >
-                <i class="fa-solid fa-puzzle-piece tab-icon" aria-hidden="true"></i>
-                <span class="tab-label">Convergence</span>
+                <i class="fa-solid fa-ticket tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Gigs</span>
               </button>
               <button
                 class="tab-button"
                 type="button"
                 role="tab"
-                aria-label="Artifacts"
+                aria-label="Collabs"
                 aria-selected="false"
-                title="Artifacts"
-                data-tab="shop"
+                title="Collabs"
+                data-tab="collab"
               >
-                <i class="fa-solid fa-store tab-icon" aria-hidden="true"></i>
-                <span class="tab-label">Artifacts</span>
+                <i class="fa-solid fa-puzzle-piece tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Collabs</span>
               </button>
               <button
                 class="tab-button"
@@ -407,10 +388,35 @@
                 class="tab-button"
                 type="button"
                 role="tab"
+                aria-label="Artifacts"
+                aria-selected="false"
+                title="Artifacts"
+                data-tab="shop"
+              >
+                <i class="fa-solid fa-store tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Artifacts</span>
+              </button>
+              <button
+                class="tab-button"
+                type="button"
+                role="tab"
+                aria-label="Signal"
+                aria-selected="false"
+                title="Signal"
+                data-tab="subscribe"
+              >
+                <i class="fa-solid fa-envelope-open-text tab-icon" aria-hidden="true"></i>
+                <span class="tab-label">Signal</span>
+              </button>
+              <button
+                class="tab-button"
+                type="button"
+                role="tab"
                 aria-label="Channels"
                 aria-selected="false"
                 title="Channels"
                 data-tab="social"
+                hidden
               >
                 <i class="fa-solid fa-link tab-icon" aria-hidden="true"></i>
                 <span class="tab-label">Channels</span>
@@ -438,6 +444,7 @@
                   >
                     <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
                     <span class="sr-only">Sessions</span>
+                    <span class="channel-meta" aria-hidden="true">livesets.com/cidirilk</span>
                   </a>
                   <a
                     href="https://soundcloud.com/cidirilk"
@@ -450,6 +457,7 @@
                   >
                     <i class="fab fa-soundcloud" aria-hidden="true"></i>
                     <span class="sr-only">SoundCloud</span>
+                    <span class="channel-meta" aria-hidden="true">soundcloud.com/cidirilk</span>
                   </a>
                   <a
                     href="https://open.spotify.com/user/11124220447?si=c54ed7391ed94293"
@@ -463,6 +471,7 @@
                   >
                     <i class="fab fa-spotify" aria-hidden="true"></i>
                     <span class="sr-only">Spotify</span>
+                    <span class="channel-meta" aria-hidden="true">open.spotify.com</span>
                   </a>
                   <a
                     href="https://www.youtube.com/@Cidirilk"
@@ -475,6 +484,7 @@
                   >
                     <i class="fab fa-youtube" aria-hidden="true"></i>
                     <span class="sr-only">YouTube</span>
+                    <span class="channel-meta" aria-hidden="true">youtube.com/@cidirilk</span>
                   </a>
                   <a
                     href="https://ra.co/dj/cidirilk"
@@ -487,20 +497,31 @@
                   >
                     <i class="fa-solid fa-user" aria-hidden="true"></i>
                     <span class="sr-only">Resident Advisor</span>
+                    <span class="channel-meta" aria-hidden="true">ra.co/dj/cidirilk</span>
                   </a>
                 </div>
               </article>
               <article
-                class="info-card tab-panel sessions-panel"
+                class="info-card tab-panel active sessions-panel"
                 id="sessions"
                 data-panel="sessions"
                 role="tabpanel"
-                hidden
               >
+                <a class="panel-kicker" href="https://livesets.com/cidirilk/sessions" target="_blank" rel="noopener" aria-label="Cidirilk sessions on LiveSets (opens in a new tab)">
+                  LiveSets
+                  <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
                 <div class="sessions-header">
                   <h3>Sessions</h3>
                   <p class="section-description">Latest transmissions from LiveSets.</p>
                 </div>
+                <p class="signal-cta">
+                  <span class="signal-cta-text">Like what you hear?</span>
+                  <a class="signal-cta-btn" href="#signal" data-signal-open aria-label="Join the Signal: get new sessions by email">
+                    Join the Signal
+                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                  </a>
+                </p>
                 <div class="sessions-carousel" data-livesets-carousel>
                   <button
                     class="carousel-btn carousel-prev sessions-carousel-prev"
@@ -533,6 +554,10 @@
                 role="tabpanel"
                 hidden
               >
+                <a class="panel-kicker" href="https://soundcloud.com/cidirilk" target="_blank" rel="noopener" aria-label="Cidirilk on SoundCloud (opens in a new tab)">
+                  Cidirilk
+                  <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
                 <div class="podcast-header">
                   <h3>Your Monthly Dose</h3>
                   <p class="section-description">
@@ -574,6 +599,46 @@
                   </button>
                   <div class="carousel-dots podcast-carousel-dots" data-podcast-dots></div>
                 </div>
+                <a class="panel-kicker chacha-kicker" href="https://soundcloud.com/cc_grooves_00357/sets/chacha" target="_blank" rel="noopener" aria-label="ChaCha sets on SoundCloud (opens in a new tab)">
+                  ChaCha
+                  <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
+                <h3 class="chacha-title" id="chachaSetsTitle">ChaCha Hybrid Sets</h3>
+                <p class="section-description">The latest hybrid sets by ChaCha (CC Grooves 00357).</p>
+                <div class="podcast-source-shell" aria-hidden="true">
+                  <iframe
+                    title="ChaCha sets source"
+                    data-chacha-source
+                    data-soundcloud-url="https://soundcloud.com/cc_grooves_00357/sets/chacha"
+                    loading="lazy"
+                    scrolling="no"
+                    allow="autoplay; encrypted-media"
+                  ></iframe>
+                </div>
+                <div class="podcast-carousel chacha-carousel" data-chacha-carousel>
+                  <button
+                    class="carousel-btn carousel-prev podcast-carousel-prev"
+                    type="button"
+                    aria-label="Previous ChaCha set"
+                    data-chacha-prev
+                  >
+                    <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+                  </button>
+                  <div
+                    class="podcast-episodes"
+                    aria-label="ChaCha hybrid sets"
+                    data-chacha-episodes
+                  ></div>
+                  <button
+                    class="carousel-btn carousel-next podcast-carousel-next"
+                    type="button"
+                    aria-label="Next ChaCha set"
+                    data-chacha-next
+                  >
+                    <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+                  </button>
+                  <div class="carousel-dots podcast-carousel-dots" data-chacha-dots></div>
+                </div>
               </article>
               <article
                 class="info-card tab-panel youtube-panel"
@@ -582,6 +647,10 @@
                 role="tabpanel"
                 hidden
               >
+                <a class="panel-kicker" href="https://www.youtube.com/@Cidirilk" target="_blank" rel="noopener" aria-label="Cidirilk on YouTube (opens in a new tab)">
+                  YouTube
+                  <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
                 <div class="youtube-header">
                   <h3>YouTube</h3>
                   <p class="section-description">
@@ -614,14 +683,74 @@
                 </div>
               </article>
               <article
-                class="info-card tab-panel"
+                class="info-card tab-panel gigs-none"
                 data-panel="events"
                 role="tabpanel"
                 hidden
               >
-                <h3>Fragments</h3>
-                <p class="archive-hint">
-                  Archived transmissions from earlier chapters.
+                <a class="panel-kicker gigs-upcoming-part" href="https://ra.co/dj/cidirilk/tour-dates" target="_blank" rel="noopener" aria-label="Tour dates on Resident Advisor (opens in a new tab)">
+                  Tour Dates
+                  <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
+                <h3 class="gigs-title gigs-upcoming-part">
+                  <span class="next-event-pulse" aria-hidden="true"></span>
+                  Upcoming Gigs
+                </h3>
+                <p class="archive-hint gigs-upcoming-part">Where I'm playing next.</p>
+                <div class="gigs-upcoming">
+                  <div data-next-event-container style="display: block">
+                    <div
+                      class="upcoming-event-card"
+                      data-event-end="2026-07-05T08:00:00"
+                    >
+                      <span class="upcoming-event-tag">ChaCha</span>
+                      <div class="upcoming-event-header">
+                        <div class="upcoming-event-date">
+                          <span class="date-day">04</span>
+                          <span class="date-month">JUL</span>
+                        </div>
+                        <div class="upcoming-event-info">
+                          <h4 class="upcoming-event-title">
+                            5 YEARS SYNESTHESIA — FESTIVAL EDITION
+                          </h4>
+                          <p class="upcoming-event-venue">
+                            <i class="fa-solid fa-location-dot"></i> Cyprus
+                          </p>
+                        </div>
+                      </div>
+                      <p class="upcoming-event-description">
+                        Five years of SYNESTHESIA, scaled into a full festival.
+                        DAX J, Stef Mendesidis, KUSS, Paul Angelo &amp; Don
+                        Argento, WAVERÛNNER, OUST, ChaCha, tomzy &amp; La Rod's.
+                      </p>
+                      <div class="upcoming-event-footer">
+                        <span class="upcoming-event-time">
+                          <i class="fa-solid fa-calendar-day"></i> Sat, 4 Jul 2026
+                        </span>
+                        <a
+                          href="https://ra.co/events/2432496"
+                          target="_blank"
+                          rel="noopener"
+                          class="btn compact"
+                        >
+                          Event Info
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <a class="panel-kicker gigs-past-kicker" href="https://ra.co/dj/cidirilk/past-events" target="_blank" rel="noopener" aria-label="Cidirilk past events on Resident Advisor (opens in a new tab)">
+                  Archive
+                  <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
+                <h3 class="gigs-title">Past Gigs</h3>
+                <p class="archive-hint">Nights played, from the Resident Advisor archive.</p>
+                <p class="signal-cta">
+                  <span class="signal-cta-text">Get new dates first.</span>
+                  <a class="signal-cta-btn" href="#signal" data-signal-open aria-label="Join the Signal: get new gig dates by email">
+                    Join the Signal
+                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                  </a>
                 </p>
                 <div class="carousel" data-carousel>
                   <div class="carousel-track" data-carousel-track>
@@ -908,7 +1037,7 @@
                 role="tabpanel"
                 hidden
               >
-                <h3>Convergence</h3>
+                <h3>Collabs</h3>
                 <p class="section-description">
                   Where artists, sounds and ideas come together.
                 </p>
@@ -927,7 +1056,7 @@
                         </div>
                         <span class="collab-name">ChaCha</span>
                         <span class="collab-description"
-                          >Techno, electronica & experimental sound design</span
+                          >Groove-led DJ duo from Cyprus</span
                         >
                       </div>
                     </div>
@@ -944,7 +1073,7 @@
                         </div>
                         <span class="collab-name">SYNESTHESIA</span>
                         <span class="collab-description"
-                          >Multisensory electronic music experiences</span
+                          >Nicosia techno nights &amp; Technivals</span
                         >
                       </div>
                     </div>
@@ -961,7 +1090,7 @@
                         </div>
                         <span class="collab-name">Mind The Riot</span>
                         <span class="collab-description"
-                          >Underground techno & hard groove events</span
+                          >Acid-tinged techno party series</span
                         >
                       </div>
                     </div>
@@ -978,7 +1107,7 @@
                         </div>
                         <span class="collab-name">Boiler House</span>
                         <span class="collab-description"
-                          >Deep house to experimental techno curation</span
+                          >Five years of island techno nights</span
                         >
                       </div>
                     </div>
@@ -995,7 +1124,126 @@
                         </div>
                         <span class="collab-name">Indigo</span>
                         <span class="collab-description"
-                          >Progressive & melodic electronic music</span
+                          >Underground techno, secret locations</span
+                        >
+                      </div>
+                    </div>
+                    <div class="carousel-slide">
+                      <div
+                        class="collab-card"
+                        data-collab-id="desolate"
+                        role="button"
+                        tabindex="0"
+                        aria-label="View Desolate collaboration details"
+                      >
+                        <div class="collab-icon" aria-hidden="true">
+                          <i class="fa-solid fa-moon"></i>
+                        </div>
+                        <span class="collab-name">Desolate</span>
+                        <span class="collab-description"
+                          >High-energy groove nights, Limassol</span
+                        >
+                      </div>
+                    </div>
+                    <div class="carousel-slide">
+                      <div
+                        class="collab-card"
+                        data-collab-id="beonix"
+                        role="button"
+                        tabindex="0"
+                        aria-label="View BEON1X Festival collaboration details"
+                      >
+                        <div class="collab-icon" aria-hidden="true">
+                          <i class="fa-solid fa-sun"></i>
+                        </div>
+                        <span class="collab-name">BEON1X Festival</span>
+                        <span class="collab-description"
+                          >Open-air festival, global headliners</span
+                        >
+                      </div>
+                    </div>
+                    <div class="carousel-slide">
+                      <div
+                        class="collab-card"
+                        data-collab-id="slip"
+                        role="button"
+                        tabindex="0"
+                        aria-label="View S//IP collaboration details"
+                      >
+                        <div class="collab-icon" aria-hidden="true">
+                          <i class="fa-solid fa-building"></i>
+                        </div>
+                        <span class="collab-name">S//IP</span>
+                        <span class="collab-description"
+                          >Nicosia's brutalist home for techno</span
+                        >
+                      </div>
+                    </div>
+                    <div class="carousel-slide">
+                      <div
+                        class="collab-card"
+                        data-collab-id="technoblades"
+                        role="button"
+                        tabindex="0"
+                        aria-label="View Techno Blades collaboration details"
+                      >
+                        <div class="collab-icon" aria-hidden="true">
+                          <i class="fa-solid fa-mountain-sun"></i>
+                        </div>
+                        <span class="collab-name">Techno Blades</span>
+                        <span class="collab-description"
+                          >Underground raves in unique Paphos spots</span
+                        >
+                      </div>
+                    </div>
+                    <div class="carousel-slide">
+                      <div
+                        class="collab-card"
+                        data-collab-id="technohabits"
+                        role="button"
+                        tabindex="0"
+                        aria-label="View Techno Habits Nicosia collaboration details"
+                      >
+                        <div class="collab-icon" aria-hidden="true">
+                          <i class="fa-solid fa-repeat"></i>
+                        </div>
+                        <span class="collab-name">Techno Habits Nicosia</span>
+                        <span class="collab-description"
+                          >Nicosia techno collective &amp; podcast</span
+                        >
+                      </div>
+                    </div>
+                    <div class="carousel-slide">
+                      <div
+                        class="collab-card"
+                        data-collab-id="cyrave"
+                        role="button"
+                        tabindex="0"
+                        aria-label="View Cyprus Rave Community collaboration details"
+                      >
+                        <div class="collab-icon" aria-hidden="true">
+                          <i class="fa-solid fa-people-group"></i>
+                        </div>
+                        <span class="collab-name">Cyprus Rave Community</span>
+                        <span class="collab-description"
+                          >C Y WE RAVE, the island's rave series</span
+                        >
+                      </div>
+                    </div>
+                    <div class="carousel-slide">
+                      <div
+                        class="collab-card"
+                        data-collab-id="565r"
+                        role="button"
+                        tabindex="0"
+                        aria-label="View 565R collaboration details"
+                      >
+                        <div class="collab-icon" aria-hidden="true">
+                          <i class="fa-solid fa-industry"></i>
+                        </div>
+                        <span class="collab-name">565R</span>
+                        <span class="collab-description"
+                          >Hard, raw, industrial techno</span
                         >
                       </div>
                     </div>
@@ -1029,6 +1277,13 @@
                   <span class="shop-status">Preview</span>
                 </div>
                 <p class="section-description">Limited editions from the cosmos.</p>
+                <p class="signal-cta">
+                  <span class="signal-cta-text">Want to support first?</span>
+                  <a class="signal-cta-btn" href="#signal" data-signal-open aria-label="Join the Signal: be first when the store opens">
+                    Join the Signal
+                    <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                  </a>
+                </p>
                 <div
                   class="shop-carousel"
                   data-shop-carousel
@@ -1252,56 +1507,14 @@
                 </div>
               </article>
               <article
-                class="info-card tab-panel active subscribe-card"
+                class="info-card tab-panel subscribe-card"
+                id="signal"
                 data-panel="subscribe"
                 role="tabpanel"
+                hidden
               >
-                <h3>Stay Tuned</h3>
+                <h3>The Signal</h3>
                 <p class="section-description">Subscribe to future transmissions.</p>
-                <div data-next-event-container style="display: block">
-                  <h3>
-                    <span class="next-event-pulse" aria-hidden="true"></span>
-                    Next Event
-                  </h3>
-                  <div
-                    class="upcoming-event-card"
-                    data-event-end="2026-07-05T08:00:00"
-                  >
-                    <span class="upcoming-event-tag">ChaCha</span>
-                    <div class="upcoming-event-header">
-                      <div class="upcoming-event-date">
-                        <span class="date-day">04</span>
-                        <span class="date-month">JUL</span>
-                      </div>
-                      <div class="upcoming-event-info">
-                        <h4 class="upcoming-event-title">
-                          5 YEARS SYNESTHESIA — FESTIVAL EDITION
-                        </h4>
-                        <p class="upcoming-event-venue">
-                          <i class="fa-solid fa-location-dot"></i> Cyprus
-                        </p>
-                      </div>
-                    </div>
-                    <p class="upcoming-event-description">
-                      Five years of SYNESTHESIA, scaled into a full festival.
-                      DAX J, Stef Mendesidis, KUSS, Paul Angelo &amp; Don
-                      Argento, WAVERÛNNER, OUST, ChaCha, tomzy &amp; La Rod's.
-                    </p>
-                    <div class="upcoming-event-footer">
-                      <span class="upcoming-event-time">
-                        <i class="fa-solid fa-calendar-day"></i> Sat, 4 Jul 2026
-                      </span>
-                      <a
-                        href="https://ra.co/events/2432496"
-                        target="_blank"
-                        rel="noopener"
-                        class="btn compact"
-                      >
-                        Event Info
-                      </a>
-                    </div>
-                  </div>
-                </div>
                 <form class="subscribe-box" data-subscribe-inline novalidate>
                   <label for="subEmail">
                     Email
@@ -1417,10 +1630,9 @@
           >
           <a
             class="btn compact ghost"
-            href="https://livesets.com/cidirilk/sessions"
-            target="_blank"
-            rel="noopener"
+            href="#sessions"
             data-live-sessions-link
+            aria-label="Go to Sessions on this page"
             ><i class="fa-solid fa-folder-open live-sessions-icon" aria-hidden="true"></i
             ><span data-live-sessions-text>Sessions</span></a
           >
@@ -1587,8 +1799,79 @@
       </div>
     </div>
 
+    <!-- Bookings Dialog -->
+    <dialog class="booking-dialog" data-booking-dialog aria-labelledby="booking-title" aria-describedby="booking-lede">
+      <form method="dialog" class="booking-close-form">
+        <button class="booking-close" type="submit" aria-label="Close bookings">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+      </form>
+      <p class="booking-kicker">Bookings</p>
+      <h2 id="booking-title">Book Cidirilk</h2>
+      <p id="booking-lede" class="booking-lede">
+        Club nights, festivals and private events. Send a short email and
+        include:
+      </p>
+      <ul class="booking-list">
+        <li><i class="fa-solid fa-calendar-day" aria-hidden="true"></i>Date and city</li>
+        <li><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Venue and capacity</li>
+        <li><i class="fa-solid fa-clock" aria-hidden="true"></i>Set length and time slot</li>
+        <li><i class="fa-solid fa-coins" aria-hidden="true"></i>Budget, and confirm the tech rider below</li>
+      </ul>
+      <details class="booking-rider">
+        <summary>
+          <span><i class="fa-solid fa-sliders" aria-hidden="true"></i>Technical rider</span>
+          <i class="fa-solid fa-chevron-down booking-rider-chevron" aria-hidden="true"></i>
+        </summary>
+        <dl class="booking-rider-list">
+          <div class="booking-rider-row">
+            <dt>Mixer</dt>
+            <dd>Allen &amp; Heath Xone:96</dd>
+          </div>
+          <div class="booking-rider-row">
+            <dt>Controllers</dt>
+            <dd>2 × Allen &amp; Heath Xone:K2, connected over X:LINK: Xone:96 to Xone:K2 #1, then Xone:K2 #1 to Xone:K2 #2</dd>
+          </div>
+          <div class="booking-rider-row">
+            <dt>Monitoring</dt>
+            <dd>2 × powered booth monitors, fed from the Xone:96 booth output, at ear height and facing the DJ</dd>
+          </div>
+          <div class="booking-rider-row">
+            <dt>Booth</dt>
+            <dd>Sturdy, level DJ table, 110-120 cm high (the artist is 1.85 m tall), isolated from speaker and dance-floor vibration</dd>
+          </div>
+          <div class="booking-rider-row">
+            <dt>Laptop</dt>
+            <dd>Space beside the mixer for a laptop, which runs the Xone:K2 controllers</dd>
+          </div>
+        </dl>
+        <a class="booking-rider-download" href="./assets/documents/cidirilk-technical-rider.pdf" download>
+          <i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i>
+          Download rider (PDF)
+        </a>
+      </details>
+      <div class="booking-email">
+        <span class="booking-address">cidirilk@gmail.com</span>
+        <button class="booking-copy" type="button" data-booking-copy>
+          <i class="fa-regular fa-copy" aria-hidden="true"></i>
+          <span data-booking-copy-label>Copy</span>
+        </button>
+      </div>
+      <div class="booking-actions">
+        <a class="btn" href="mailto:cidirilk@gmail.com?subject=Booking%20enquiry">
+          <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+          Email Cidirilk
+        </a>
+        <a class="btn ghost" href="https://ra.co/dj/cidirilk" target="_blank" rel="noopener" aria-label="Resident Advisor profile (opens in a new tab)">
+          Resident Advisor
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+      </div>
+      <p class="booking-status" data-booking-status role="status" aria-live="polite"></p>
+    </dialog>
+
     <script src="https://w.soundcloud.com/player/api.js" defer></script>
-    <script src="./assets/js/script.js?v=dark-loader-default-20261005" defer></script>
+    <script src="./assets/js/script.js?v=dark-loader-default-20261026c" defer></script>
     <script
       src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstile"
       defer

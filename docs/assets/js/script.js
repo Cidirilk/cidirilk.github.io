@@ -160,6 +160,23 @@ const getCookie = (name) =>
 const tabPanelsWrap = tabPanels[0]?.closest('.tab-panels') || null;
 const tabReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const tabMobileQuery = window.matchMedia('(max-width: 1024px)');
+
+// Desktop console (>=1025px): the Gigs, Collabs, Artifacts and Guides
+// carousels are laid out as static lists/grids by redesign.css, so every real
+// slide must stay focusable and visible to assistive tech. Clones stay hidden.
+const consoleListQuery = window.matchMedia('(min-width: 1025px)');
+const setConsoleListSlides = (track) => {
+  if (!track) return;
+  track.style.transform = 'none';
+  Array.from(track.children).forEach((slide) => {
+    const isClone = slide.dataset.carouselClone === 'true';
+    slide.classList.toggle('is-current', !isClone);
+    slide.setAttribute('aria-hidden', String(isClone));
+    slide.querySelectorAll('a, button, [tabindex]').forEach((el) => {
+      el.tabIndex = isClone ? -1 : 0;
+    });
+  });
+};
 const mobileSectionLinks = [...document.querySelectorAll('[data-mobile-section]')].map((link) => ({
   link,
   href: link.getAttribute('href'),
@@ -241,8 +258,19 @@ const syncSubscribePanelAfterActivation = (target) => {
   });
 };
 
+// Default console tab: always Sessions (music first). Upcoming events live in
+// the Gigs tab, so the landing tab no longer depends on the event date.
+function getDefaultTab() {
+  return 'sessions';
+}
+
 const setActiveTab = (target, persist = true, animate = false) => {
   if (tabMobileQuery.matches) return;
+  // Tabs hidden on desktop (Channels lives in the mobile bottom nav only)
+  // fall back to the default panel, e.g. when restored from the tab cookie
+  if ([...tabButtons].some((btn) => btn.hidden && btn.getAttribute('data-tab') === target)) {
+    target = getDefaultTab();
+  }
 
   const shouldAnimateHeight =
     animate && tabPanelsWrap && !tabReducedMotion;
@@ -299,9 +327,9 @@ const syncTabLayoutForViewport = () => {
   const current =
     [...tabButtons].find((button) => button.classList.contains('active'))?.getAttribute('data-tab') ||
     getCookie(TAB_COOKIE) ||
-    'subscribe';
+    getDefaultTab();
   const hasPanel = [...tabPanels].some((panel) => panel.getAttribute('data-panel') === current);
-  setActiveTab(hasPanel ? current : 'subscribe', false);
+  setActiveTab(hasPanel ? current : getDefaultTab(), false);
 };
 
 if (tabButtons.length && tabPanels.length) {
@@ -310,41 +338,43 @@ if (tabButtons.length && tabPanels.length) {
   const hashTab = shouldPreserveInitialHash ? 'guides' : '';
   const defaultTab =
     hashTab ||
-    (saved && [...tabPanels].some((panel) => panel.getAttribute('data-panel') === saved) ? saved : 'subscribe');
+    (saved && [...tabPanels].some((panel) => panel.getAttribute('data-panel') === saved) ? saved : getDefaultTab());
   if (tabMobileQuery.matches) {
     showMobileTabSections();
   } else {
     setActiveTab(defaultTab, false);
   }
   
-  tabButtons.forEach((button, index) => {
+  tabButtons.forEach((button) => {
     button.addEventListener('click', () => {
       const target = button.getAttribute('data-tab');
       setActiveTab(target, true, true);
     });
     
-    // Add keyboard navigation for tabs
+    // Add keyboard navigation for tabs (skips tabs hidden on desktop)
     button.addEventListener('keydown', (e) => {
-      let newIndex = index;
-      
+      const visibleTabs = [...tabButtons].filter((btn) => !btn.hidden);
+      const current = visibleTabs.indexOf(button);
+      let newIndex = current;
+
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
         e.preventDefault();
-        newIndex = (index + 1) % tabButtons.length;
+        newIndex = (current + 1) % visibleTabs.length;
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault();
-        newIndex = (index - 1 + tabButtons.length) % tabButtons.length;
+        newIndex = (current - 1 + visibleTabs.length) % visibleTabs.length;
       } else if (e.key === 'Home') {
         e.preventDefault();
         newIndex = 0;
       } else if (e.key === 'End') {
         e.preventDefault();
-        newIndex = tabButtons.length - 1;
+        newIndex = visibleTabs.length - 1;
       } else {
         return;
       }
-      
-      tabButtons[newIndex].focus();
-      const target = tabButtons[newIndex].getAttribute('data-tab');
+
+      visibleTabs[newIndex].focus();
+      const target = visibleTabs[newIndex].getAttribute('data-tab');
       setActiveTab(target, true, true);
     });
   });
@@ -609,7 +639,9 @@ const loadPodcastCardPlayer = (card) => {
     player?.classList.remove('is-unloaded', 'is-preview-ready');
     player?.classList.add('is-loading-preview');
     if (player) player.dataset.previewStartedAt = String(Date.now());
-    iframe.tabIndex = 0;
+    // The widget is visually hidden behind our own controls: keep it out of the tab order
+    iframe.tabIndex = -1;
+    iframe.setAttribute('aria-hidden', 'true');
     iframe.setAttribute('src', src);
     setTimeout(() => finishPodcastPreviewLoad(player), 2600);
   }
@@ -622,6 +654,7 @@ const unloadPodcastCardPlayer = (card) => {
   // Navigate away without collapsing the old widget to zero size mid-render.
   iframe.setAttribute('src', 'about:blank');
   iframe.tabIndex = -1;
+  resetPodcastControls(card);
   player?.classList.remove('is-loading-preview', 'is-preview-ready');
   player?.classList.add('is-unloaded');
   if (player) delete player.dataset.previewStartedAt;
@@ -636,7 +669,7 @@ const setPeekCarouselPosition = (track, slide, instant = false, wrapDirection = 
   const positionSlide = (target, skipAnimation) => {
     const targetLeft = target.offsetLeft - (track.clientWidth - target.offsetWidth) / 2;
     if (skipAnimation) track.style.transition = 'none';
-    const useLayoutPosition = track.matches('[data-soundcloud-episodes]') && tabMobileQuery.matches;
+    const useLayoutPosition = track.matches('[data-soundcloud-episodes], [data-chacha-episodes]') && tabMobileQuery.matches;
     track.style.left = useLayoutPosition ? `${-targetLeft}px` : '';
     track.style.transform = useLayoutPosition ? 'none' : `translateX(-${targetLeft}px)`;
     if (skipAnimation) {
@@ -667,7 +700,7 @@ const setPeekCarouselPosition = (track, slide, instant = false, wrapDirection = 
 };
 
 const refreshMediaCarouselPositions = () => {
-  [...soundCloudEpisodeLists, ...liveSetsSessionLists, ...youtubeVideoLists].forEach((list) => {
+  [...soundCloudEpisodeLists, ...document.querySelectorAll('[data-chacha-episodes]'), ...liveSetsSessionLists, ...youtubeVideoLists].forEach((list) => {
     if (!list.clientWidth) return;
     const activeCard = list.querySelector('[aria-current="true"]');
     if (activeCard) setPeekCarouselPosition(list, activeCard.parentElement, true);
@@ -819,7 +852,8 @@ const fetchPodcastPlaylistArtwork = async (playlistUrl) => {
 
   try {
     const response = await fetch(
-      `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(playlistUrl)}`
+      `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(playlistUrl)}`,
+      { signal: AbortSignal.timeout(3000) }
     );
     if (!response.ok) return '';
     const data = await response.json();
@@ -863,15 +897,52 @@ const addPodcastCarouselClones = (list) => {
   list.appendChild(preparePodcastClone(slides[0]));
 };
 
-const renderSoundCloudEpisodes = async (tracks, playlistArtworkUrl = '') => {
-  if (!soundCloudEpisodeLists.length || !tracks?.length) return;
-  const selectedIndex = Number.parseInt(soundCloudSourcePlayers[0]?.dataset.soundcloudTrackIndex || '0', 10);
+const resolveVisibleSoundCloudEpisodes = async (tracks) => {
   const startIndex = Math.max(0, tracks.length - MEDIA_CAROUSEL_LIMIT);
   const visibleTracks = await Promise.all(
     tracks.slice(startIndex)
       .map((track, index) => resolveSoundCloudEpisode(track, startIndex + index))
       .reverse()
   );
+  // Keep only what the cards need so the list caches compactly.
+  return visibleTracks.map(({ id, permalink_url, title, trackIndex }) => ({ id, permalink_url, title, trackIndex }));
+};
+
+// Cached episode list renders instantly on repeat visits; it is revalidated in the background.
+const PODCAST_TRACKS_CACHE_KEY = 'cidirilkPodcastTracks';
+const PODCAST_TRACKS_CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+
+const getPodcastTracksSignature = (tracks) =>
+  tracks.map((track) => `${track.id}:${track.title || ''}`).join('|');
+
+const getCachedPodcastTracks = (playlistUrl) => {
+  try {
+    const cached = JSON.parse(localStorage.getItem(PODCAST_TRACKS_CACHE_KEY) || 'null');
+    if (
+      cached?.playlistUrl === playlistUrl &&
+      Array.isArray(cached?.tracks) &&
+      cached.tracks.length &&
+      Date.now() - cached.cachedAt < PODCAST_TRACKS_CACHE_TTL
+    ) {
+      return cached.tracks;
+    }
+  } catch (e) {}
+  return null;
+};
+
+const cachePodcastTracks = (playlistUrl, tracks) => {
+  if (!playlistUrl || !tracks?.length) return;
+  try {
+    localStorage.setItem(
+      PODCAST_TRACKS_CACHE_KEY,
+      JSON.stringify({ playlistUrl, tracks, cachedAt: Date.now() })
+    );
+  } catch (e) {}
+};
+
+const renderSoundCloudEpisodes = (visibleTracks, playlistArtworkUrl = '') => {
+  if (!soundCloudEpisodeLists.length || !visibleTracks?.length) return;
+  const selectedIndex = Number.parseInt(soundCloudSourcePlayers[0]?.dataset.soundcloudTrackIndex || '0', 10);
   const activeIndex = Math.min(Number.isNaN(selectedIndex) ? 0 : selectedIndex, visibleTracks.length - 1);
   const playlistUrl = String(soundCloudSourcePlayers[0]?.dataset.soundcloudUrl || '').trim();
   const playlistArtwork = normalizeSoundCloudArtworkUrl(playlistArtworkUrl);
@@ -911,6 +982,8 @@ const renderSoundCloudEpisodes = async (tracks, playlistArtworkUrl = '') => {
         iframe.dataset.soundcloudCardFrame = '';
         iframe.dataset.soundcloudSrc = buildSoundCloudPlayerSrc(playerUrl, playerIndex, !trackUrl);
         iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
+        // Our own player UI drives the (visually hidden) SoundCloud widget
+        iframe.addEventListener('load', () => bindPodcastWidget(card));
         // setActiveSoundCloudTrack loads the frame after the card is attached.
         player.appendChild(iframe);
       }
@@ -921,7 +994,7 @@ const renderSoundCloudEpisodes = async (tracks, playlistArtworkUrl = '') => {
       number.className = 'podcast-episode-number';
       number.textContent = formatPodcastEpisodeLabel(track);
       meta.appendChild(number);
-      card.append(meta, player);
+      card.append(meta, player, createPodcastControls(track));
       slide.appendChild(card);
       list.appendChild(slide);
     });
@@ -942,10 +1015,28 @@ const initSoundCloudEpisodeLists = () => {
   // SoundCloud draws its waveform on a canvas; do not initialize in a hidden tab.
   if (![...soundCloudEpisodeLists].some((list) => list.clientWidth > 0)) return;
   soundCloudEpisodesStarted = true;
+  const playlistUrl = String(soundCloudSourcePlayers[0]?.dataset.soundcloudUrl || '').trim();
+  // Artwork does not depend on the track list, so fetch it alongside the widget boot.
+  const artworkPromise = fetchPodcastPlaylistArtwork(playlistUrl);
+  const cachedTracks = getCachedPodcastTracks(playlistUrl);
+
+  if (cachedTracks) {
+    artworkPromise.then((artworkUrl) => renderSoundCloudEpisodes(cachedTracks, artworkUrl));
+    // Revalidate once the visible preview has had a head start on the network.
+    setTimeout(() => fetchSoundCloudTrackList(playlistUrl, artworkPromise, cachedTracks), 3000);
+    return;
+  }
+
   renderSoundCloudEpisodeStatus('Getting signals from SoundCloud...', true);
+  fetchSoundCloudTrackList(playlistUrl, artworkPromise, null);
+};
+
+const fetchSoundCloudTrackList = (playlistUrl, artworkPromise, cachedTracks) => {
   loadSoundCloudSourcePlayers();
   if (!window.SC?.Widget) {
-    renderSoundCloudEpisodeStatus('SoundCloud player could not load. Please refresh in a moment.');
+    if (!cachedTracks) {
+      renderSoundCloudEpisodeStatus('SoundCloud player could not load. Please refresh in a moment.');
+    }
     return;
   }
 
@@ -956,14 +1047,17 @@ const initSoundCloudEpisodeLists = () => {
     widget.getSounds(async (tracks) => {
       if (Array.isArray(tracks) && tracks.length) {
         rendered = true;
-        const playlistUrl = String(soundCloudSourcePlayers[0]?.dataset.soundcloudUrl || '').trim();
-        const playlistArtworkUrl = await fetchPodcastPlaylistArtwork(playlistUrl);
-        await renderSoundCloudEpisodes(tracks, playlistArtworkUrl);
+        const visibleTracks = await resolveVisibleSoundCloudEpisodes(tracks);
         releaseSoundCloudSourcePlayers();
+        cachePodcastTracks(playlistUrl, visibleTracks);
+        // Skip the re-render when the cached list was already current.
+        if (cachedTracks && getPodcastTracksSignature(cachedTracks) === getPodcastTracksSignature(visibleTracks)) return;
+        renderSoundCloudEpisodes(visibleTracks, await artworkPromise);
       }
     });
   });
 
+  if (cachedTracks) return;
   setTimeout(() => {
     if (!rendered) renderSoundCloudEpisodeStatus('Still connecting to SoundCloud...');
   }, 4000);
@@ -1337,8 +1431,148 @@ const getLiveIndicators = () => document.querySelectorAll('[data-live-indicator]
 const getLiveLabels = () => document.querySelectorAll('[data-live-label]');
 const hasLiveTargets = () => getLiveIndicators().length || document.querySelector('[data-live-banner]');
 
+// Live radio inside the page: "Listen Live" plays the LiveSets stream through
+// the proxy worker's /live/audio (it redirects to the current, tokenised
+// stream URL). If that cannot start (worker not updated yet, stream down),
+// the button falls back to opening the LiveSets live page like before.
+const liveRadio = {
+  audio: null,
+  playing: false,
+  starting: false,
+  failed: false,
+  timer: 0,
+};
+
+function getLiveRadioAudio() {
+  if (liveRadio.audio) return liveRadio.audio;
+  const audio = document.createElement('audio');
+  audio.preload = 'none';
+  audio.hidden = true;
+  audio.dataset.liveRadioAudio = '';
+  audio.addEventListener('playing', () => {
+    clearTimeout(liveRadio.timer);
+    liveRadio.starting = false;
+    liveRadio.playing = true;
+    liveRadio.failed = false;
+    renderLiveRadioState();
+  });
+  audio.addEventListener('pause', () => {
+    liveRadio.playing = false;
+    liveRadio.starting = false;
+    renderLiveRadioState();
+  });
+  audio.addEventListener('error', () => {
+    if (!audio.getAttribute('src')) return;
+    liveRadio.playing = false;
+    liveRadio.starting = false;
+    liveRadio.failed = true;
+    renderLiveRadioState();
+  });
+  document.body.appendChild(audio);
+  liveRadio.audio = audio;
+  return audio;
+}
+
+function renderLiveRadioState() {
+  const { playing, starting, failed } = liveRadio;
+  document.querySelectorAll('[data-live-radio-btn]').forEach((btn) => {
+    btn.classList.toggle('is-radio-playing', playing);
+    btn.classList.toggle('is-radio-starting', starting);
+    const label = btn.querySelector('[data-live-radio-text]');
+    const icon = btn.querySelector('.live-listen-icon');
+    const text = failed ? 'Open LiveSets' : starting ? 'Tuning in…' : playing ? 'Pause live' : 'Listen Live';
+    if (label) label.textContent = text;
+    if (icon) icon.className = `fa-solid ${playing ? 'fa-pause' : failed ? 'fa-arrow-up-right-from-square' : 'fa-headphones'} live-listen-icon`;
+    btn.setAttribute('aria-label', failed
+      ? 'Open the live radio on LiveSets (opens in a new tab)'
+      : playing ? 'Pause the live radio' : 'Listen to the live radio here');
+    btn.setAttribute('aria-pressed', playing ? 'true' : 'false');
+  });
+  document.querySelectorAll('[data-live-banner], [data-live-mobile-toggle], [data-desktop-radio-toggle]').forEach((el) => {
+    el.classList.toggle('is-radio-playing', playing);
+  });
+  document.querySelectorAll('[data-live-radio-note]').forEach((note) => {
+    note.hidden = !failed && !playing;
+    note.textContent = failed
+      ? 'Couldn’t start the stream here. Open it on LiveSets instead.'
+      : 'Playing live on this page.';
+  });
+}
+
+function stopLiveRadio() {
+  const audio = liveRadio.audio;
+  if (!audio) return;
+  audio.pause();
+  // A live stream cannot resume where it paused: drop it, reconnect on play
+  audio.removeAttribute('src');
+  audio.load();
+  liveRadio.playing = false;
+  liveRadio.starting = false;
+  renderLiveRadioState();
+}
+
+function startLiveRadio() {
+  const proxyBase = LIVESETS_PROXY_WORKER
+    ? (LIVESETS_PROXY_WORKER.endsWith('/') ? LIVESETS_PROXY_WORKER : `${LIVESETS_PROXY_WORKER}/`)
+    : '';
+  if (!proxyBase) return false;
+  const audio = getLiveRadioAudio();
+  liveRadio.starting = true;
+  liveRadio.failed = false;
+  renderLiveRadioState();
+  audio.src = `${proxyBase}live/audio?t=${Date.now()}`;
+  // Some networks (VPNs, company proxies) hold live streams back forever:
+  // after 15s without sound, fall back to opening LiveSets
+  clearTimeout(liveRadio.timer);
+  liveRadio.timer = setTimeout(() => {
+    if (!liveRadio.starting) return;
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+    liveRadio.starting = false;
+    liveRadio.failed = true;
+    renderLiveRadioState();
+  }, 15000);
+  // play() runs inside the tap/click so phones allow it
+  audio.play().catch((error) => {
+    if (error?.name === 'AbortError') return;
+    liveRadio.starting = false;
+    liveRadio.failed = true;
+    renderLiveRadioState();
+  });
+  return true;
+}
+
+document.querySelectorAll('[data-live-radio-btn]').forEach((btn) => {
+  // Note under the buttons: "Playing live on this page." / fallback hint
+  const actions = btn.closest('.live-popup-actions');
+  if (actions && !actions.parentElement.querySelector('[data-live-radio-note]')) {
+    const note = document.createElement('p');
+    note.className = 'live-popup-note';
+    note.dataset.liveRadioNote = '';
+    note.setAttribute('role', 'status');
+    note.hidden = true;
+    actions.after(note);
+  }
+  btn.addEventListener('click', (event) => {
+    // After a failure the button is a plain link to LiveSets again
+    if (liveRadio.failed) return;
+    event.preventDefault();
+    if (liveRadio.playing || liveRadio.starting) {
+      stopLiveRadio();
+      return;
+    }
+    if (!startLiveRadio()) window.open(btn.href, '_blank', 'noopener');
+  });
+});
+
 const updateLiveIndicator = (isLive) => {
   const state = Boolean(isLive);
+  // The broadcast ended: stop the in-page radio and reset the button
+  if (!state && liveRadio.audio) {
+    stopLiveRadio();
+    liveRadio.failed = false;
+  }
   getLiveIndicators().forEach((indicator) => indicator.classList.toggle('is-live', state));
   document.querySelectorAll('[data-live-banner]').forEach((banner) => banner.classList.toggle('is-live', state));
 
@@ -1362,9 +1596,8 @@ const updateLiveIndicator = (isLive) => {
   const liveRadioBtns = document.querySelectorAll('[data-live-radio-btn]');
   liveRadioBtns.forEach((btn) => {
     btn.style.display = state ? 'flex' : 'none';
-    const label = btn.querySelector('[data-live-radio-text]');
-    if (label) label.textContent = 'Listen Live';
   });
+  renderLiveRadioState();
 };
 
 const parseLiveStatus = (payload) => {
@@ -1713,8 +1946,8 @@ const YOUTUBE_VIDEOS = [
 ].map((video) => ({
   ...video,
   url: `https://youtu.be/${video.id}`,
-  embedUrl: `https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1&playsinline=1`,
-  autoplayUrl: `https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1&playsinline=1&autoplay=1`,
+  embedUrl: `https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1`,
+  autoplayUrl: `https://www.youtube.com/embed/${video.id}?rel=0&modestbranding=1&playsinline=1&enablejsapi=1&autoplay=1`,
   thumbnail: `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
 }));
 
@@ -1788,6 +2021,7 @@ const loadYoutubeCardPlayer = (card, autoplay = false) => {
   if (window.location.origin !== 'null') embedUrl.searchParams.set('origin', window.location.origin);
   frame.src = embedUrl.toString();
   player?.classList.add('is-loaded');
+  bindYoutubeApi(card, frame);
 };
 
 const unloadYoutubeCardPlayer = (card) => {
@@ -1796,7 +2030,72 @@ const unloadYoutubeCardPlayer = (card) => {
   if (!frame) return;
   frame.removeAttribute('src');
   player?.classList.remove('is-loaded');
+  card._ytPlayer = null;
+  card.classList.remove('is-yt-playing', 'has-yt-error');
 };
+
+// YouTube IFrame API on top of our embeds: our own play/pause button (YouTube's
+// tiny mobile controls are easy to miss), a clear message when a video is
+// blocked from playing on this device/site, and one player at a time.
+let youtubeApiPromise = null;
+const loadYoutubeApi = () => {
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (!youtubeApiPromise) {
+    youtubeApiPromise = new Promise((resolve) => {
+      const previous = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        previous?.();
+        resolve(window.YT);
+      };
+      const script = document.createElement('script');
+      script.src = 'https://www.youtube.com/iframe_api';
+      script.async = true;
+      document.head.appendChild(script);
+    });
+  }
+  return youtubeApiPromise;
+};
+
+const setYoutubeToggle = (card, playing) => {
+  card.classList.toggle('is-yt-playing', playing);
+  const toggle = card.querySelector('[data-youtube-toggle]');
+  if (!toggle) return;
+  toggle.querySelector('span').textContent = playing ? 'Pause' : 'Play';
+  toggle.querySelector('i').className = `fa-solid ${playing ? 'fa-pause' : 'fa-play'}`;
+  toggle.setAttribute('aria-label', `${playing ? 'Pause' : 'Play'} ${toggle.dataset.title || 'video'}`);
+};
+
+const pauseYoutubePlayers = (except) => {
+  getYoutubeCards().forEach((card) => {
+    if (card !== except) card._ytPlayer?.pauseVideo?.();
+  });
+};
+
+function bindYoutubeApi(card, frame) {
+  setYoutubeToggle(card, false);
+  loadYoutubeApi().then((YT) => {
+    if (!frame.getAttribute('src') || card._ytPlayer) return;
+    card._ytPlayer = new YT.Player(frame, {
+      events: {
+        onStateChange: (event) => {
+          const playing = event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.BUFFERING;
+          setYoutubeToggle(card, playing);
+          if (event.data === YT.PlayerState.PLAYING) {
+            pauseYoutubePlayers(card);
+            document.querySelectorAll('audio').forEach((audio) => { if (!audio.paused) audio.pause(); });
+            document.querySelectorAll('.podcast-episode').forEach((episode) => episode._podcastWidget?.pause());
+          }
+        },
+        // 2 bad id, 5 HTML5 error, 100 removed/private, 101/150 owner blocks
+        // playback on other sites (often music rights, per device or country)
+        onError: () => {
+          card.classList.add('has-yt-error');
+          setYoutubeToggle(card, false);
+        },
+      },
+    });
+  });
+}
 
 const setActiveYoutubeVideo = (videoIndex, options = {}) => {
   renderYoutubeCarouselDots(youtubeVideoCount, videoIndex);
@@ -1805,7 +2104,8 @@ const setActiveYoutubeVideo = (videoIndex, options = {}) => {
       const active = Number.parseInt(card.dataset.youtubeVideo || '0', 10) === videoIndex;
       card.classList.toggle('active', active);
       card.setAttribute('aria-current', active ? 'true' : 'false');
-      card.tabIndex = active ? 0 : -1;
+      // Desktop rows are focusable too (Enter/Space features and plays them)
+      card.tabIndex = active || consoleListQuery.matches ? 0 : -1;
       if (active) {
         setPeekCarouselPosition(list, card.closest('.youtube-slide'), Boolean(options.instant), options.wrapDirection);
       } else {
@@ -1827,16 +2127,219 @@ const setActiveLiveSetsSession = (sessionIndex, options = {}) => {
       const active = Number.parseInt(card.dataset.livesetsSession || '0', 10) === sessionIndex;
       card.classList.toggle('active', active);
       card.setAttribute('aria-current', active ? 'true' : 'false');
-      card.tabIndex = active ? 0 : -1;
+      card.tabIndex = active || consoleListQuery.matches ? 0 : -1;
       if (!active) {
         pauseLiveSetsCardPlayer(card);
         return;
       }
+      loadLiveSetsRealWave(card);
 
       setPeekCarouselPosition(list, card.closest('.sessions-slide'), Boolean(options.instant), options.wrapDirection);
     });
   });
 };
+
+// LiveSets session cards: playing state, progress and the static waveform
+// used by the desktop console list (featured card + selected row). Each set
+// gets its own decorative shape (seeded by session id); the violet fill is
+// the real playback position and clicking the waveform seeks.
+const LIVESETS_WAVE_BARS = 60;
+
+function setLiveSetsCardPlaying(card, title, playing) {
+  card.classList.toggle('is-playing-session', playing);
+  card.setAttribute('aria-label', `${playing ? 'Pause' : 'Play'} ${title} from LiveSets`);
+}
+
+// A seek past the loaded part restarts the stream at an offset (?t=), so
+// positions are tracked as offset + currentTime over the whole set length.
+function getLiveSetsOffset(card) {
+  return Number(card.dataset.audioOffset || 0);
+}
+
+function getLiveSetsTotal(card, audio) {
+  return Number(card.dataset.totalDuration || 0) || (audio.duration ? audio.duration + getLiveSetsOffset(card) : 0);
+}
+
+// 40:31 or 1:02:05 (hours only when the set is an hour or longer)
+function formatLiveSetsTime(seconds, withHours) {
+  const s = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, '0');
+  return withHours ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${h * 60 + m}:${sec}`;
+}
+
+// The duration becomes "elapsed / total" once a set starts (desktop and phones)
+function updateLiveSetsCardTime(card, position, total) {
+  const label = card.querySelector('.sessions-card-duration');
+  if (!label) return;
+  const totalLabel = card.dataset.durationLabel || formatLiveSetsTime(total, total >= 3600);
+  const text = position > 0
+    ? `${formatLiveSetsTime(position, total >= 3600)} / ${totalLabel}`
+    : totalLabel;
+  if (label.textContent !== text) label.textContent = text;
+}
+
+function updateLiveSetsCardProgress(card, audio) {
+  const total = getLiveSetsTotal(card, audio);
+  if (!total) return;
+  const position = getLiveSetsOffset(card) + audio.currentTime;
+  updateLiveSetsCardTime(card, position, total);
+  const ratio = Math.min(1, position / total);
+  card.style.setProperty('--sessions-progress', `${(ratio * 100).toFixed(2)}%`);
+  const played = Math.round(ratio * LIVESETS_WAVE_BARS);
+  if (card.dataset.wavePlayed === String(played)) return;
+  card.dataset.wavePlayed = String(played);
+  card.querySelectorAll('.sessions-card-wave span').forEach((bar, index) => {
+    bar.classList.toggle('is-played', index < played);
+  });
+}
+
+function createLiveSetsWave(seed = 0) {
+  const wave = document.createElement('span');
+  wave.className = 'sessions-card-wave';
+  wave.setAttribute('aria-hidden', 'true');
+  const phase = (Number(seed) % 97) / 13;
+  for (let i = 0; i < LIVESETS_WAVE_BARS; i += 1) {
+    const bar = document.createElement('span');
+    const shape = Math.abs(Math.sin(i * 0.9 + phase) * Math.cos(i * 0.31 + phase / 2));
+    bar.style.height = `${18 + Math.round(shape * 82)}%`;
+    wave.appendChild(bar);
+  }
+  return wave;
+}
+
+// LiveSets serves its MP3s without working byte ranges and Cloudflare does
+// not pass Range through to the worker, so a jump past what is downloaded
+// cannot use currentTime: it restarts the stream at that time via the
+// worker's ?t= parameter. Without the worker, seeks stay in the loaded part.
+function getLiveSetsLoadedEnd(audio) {
+  const { buffered, currentTime } = audio;
+  for (let i = 0; i < buffered.length; i += 1) {
+    if (buffered.start(i) <= currentTime + 0.5 && currentTime <= buffered.end(i) + 0.5) {
+      return buffered.end(i);
+    }
+  }
+  return currentTime;
+}
+
+function updateLiveSetsCardLoaded(card, audio) {
+  const total = getLiveSetsTotal(card, audio);
+  if (!total) return;
+  const offset = getLiveSetsOffset(card);
+  const from = Math.floor((offset / total) * LIVESETS_WAVE_BARS);
+  const loaded = Math.round(((offset + getLiveSetsLoadedEnd(audio)) / total) * LIVESETS_WAVE_BARS);
+  if (card.dataset.waveLoaded === `${from}-${loaded}`) return;
+  card.dataset.waveLoaded = `${from}-${loaded}`;
+  card.querySelectorAll('.sessions-card-wave span').forEach((bar, index) => {
+    bar.classList.toggle('is-loaded', index >= from && index < loaded);
+  });
+}
+
+function showLiveSetsCardNotice(card, message) {
+  const player = card.querySelector('[data-livesets-player]');
+  const status = card.querySelector('[data-livesets-player-status]');
+  if (!player || !status) return;
+  status.textContent = message;
+  player.classList.add('has-notice');
+  clearTimeout(Number(card.dataset.noticeTimer));
+  card.dataset.noticeTimer = String(setTimeout(() => {
+    player.classList.remove('has-notice');
+    if (!player.classList.contains('has-error') && !player.classList.contains('is-loading')) status.textContent = '';
+  }, 4000));
+}
+
+// Desktop console list: any card toggles play/pause; clicking the waveform
+// of the selected set skips within the loaded part.
+async function toggleConsoleLiveSetsSession(card, event) {
+  const audio = card.querySelector('[data-livesets-audio]');
+  const wave = event?.target?.closest?.('.sessions-card-wave');
+  if (wave && audio?.duration && card.classList.contains('active')) {
+    const rect = wave.getBoundingClientRect();
+    const total = getLiveSetsTotal(card, audio);
+    const target = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * total;
+    const relative = target - getLiveSetsOffset(card);
+    const loadedEnd = getLiveSetsLoadedEnd(audio);
+    const proxyBase = getLiveSetsProxyBase();
+    const viaProxy = Boolean(proxyBase) && audio.currentSrc.startsWith(proxyBase);
+    if (relative >= 0 && relative <= loadedEnd - 1) {
+      audio.currentTime = relative; // already downloaded: instant
+    } else if (viaProxy) {
+      seekLiveSetsByUrl(card, audio, target, proxyBase);
+      return;
+    } else {
+      // Direct LiveSets file (worker unavailable): stay inside the loaded part
+      audio.currentTime = Math.max(0, Math.min(Math.max(audio.currentTime, loadedEnd - 2), relative));
+      showLiveSetsCardNotice(card, 'Skipped to the loaded part. LiveSets loads sets from the start, so the rest unlocks as it plays.');
+    }
+    updateLiveSetsCardProgress(card, audio);
+    if (audio.paused) playLiveSetsCard(card);
+    return;
+  }
+  if (card.classList.contains('is-playing-session')) {
+    pauseLiveSetsCardPlayer(card);
+    return;
+  }
+  if (!card.classList.contains('active')) {
+    setActiveLiveSetsSession(Number.parseInt(card.dataset.livesetsSession || '0', 10), { instant: true });
+    // The selected set becomes the featured player at the top of the list
+    card.closest('.tab-panel')?.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  await playLiveSetsCard(card);
+}
+
+// Restart the stream at `seconds` through the worker (?t=) and keep playing.
+function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
+  const start = Math.max(0, Math.floor(seconds));
+  const sessionId = card.dataset.livesetsSessionId || '';
+  card.dataset.audioOffset = String(start);
+  card.classList.add('is-buffering');
+  // Clear any earlier error as soon as audio flows again
+  audio.addEventListener('playing', () => setLiveSetsCardPlayerState(card, 'is-ready'), { once: true });
+  const query = new URLSearchParams();
+  if (start) query.set('t', String(start));
+  if (attempt > 1) query.set('retry', String(attempt));
+  audio.src = `${proxyBase}audio/${encodeURIComponent(sessionId)}${query.size ? `?${query}` : ''}`;
+  audio.load();
+  updateLiveSetsCardProgress(card, audio);
+  updateLiveSetsCardLoaded(card, audio);
+  audio.play().catch((error) => {
+    if (error.name === 'AbortError') return;
+    // One automatic retry covers a stream the worker cut off early
+    if (attempt < 2 && card.classList.contains('active')) {
+      setTimeout(() => seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt + 1), 600);
+      return;
+    }
+    card.classList.remove('is-buffering');
+    setLiveSetsCardPlayerState(card, 'has-error', "Couldn't skip there right now. Try again.");
+  });
+}
+
+// Real waveform (LiveSets publishes one per set) via the proxy worker's
+// /waveform route; the decorative shape stays if it is unavailable.
+async function loadLiveSetsRealWave(card) {
+  const proxyBase = getLiveSetsProxyBase();
+  const sessionId = card?.dataset.livesetsSessionId;
+  if (!proxyBase || !sessionId || card.dataset.realWave) return;
+  card.dataset.realWave = 'loading';
+  try {
+    const response = await fetch(`${proxyBase}waveform/${encodeURIComponent(sessionId)}`, { headers: { Accept: 'application/json' } });
+    const data = response.ok ? await response.json() : null;
+    const peaks = Array.isArray(data?.peaks) ? data.peaks.map(Number).filter(Number.isFinite) : [];
+    if (peaks.length < LIVESETS_WAVE_BARS) throw new Error('no waveform');
+    const bucket = peaks.length / LIVESETS_WAVE_BARS;
+    const bars = Array.from({ length: LIVESETS_WAVE_BARS }, (_, i) =>
+      Math.max(...peaks.slice(Math.floor(i * bucket), Math.max(Math.floor(i * bucket) + 1, Math.floor((i + 1) * bucket)))),
+    );
+    const top = Math.max(...bars) || 1;
+    card.querySelectorAll('.sessions-card-wave span').forEach((bar, i) => {
+      bar.style.height = `${Math.round(12 + (bars[i] / top) * 88)}%`;
+    });
+    card.dataset.realWave = 'true';
+  } catch {
+    card.dataset.realWave = 'unavailable';
+  }
+}
 
 const pauseLiveSetsCardPlayer = (card) => {
   const audio = card?.querySelector('[data-livesets-audio]');
@@ -1872,8 +2375,16 @@ const loadLiveSetsCardPlayer = async (card) => {
     return null;
   }
 
+  if (meta.duration) card.dataset.totalDuration = String(meta.duration);
   audio.replaceChildren();
-  meta.urlAudio.forEach((sourceData) => {
+  // Prefer the proxy worker's /audio route (seekable byte ranges); the
+  // browser falls back to LiveSets' own files if it is unavailable.
+  const proxyBase = getLiveSetsProxyBase();
+  const sources = [
+    ...(proxyBase ? [{ url: `${proxyBase}audio/${encodeURIComponent(sessionId)}`, type: 'audio/mpeg' }] : []),
+    ...meta.urlAudio,
+  ];
+  sources.forEach((sourceData) => {
     const source = document.createElement('source');
     source.src = sourceData.url;
     if (sourceData.type) source.type = sourceData.type;
@@ -2010,14 +2521,81 @@ const renderYoutubeVideos = () => {
       playButton.dataset.youtubePlay = '';
       playButton.setAttribute('aria-label', `Play ${video.title}`);
       playButton.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i>';
-      playButton.append(document.createTextNode('Play video'));
       player.appendChild(playButton);
+
+      // Generated cover (brand art, follows the theme) instead of YouTube's
+      // own thumbnail; hidden once the embed loads
+      player.prepend(createYoutubePreview(video, index));
+
+      // Mockup chip on the thumbnail: these videos are unlisted on YouTube
+      const chip = document.createElement('span');
+      chip.className = 'youtube-card-chip';
+      chip.textContent = 'Unlisted';
+      player.appendChild(chip);
 
       const note = document.createElement('span');
       note.className = 'youtube-card-note';
       note.textContent = 'HQ audio in Sessions';
 
-      card.append(top, player, note);
+      // Card body: label ("Video 01 · Unlisted"), the name (shown in the desktop
+      // rows only; the featured card has it on the cover) and the actions
+      const body = document.createElement('span');
+      body.className = 'youtube-card-body';
+      const info = document.createElement('span');
+      info.className = 'youtube-card-info';
+      const kicker = document.createElement('span');
+      kicker.className = 'youtube-card-kicker';
+      kicker.textContent = `Video ${String(index + 1).padStart(2, '0')} · Unlisted`;
+      const name = document.createElement('span');
+      name.className = 'youtube-card-name';
+      name.textContent = String(video.title || '').replace(/^cidirilk_/i, '').replace(/_/g, ' ').trim();
+      info.append(name, kicker);
+      const actions = document.createElement('span');
+      actions.className = 'youtube-card-actions';
+      const playCta = document.createElement('button');
+      playCta.type = 'button';
+      playCta.className = 'youtube-card-cta is-primary';
+      playCta.dataset.youtubePlay = '';
+      playCta.setAttribute('aria-label', `Play ${video.title}`);
+      playCta.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i><span>Play video</span>';
+      const hq = document.createElement('a');
+      hq.className = 'youtube-card-cta';
+      hq.href = '#sessions';
+      hq.dataset.youtubeHq = '';
+      hq.title = 'HQ audio in Sessions';
+      hq.setAttribute('aria-label', 'HQ audio in Sessions');
+      hq.innerHTML = '<i class="fa-solid fa-headphones" aria-hidden="true"></i><span>HQ audio</span>';
+      // Shown instead of "Play video" while the embed is loaded: a way out if
+      // the embedded player is unavailable on a device ("Watch on YouTube")
+      const open = document.createElement('a');
+      open.className = 'youtube-card-cta is-primary youtube-card-open';
+      open.href = video.url;
+      open.target = '_blank';
+      open.rel = 'noopener';
+      open.setAttribute('aria-label', `Open ${video.title} on YouTube (opens in a new tab)`);
+      open.innerHTML = '<i class="fa-brands fa-youtube" aria-hidden="true"></i><span>YouTube</span>';
+      // Our play/pause for the loaded embed (shown only while it is loaded)
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'youtube-card-cta youtube-card-toggle';
+      toggle.dataset.youtubeToggle = '';
+      toggle.dataset.title = video.title;
+      toggle.setAttribute('aria-label', `Pause ${video.title}`);
+      toggle.innerHTML = '<i class="fa-solid fa-pause" aria-hidden="true"></i><span>Pause</span>';
+      actions.append(toggle, playCta, open, hq);
+      const error = document.createElement('span');
+      error.className = 'youtube-card-error';
+      error.setAttribute('role', 'status');
+      error.textContent = 'This video can’t play here. Watch it on YouTube.';
+      body.append(info, actions, error);
+
+      // Desktop rows: small play button on the right
+      const rowPlay = document.createElement('span');
+      rowPlay.className = 'youtube-card-rowplay';
+      rowPlay.setAttribute('aria-hidden', 'true');
+      rowPlay.innerHTML = '<i class="fa-solid fa-play"></i>';
+
+      card.append(top, player, note, body, rowPlay);
       slide.appendChild(card);
       list.appendChild(slide);
     });
@@ -2041,7 +2619,7 @@ const renderLiveSetsSessions = (sessions) => {
       card.dataset.livesetsSessionId = sessionId;
       card.dataset.livesetsSessionUrl = session.url;
       card.setAttribute('role', 'button');
-      card.tabIndex = index === 0 ? 0 : -1;
+      card.tabIndex = index === 0 || consoleListQuery.matches ? 0 : -1;
       card.setAttribute('aria-current', index === 0 ? 'true' : 'false');
       card.setAttribute('aria-label', `Play ${session.title} from LiveSets`);
       if (session.artwork) {
@@ -2056,6 +2634,7 @@ const renderLiveSetsSessions = (sessions) => {
       const duration = document.createElement('span');
       duration.className = 'sessions-card-duration';
       duration.textContent = session.duration || 'LiveSets';
+      if (session.duration) card.dataset.durationLabel = session.duration;
       top.append(source, duration);
 
       const title = document.createElement('strong');
@@ -2089,15 +2668,41 @@ const renderLiveSetsSessions = (sessions) => {
       audio.controls = true;
       audio.preload = 'none';
       audio.dataset.livesetsAudio = '';
-      audio.addEventListener('play', () => card.classList.add('is-playing-session'));
-      audio.addEventListener('pause', () => card.classList.remove('is-playing-session'));
-      audio.addEventListener('ended', () => card.classList.remove('is-playing-session'));
+      audio.addEventListener('play', () => setLiveSetsCardPlaying(card, session.title, true));
+      audio.addEventListener('pause', () => setLiveSetsCardPlaying(card, session.title, false));
+      audio.addEventListener('ended', () => setLiveSetsCardPlaying(card, session.title, false));
+      audio.addEventListener('timeupdate', () => updateLiveSetsCardProgress(card, audio));
+      audio.addEventListener('progress', () => updateLiveSetsCardLoaded(card, audio));
+      audio.addEventListener('waiting', () => card.classList.add('is-buffering'));
+      ['playing', 'pause', 'ended', 'error'].forEach((type) =>
+        audio.addEventListener(type, () => card.classList.remove('is-buffering')),
+      );
+      audio.addEventListener('timeupdate', () => updateLiveSetsCardLoaded(card, audio));
       const playerStatus = document.createElement('span');
       playerStatus.className = 'sessions-card-player-status';
       playerStatus.dataset.livesetsPlayerStatus = '';
       player.append(audio, playerStatus);
 
-      card.append(top, title, meta, action, player);
+      // Desktop console list (mockup): featured card + rows. These pieces are
+      // hidden in the mobile carousel.
+      const kicker = document.createElement('span');
+      kicker.className = 'sessions-card-kicker';
+      // Short enough for one line on phones (the section is LiveSets already)
+      kicker.textContent = (index === 0 ? ['Latest', 'LiveSets', session.genre] : [session.genre, session.age])
+        .filter(Boolean)
+        .join(' · ');
+      const line = document.createElement('span');
+      line.className = 'sessions-card-line';
+      line.textContent = ['LiveSets', session.genre, session.age].filter(Boolean).join(' · ');
+      const play = document.createElement('span');
+      play.className = 'sessions-card-play';
+      play.setAttribute('aria-hidden', 'true');
+      play.innerHTML = '<i class="fa-solid fa-play"></i><i class="fa-solid fa-pause"></i>';
+      const hq = document.createElement('span');
+      hq.className = 'sessions-card-hq';
+      hq.textContent = 'HQ';
+
+      card.append(top, title, meta, action, player, kicker, line, play, hq, createLiveSetsWave(sessionId));
       slide.appendChild(card);
       list.appendChild(slide);
     });
@@ -2152,6 +2757,12 @@ liveSetsSessionLists.forEach((list) => {
     if (event.target.closest('[data-livesets-audio]')) return;
     const card = event.target.closest('.sessions-card[data-livesets-session]');
     if (!card) return;
+    // Phones use the same player as the desktop console: play/pause on the
+    // selected card, tap the waveform to skip
+    if (consoleListQuery.matches || card.classList.contains('active')) {
+      toggleConsoleLiveSetsSession(card, event);
+      return;
+    }
     playLiveSetsCard(card);
   });
 
@@ -2160,16 +2771,65 @@ liveSetsSessionLists.forEach((list) => {
     const card = event.target.closest('.sessions-card[data-livesets-session]');
     if (!card || event.target.closest('[data-livesets-audio]')) return;
     event.preventDefault();
+    if (consoleListQuery.matches || card.classList.contains('active')) {
+      toggleConsoleLiveSetsSession(card);
+      return;
+    }
     playLiveSetsCard(card);
   });
 });
 
 youtubeVideoLists.forEach((list) => {
   list.addEventListener('click', (event) => {
+    // "HQ audio in Sessions": open the Sessions tab on the desktop console;
+    // on smaller screens the #sessions anchor scrolls there as usual.
+    const hq = event.target.closest('[data-youtube-hq]');
+    if (hq) {
+      const sessionsTab = document.querySelector('.card-tabs .tab-button[data-tab="sessions"]');
+      if (consoleListQuery.matches && sessionsTab) {
+        event.preventDefault();
+        sessionsTab.click();
+      }
+      return;
+    }
+    // Our play/pause for a loaded video
+    const toggle = event.target.closest('[data-youtube-toggle]');
+    if (toggle) {
+      const player = toggle.closest('.youtube-card')?._ytPlayer;
+      if (player?.getPlayerState) {
+        if (player.getPlayerState() === window.YT?.PlayerState?.PLAYING) player.pauseVideo();
+        else player.playVideo();
+      }
+      return;
+    }
+    // Desktop rows: a click anywhere on a non-featured video features and plays it
+    const rowCard = event.target.closest('.youtube-card[data-youtube-video]:not(.active)');
+    if (consoleListQuery.matches && rowCard && !event.target.closest('a')) {
+      setActiveYoutubeVideo(Number.parseInt(rowCard.dataset.youtubeVideo || '0', 10), { instant: true });
+      playYoutubeCard(rowCard);
+      rowCard.closest('.tab-panel')?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     const playButton = event.target.closest('[data-youtube-play]');
     if (!playButton) return;
     const card = playButton.closest('.youtube-card[data-youtube-video]');
+    event.preventDefault();
+    // Desktop grid: any card can be played; it becomes the active (featured) one
+    if (consoleListQuery.matches && card && !card.classList.contains('active')) {
+      setActiveYoutubeVideo(Number.parseInt(card.dataset.youtubeVideo || '0', 10), { instant: true });
+    }
     playYoutubeCard(card);
+    if (consoleListQuery.matches) card?.closest('.tab-panel')?.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+
+youtubeVideoLists.forEach((list) => {
+  list.addEventListener('keydown', (event) => {
+    if (!['Enter', ' '].includes(event.key) || !consoleListQuery.matches) return;
+    const row = event.target.closest?.('.youtube-card[data-youtube-video]:not(.active)');
+    if (!row || event.target !== row) return;
+    event.preventDefault();
+    row.click();
   });
 });
 
@@ -2338,6 +2998,10 @@ const initCarousel = () => {
   const dots = Array.from(dotsContainer.children);
 
   const updateCarousel = () => {
+    if (consoleListQuery.matches) {
+      setConsoleListSlides(track);
+      return;
+    }
     track.style.transform = `translateX(-${currentIndex * 100}%)`;
 
     // Only the current slide is interactive; neighbours are inert so a single
@@ -2367,6 +3031,7 @@ const initCarousel = () => {
   };
 
   prevBtn.addEventListener('click', () => {
+    if (consoleListQuery.matches) return;
     if (currentIndex > 0) {
       currentIndex--;
       updateCarousel();
@@ -2374,6 +3039,7 @@ const initCarousel = () => {
   });
 
   nextBtn.addEventListener('click', () => {
+    if (consoleListQuery.matches) return;
     if (currentIndex < slides.length - 1) {
       currentIndex++;
       updateCarousel();
@@ -2416,6 +3082,8 @@ const initCarousel = () => {
       }
     }
   };
+
+  consoleListQuery.addEventListener('change', () => updateCarousel());
 
   updateCarousel();
 };
@@ -2489,6 +3157,12 @@ const initCollabCarousel = () => {
   };
 
   const updateCarousel = (animate = true) => {
+    if (consoleListQuery.matches) {
+      isAnimating = false;
+      setConsoleListSlides(track);
+      return;
+    }
+
     if (animate) {
       isAnimating = true;
     } else {
@@ -2529,7 +3203,7 @@ const initCollabCarousel = () => {
   };
 
   prevBtn.addEventListener('click', () => {
-    if (slides.length <= 1) return;
+    if (slides.length <= 1 || consoleListQuery.matches) return;
     if (isAnimating) return;
 
     currentIndex = (currentIndex - 1 + slides.length) % slides.length;
@@ -2538,7 +3212,7 @@ const initCollabCarousel = () => {
   });
 
   nextBtn.addEventListener('click', () => {
-    if (slides.length <= 1) return;
+    if (slides.length <= 1 || consoleListQuery.matches) return;
     if (isAnimating) return;
 
     currentIndex = (currentIndex + 1) % slides.length;
@@ -2612,6 +3286,8 @@ const initCollabCarousel = () => {
       updateCarousel(false);
     });
   });
+
+  consoleListQuery.addEventListener('change', () => updateCarousel(false));
 
   updateCarousel(false);
 };
@@ -2687,6 +3363,12 @@ const initShopCarousel = () => {
   };
 
   const updateCarousel = (animate = true) => {
+    if (consoleListQuery.matches) {
+      isAnimating = false;
+      setConsoleListSlides(track);
+      return;
+    }
+
     if (animate) {
       isAnimating = true;
     } else {
@@ -2714,7 +3396,7 @@ const initShopCarousel = () => {
   }
 
   prevBtn.addEventListener('click', () => {
-    if (slides.length <= 1) return;
+    if (slides.length <= 1 || consoleListQuery.matches) return;
     if (isAnimating) return;
 
     currentIndex = (currentIndex - 1 + slides.length) % slides.length;
@@ -2723,7 +3405,7 @@ const initShopCarousel = () => {
   });
 
   nextBtn.addEventListener('click', () => {
-    if (slides.length <= 1) return;
+    if (slides.length <= 1 || consoleListQuery.matches) return;
     if (isAnimating) return;
 
     currentIndex = (currentIndex + 1) % slides.length;
@@ -2772,6 +3454,8 @@ const initShopCarousel = () => {
       prevBtn.click();
     }
   }, { passive: true });
+
+  consoleListQuery.addEventListener('change', () => updateCarousel(false));
 
   updateCarousel(false);
 };
@@ -2892,28 +3576,23 @@ const initCollabModal = () => {
     }
   };
 
-  // Collaboration data
+  // Collaboration data (facts from each promoter's Resident Advisor page)
   const collabData = {
     chacha: {
       icon: 'fa-users',
       title: 'ChaCha',
       content: `
         <h3>About ChaCha</h3>
-        <p>ChaCha is an artist project that explores the space between techno, electronica, and experimental sound design, creating immersive sonic landscapes that balance structure with spontaneity.</p>
-        
-        <h3>Musical Approach</h3>
-        <p>The project emphasizes <strong>textural depth</strong> and <strong>rhythmic exploration</strong>, weaving together hypnotic patterns with unexpected sonic moments. ChaCha's sets range from introspective ambient passages to driving techno rhythms.</p>
-        
-        <h3>Performance Style</h3>
-        <ul>
-          <li>Live hardware-based performances with modular synthesis</li>
-          <li>Real-time manipulation of sound and texture</li>
-          <li>Improvised sequences and generative patterns</li>
-          <li>Focus on creating immersive, evolving soundscapes</li>
-        </ul>
-        
+        <p>ChaCha is a Cyprus DJ duo, two friends who met at a warehouse party and have been sharing decks since. They run under the name <strong>CC Grooves</strong>, with the &ldquo;00357&rdquo; tag nodding to Cyprus&rsquo; dialling code.</p>
+
+        <h3>Sound</h3>
+        <p>Groove-led sets built to keep a floor moving, with the duo&rsquo;s own motto: <strong>expect the unexpected</strong>.</p>
+
+        <h3>Highlights</h3>
+        <ul><li>Played the opening night of S//IP in Nicosia (February 2025)</li><li>Regular names on SYNESTHESIA line-ups</li><li>Also billed by Mind The Riot</li></ul>
+
         <h3>Links</h3>
-        <p>More info: <a href="https://ra.co/dj/chacha/biography" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+        <p><a href="https://ra.co/dj/chacha/biography" target="_blank" rel="noopener">Resident Advisor</a> · <a href="https://www.instagram.com/cc_grooves_00357" target="_blank" rel="noopener">Instagram</a> · <a href="https://soundcloud.com/cc_grooves_00357" target="_blank" rel="noopener">SoundCloud</a></p>
       `
     },
     synesthesia: {
@@ -2921,21 +3600,16 @@ const initCollabModal = () => {
       title: 'SYNESTHESIA',
       content: `
         <h3>About SYNESTHESIA</h3>
-        <p>SYNESTHESIA is a cutting-edge collective focused on merging electronic music with multisensory experiences, creating events that blur the boundaries between sound, vision, and sensation.</p>
-        
-        <h3>Philosophy</h3>
-        <p>The collective explores how different sensory inputs can enhance and transform the music experience, creating environments where attendees don't just hear the music—they feel it on multiple levels.</p>
-        
-        <h3>Events & Performances</h3>
-        <ul>
-          <li>Immersive audiovisual showcases</li>
-          <li>Underground warehouse parties with spatial audio</li>
-          <li>Experimental electronic music lineups</li>
-          <li>Collaborative performances with visual artists</li>
-        </ul>
-        
+        <p>SYNESTHESIA Events is a Cyprus techno promoter based mainly in Nicosia, hosting club nights and festival-scale editions at spaces like Agora Anexartisias and S//IP, with dates in Limassol too.</p>
+
+        <h3>Events</h3>
+        <p>Since its first night with Nakadia in January 2023 it has brought international names to the island, and runs the yearly carnival party <strong>Old City Technivals</strong> in Nicosia&rsquo;s old town.</p>
+
+        <h3>Highlights</h3>
+        <ul><li>Guests include Nakadia, Luigi Madonna, Ida Engberg, DAX J and Metodi Hristov</li><li>Old City Technivals: 4th edition in 2025</li><li>5 Years SYNESTHESIA, Festival Edition (July 2026)</li></ul>
+
         <h3>Links</h3>
-        <p>More info: <a href="https://ra.co/promoters/115743" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+        <p><a href="https://ra.co/promoters/115743" target="_blank" rel="noopener">Resident Advisor</a> · <a href="https://synesthesiaevents.com/" target="_blank" rel="noopener">Website</a></p>
       `
     },
     mindriot: {
@@ -2943,21 +3617,16 @@ const initCollabModal = () => {
       title: 'Mind The Riot',
       content: `
         <h3>About Mind The Riot</h3>
-        <p>Mind The Riot is a dynamic promoter collective bringing high-energy techno and underground electronic music to unconventional spaces, fostering a community of passionate music lovers.</p>
-        
-        <h3>Mission</h3>
-        <p>Creating memorable nights that challenge the status quo, Mind The Riot focuses on showcasing both established and emerging talent in raw, authentic environments.</p>
-        
-        <h3>Event Focus</h3>
-        <ul>
-          <li>Underground techno and hard groove</li>
-          <li>Industrial and warehouse venues</li>
-          <li>Local and international artist bookings</li>
-          <li>Community-driven music culture</li>
-        </ul>
-        
+        <p>Mind The Riot is a Cyprus party series that started with <strong>Acid Leak</strong> in 2022 and returns every so often with a tight line-up of local selectors.</p>
+
+        <h3>Events</h3>
+        <p>From its own nights to team-ups with SYNESTHESIA and BCCO, it keeps the focus on the local scene and the people behind it.</p>
+
+        <h3>With CIDIRILK</h3>
+        <ul><li>Mind The Return (January 2024)</li><li>Line-ups also featured OUST, KONTELLO, ChaCha, Kirozen and Argy K</li></ul>
+
         <h3>Links</h3>
-        <p>More info: <a href="https://ra.co/promoters/106564" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+        <p><a href="https://ra.co/promoters/106564" target="_blank" rel="noopener">Resident Advisor</a></p>
       `
     },
     boilerhouse: {
@@ -2965,21 +3634,16 @@ const initCollabModal = () => {
       title: 'Boiler House',
       content: `
         <h3>About Boiler House</h3>
-        <p>Boiler House is a respected promoter known for curating forward-thinking electronic music events, featuring everything from deep house to experimental techno in carefully selected venues.</p>
-        
-        <h3>Event Curation</h3>
-        <p>With a focus on quality over quantity, Boiler House creates intimate yet powerful experiences, bringing together diverse sounds and talented selectors for nights that stay with you.</p>
-        
-        <h3>Musical Range</h3>
-        <ul>
-          <li>Deep house and melodic techno</li>
-          <li>Experimental electronic soundscapes</li>
-          <li>Carefully curated DJ lineups</li>
-          <li>Emphasis on dancefloor energy and musicality</li>
-        </ul>
-        
+        <p>Boiler House is a Cyprus techno party series that began at the Lakatamia Amphitheatre in 2021 and has since moved through S//IP, Castle Club and Ktima Camelot, with a stop at AUX Club in Athens.</p>
+
+        <h3>Events</h3>
+        <p>Five years in (marked with a mini-festival in December 2025), it pairs international guests with local residents.</p>
+
+        <h3>Highlights</h3>
+        <ul><li>Guests include Raven (Rekids), Carla Schmitt, Stella Bossi, Nusha, PALØ and ANNĒ</li><li>With CIDIRILK: Boiler House with Cidirilk, Dreus &amp; Valdés (May 2023)</li><li>With CIDIRILK: the Raven night (December 2023)</li></ul>
+
         <h3>Links</h3>
-        <p>More info: <a href="https://ra.co/promoters/102310" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+        <p><a href="https://ra.co/promoters/102310" target="_blank" rel="noopener">Resident Advisor</a></p>
       `
     },
     indigo: {
@@ -2987,21 +3651,135 @@ const initCollabModal = () => {
       title: 'Indigo',
       content: `
         <h3>About Indigo</h3>
-        <p>Indigo is a forward-thinking collective that champions progressive electronic music, creating atmospheric events that emphasize musical journey and emotional depth.</p>
-        
-        <h3>Vision</h3>
-        <p>Named after the color between blue and violet, Indigo represents the liminal space in electronic music—the transition between moods, genres, and energies throughout a night.</p>
-        
-        <h3>Event Style</h3>
-        <ul>
-          <li>Progressive and melodic techno</li>
-          <li>Deep and hypnotic house music</li>
-          <li>Focus on musical narrative and flow</li>
-          <li>Intimate venue selections with quality sound systems</li>
-        </ul>
-        
+        <p>Indigo Underground Techno is a Cyprus collective running nights since 2023, often at locations revealed only to ticket holders, plus dates in the Limassol area and at S//IP in Nicosia.</p>
+
+        <h3>Series</h3>
+        <p>Its nights run as separate series: <strong>ØRPHIC</strong>, <strong>PARAMNESIA</strong>, <strong>PRV.PROJECT</strong> and <strong>The Warehouse Project</strong>.</p>
+
+        <h3>Highlights</h3>
+        <ul><li>Residents and regulars: Argy K, Atesh K. and SIĈK</li><li>Guests include Oliver Rosemann</li><li>Deep, hypnotic underground sound</li></ul>
+
         <h3>Links</h3>
-        <p>More info: <a href="https://ra.co/promoters/129207" target="_blank" rel="noopener">Resident Advisor Profile</a></p>
+        <p><a href="https://ra.co/promoters/129207" target="_blank" rel="noopener">Resident Advisor</a></p>
+      `
+    },
+    desolate: {
+      icon: 'fa-moon',
+      title: 'Desolate',
+      content: `
+        <h3>About Desolate</h3>
+        <p>Desolate is a young party series built around high-energy grooves, launched in January 2026 at Dusty Munky Bar in central Limassol.</p>
+
+        <h3>Events</h3>
+        <p>Numbered volumes at Dusty Munky, and team-ups beyond Limassol such as Velvet Void x Desolate with Tasha Safari all night long at S//IP, Nicosia (October 2026).</p>
+
+        <h3>With CIDIRILK</h3>
+        <ul><li>Desolate Vol.2 at Dusty Munky Bar (February 2026)</li></ul>
+
+        <h3>Links</h3>
+        <p><a href="https://ra.co/promoters/178964" target="_blank" rel="noopener">Resident Advisor</a></p>
+      `
+    },
+    beonix: {
+      icon: 'fa-sun',
+      title: 'BEON1X Festival',
+      content: `
+        <h3>About BEON1X</h3>
+        <p>BEON1X (BEONIX) is one of the island&rsquo;s largest electronic music festivals, bringing world-class headliners to Cyprus.</p>
+
+        <h3>Editions</h3>
+        <p>The 2022 edition took over CTO Beach in Larnaca; the 2026 edition ran over three days (25–27 September) at ETKO in Limassol.</p>
+
+        <h3>Highlights</h3>
+        <ul><li>2022 line-up: Carl Cox, Sven Väth, Boris Brejcha, Jamie Jones, Luciano, Paul Kalkbrenner, John Digweed and Sasha</li><li>2026 line-up: Adam Beyer, CamelPhat and more</li></ul>
+
+        <h3>Links</h3>
+        <p><a href="https://ra.co/promoters/111485" target="_blank" rel="noopener">Resident Advisor</a> · <a href="https://beonix.art" target="_blank" rel="noopener">Website</a></p>
+      `
+    },
+    slip: {
+      icon: 'fa-building',
+      title: 'S//IP',
+      content: `
+        <h3>About S//IP</h3>
+        <p>S//IP is a Nicosia club inside the brutalist Zena&rsquo;s Palace complex, open since March 2024 and now one of the city&rsquo;s key rooms for techno and electronic music.</p>
+
+        <h3>Programme</h3>
+        <p>Its own nights sit alongside the island&rsquo;s collectives: Boiler House, SYNESTHESIA, Indigo and Techno Habits have all hosted there.</p>
+
+        <h3>Highlights</h3>
+        <ul><li>Guests include Rene Wise, Stella Fiore (Perlon), JUUL EXLER and Tapefeed</li><li>With CIDIRILK: S//IP x Rene Wise, Flux Magnetic, Valdés b2b Cidirilk (April 2024)</li></ul>
+
+        <h3>Links</h3>
+        <p><a href="https://ra.co/promoters/138477" target="_blank" rel="noopener">Resident Advisor</a></p>
+      `
+    },
+    technoblades: {
+      icon: 'fa-mountain-sun',
+      title: 'Techno Blades',
+      content: `
+        <h3>About Techno Blades</h3>
+        <p>Techno Blades throws underground parties in unusual locations around Paphos, away from the usual club circuit.</p>
+
+        <h3>Events</h3>
+        <p>Its <strong>Winery Rave</strong> took the dancefloor to Lagria Winery in Salamiou village (April 2024).</p>
+
+        <h3>With CIDIRILK</h3>
+        <ul><li>Winery Rave with Kirozen and CIDIRILK (April 2024)</li></ul>
+
+        <h3>Links</h3>
+        <p><a href="https://ra.co/promoters/138825" target="_blank" rel="noopener">Resident Advisor</a></p>
+      `
+    },
+    technohabits: {
+      icon: 'fa-repeat',
+      title: 'Techno Habits Nicosia',
+      content: `
+        <h3>About Techno Habits</h3>
+        <p>Techno Habits Nicosia is a techno collective running club nights, Habits Gathering events and the THN podcast, with nights on Resident Advisor since 2019.</p>
+
+        <h3>Events</h3>
+        <p>It has brought some of techno&rsquo;s biggest names to Nicosia, and celebrated <strong>THN Podcast #100</strong> with a party in June 2025.</p>
+
+        <h3>Highlights</h3>
+        <ul><li>Headliners include Ben Klock, Kobosil, Amelie Lens, Rødhåd, Chris Liebing, Recondite, Sam Paganini and Keith Carnal</li><li>With CIDIRILK: WOO York (State Club, November 2021), Chris Liebing (Ktima Camelot, March 2022) and Rødhåd (Ktima Wishes, October 2022)</li></ul>
+
+        <h3>Links</h3>
+        <p><a href="https://ra.co/promoters/103534" target="_blank" rel="noopener">Resident Advisor</a> · <a href="https://www.technohabitsnicosia.com" target="_blank" rel="noopener">Website</a></p>
+      `
+    },
+    cyrave: {
+      icon: 'fa-people-group',
+      title: 'Cyprus Rave Community',
+      content: `
+        <h3>About Cyprus Rave Community</h3>
+        <p>Cyprus Rave Community runs <strong>C Y WE RAVE</strong>, a rave series that has moved around the island, from the Limassol district to Nicosia and Ktima Camelot.</p>
+
+        <h3>Sound</h3>
+        <p>Techno, rave and harder styles, with recurring names like MMCCCXCIX, 5KILLZ, Argy K and Morion, and a yearly August edition.</p>
+
+        <h3>Highlights</h3>
+        <ul><li>With CIDIRILK: CYWERAVE Vol.01 (August 2022)</li><li>Co-promoted two Nicosia nights with 565R (December 2022)</li><li>5 Years Anniversary (August 2026)</li></ul>
+
+        <h3>Links</h3>
+        <p><a href="https://ra.co/promoters/111929" target="_blank" rel="noopener">Resident Advisor</a> · <a href="https://www.instagram.com/cyraveland/" target="_blank" rel="noopener">Instagram</a></p>
+      `
+    },
+    '565r': {
+      icon: 'fa-industry',
+      title: '565R',
+      content: `
+        <h3>About 565R</h3>
+        <p>565R is a collective for hard, raw, industrial techno, active in Cyprus and Greece and taking its nights abroad.</p>
+
+        <h3>Events</h3>
+        <p>It began in 2022 with <strong>CONTACT</strong> in the Alambra industrial area, and has since co-produced nights with OSTROM at Arzenal, Budapest, and MÖSARV at Ciało, Wrocław. Core artists: MMCCCXCIX and PARAPHER.</p>
+
+        <h3>With CIDIRILK</h3>
+        <ul><li>CONTACT / PODCAST (April 2022)</li><li>GENESIS (July 2022)</li></ul>
+
+        <h3>Links</h3>
+        <p><a href="https://ra.co/promoters/109788" target="_blank" rel="noopener">Resident Advisor</a> · <a href="https://www.565.network" target="_blank" rel="noopener">Website</a></p>
       `
     }
   };
@@ -3272,6 +4050,10 @@ const initDJGuides = () => {
     if (!hasGuides) return;
 
     state.currentIndex = Math.max(0, Math.min(state.currentIndex, guides.length - 1));
+    if (consoleListQuery.matches) {
+      setConsoleListSlides(trackEl);
+      return;
+    }
     trackEl.style.transform = `translateX(-${state.currentIndex * 100}%)`;
 
     Array.from(trackEl.children).forEach((slide, index) => {
@@ -3431,6 +4213,8 @@ const initDJGuides = () => {
     });
   };
 
+  consoleListQuery.addEventListener('change', () => updateCarousel());
+
   prevBtn?.addEventListener('click', () => goToGuideIndex(state.currentIndex - 1));
   nextBtn?.addEventListener('click', () => goToGuideIndex(state.currentIndex + 1));
 
@@ -3524,12 +4308,19 @@ const buildArchiveSlideFromNextEvent = (eventCard, eventEndTime) => {
 };
 
 // Check and hide expired events. Once the next event's date passes, hide the
-// "Next Event" block and move that event to the top of the past-events archive.
+// whole "Upcoming Gigs" section (Gigs then shows only Past Gigs) and move that
+// event to the top of the past-gigs archive.
 const checkEventExpiry = () => {
   const eventContainer = document.querySelector('[data-next-event-container]');
   const eventCard = document.querySelector('[data-event-end]');
+  const showEmpty = (empty) => {
+    document.querySelector('[data-panel="events"]')?.classList.toggle('gigs-none', empty);
+  };
 
-  if (!eventContainer || !eventCard) return;
+  if (!eventContainer || !eventCard) {
+    showEmpty(true);
+    return;
+  }
 
   const endDate = eventCard.getAttribute('data-event-end');
 
@@ -3540,6 +4331,7 @@ const checkEventExpiry = () => {
 
   if (now > eventEndTime) {
     eventContainer.style.display = 'none';
+    showEmpty(true);
 
     // Promote the finished event into the archive carousel (deduped by RA id).
     const track = document.querySelector('[data-carousel-track]');
@@ -3560,6 +4352,7 @@ const checkEventExpiry = () => {
     }
   } else {
     eventContainer.style.display = 'block';
+    showEmpty(false);
   }
 };
 
@@ -3612,3 +4405,704 @@ if (document.readyState === 'loading') {
   initDJGuides();
   initInteractions();
 }
+
+// Swipe parity: Sessions, SoundCloud and YouTube carousels reuse their
+// prev/next buttons so dots and state stay in sync with arrow clicks.
+const bindCarouselSwipe = (root, prevBtn, nextBtn) => {
+  if (!root || !prevBtn || !nextBtn) return;
+  let startX = 0;
+  let startY = 0;
+  let tracking = false;
+
+  root.addEventListener('touchstart', (event) => {
+    if (event.target.closest('iframe')) {
+      tracking = false;
+      return;
+    }
+    const touch = event.changedTouches[0];
+    startX = touch.screenX;
+    startY = touch.screenY;
+    tracking = true;
+  }, { passive: true });
+
+  root.addEventListener('touchend', (event) => {
+    if (!tracking) return;
+    tracking = false;
+    const touch = event.changedTouches[0];
+    const dx = touch.screenX - startX;
+    const dy = touch.screenY - startY;
+    if (Math.abs(dx) < 50 || Math.abs(dx) <= Math.abs(dy)) return;
+    (dx < 0 ? nextBtn : prevBtn).click();
+  }, { passive: true });
+};
+
+bindCarouselSwipe(document.querySelector('[data-livesets-carousel]'), liveSetsCarouselPrev, liveSetsCarouselNext);
+bindCarouselSwipe(document.querySelector('[data-podcast-carousel]'), podcastCarouselPrev, podcastCarouselNext);
+bindCarouselSwipe(document.querySelector('[data-youtube-carousel]'), youtubeCarouselPrev, youtubeCarouselNext);
+
+// Radio popup "Sessions" buttons go to the Sessions section on this page:
+// desktop opens the Sessions tab and collapses the radio popup; phones close
+// the radio popover and follow the #sessions anchor.
+document.querySelectorAll('[data-live-sessions-link]').forEach((link) => {
+  link.addEventListener('click', (event) => {
+    if (window.matchMedia('(min-width: 1025px)').matches) {
+      const sessionsTab = document.querySelector('.card-tabs .tab-button[data-tab="sessions"]');
+      if (!sessionsTab) return;
+      event.preventDefault();
+      sessionsTab.click();
+      sessionsTab.focus({ preventScroll: true });
+      collapseDesktopRadioPopup();
+      return;
+    }
+    closeMobileRadioPopover();
+  });
+});
+
+// Hero "Listen to sessions": on the desktop console open the Sessions tab;
+// on smaller screens the #sessions anchor scrolls to the section as usual.
+document.querySelector('[data-hero-listen]')?.addEventListener('click', (event) => {
+  if (!window.matchMedia('(min-width: 1025px)').matches) return;
+  const sessionsTab = document.querySelector('.card-tabs .tab-button[data-tab="sessions"]');
+  if (!sessionsTab) return;
+  event.preventDefault();
+  sessionsTab.click();
+  sessionsTab.focus({ preventScroll: true });
+});
+
+// "Join the Signal" prompts (Sessions, Gigs, Artifacts; each under its section
+// description, above the content): send the visitor to
+// the one newsletter form instead of duplicating it. Desktop console: open
+// the Signal tab; smaller screens: scroll to the section. Then focus the email
+// field. Without JS the #signal anchor still scrolls to the form.
+document.querySelectorAll('[data-signal-open]').forEach((link) => {
+  link.addEventListener('click', (event) => {
+    const panel = document.querySelector('[data-panel="subscribe"]');
+    const email = panel?.querySelector('input[type="email"]');
+    if (!panel) return;
+    event.preventDefault();
+    if (window.matchMedia('(min-width: 1025px)').matches) {
+      const tab = document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]');
+      tab?.click();
+      setTimeout(() => email?.focus({ preventScroll: true }), 120);
+    } else {
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      panel.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+      setTimeout(() => email?.focus({ preventScroll: true }), reduced ? 0 : 450);
+    }
+  });
+});
+
+// Clicking the Signal tab itself (mouse/touch, desktop console) also puts the
+// cursor in the email field. Keyboard tab navigation keeps focus on the tabs.
+document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEventListener('click', (event) => {
+  if (!event.detail || !consoleListQuery.matches) return;
+  const email = document.querySelector('[data-panel="subscribe"] input[type="email"]');
+  setTimeout(() => email?.focus({ preventScroll: true }), 120);
+});
+
+// ChaCha hybrid sets (SoundCloud tab, under Your Monthly Dose): the same card
+// player and carousel as Monthly Dose (artwork tile, own controls over a
+// hidden SoundCloud widget, prev/next, dots, swipe), fed with the 10 newest
+// tracks of the ChaCha playlist, read live through a hidden source widget.
+(() => {
+  const source = document.querySelector('[data-chacha-source]');
+  const list = document.querySelector('[data-chacha-episodes]');
+  const carousel = document.querySelector('[data-chacha-carousel]');
+  const prevBtn = document.querySelector('[data-chacha-prev]');
+  const nextBtn = document.querySelector('[data-chacha-next]');
+  const dots = document.querySelector('[data-chacha-dots]');
+  if (!source || !list) return;
+  const LIMIT = MEDIA_CAROUSEL_LIMIT;
+  const PLAYLIST = 'https://soundcloud.com/cc_grooves_00357/sets/chacha';
+  let started = false;
+  let count = 0;
+
+  const cleanTitle = (title) => {
+    let name = String(title || '').replace(/\s*-\s*hybrid set.*$/i, '').trim();
+    name = /^chacha\s*@\s*/i.test(name) ? name.replace(/^chacha\s*@\s*/i, '') : name.replace(/^chacha\s+/i, '');
+    return name || 'Hybrid set';
+  };
+  const formatDate = (value) => {
+    const date = new Date(value);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return Number.isNaN(date.getTime()) ? '' : `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+  // Real cards only: the wrap-around clones keep data-chacha-track
+  const cards = () => [...list.querySelectorAll('.podcast-episode[data-chacha-track]:not([data-podcast-clone])')];
+  const activeIndex = () => {
+    const index = cards().findIndex((card) => card.getAttribute('aria-current') === 'true');
+    return index < 0 ? 0 : index;
+  };
+
+  const status = (message, loading = false) => {
+    list.style.transform = '';
+    const box = document.createElement('span');
+    box.className = `podcast-episodes-status${loading ? ' is-loading' : ''}`;
+    if (loading) {
+      const spinner = document.createElement('span');
+      spinner.className = 'podcast-loading-spinner';
+      spinner.setAttribute('aria-hidden', 'true');
+      box.appendChild(spinner);
+    }
+    const text = document.createElement('span');
+    text.textContent = message;
+    box.appendChild(text);
+    list.replaceChildren(box);
+  };
+
+  const renderDots = (active) => {
+    if (!dots) return;
+    dots.replaceChildren(...Array.from({ length: count }, (_, index) => {
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = `carousel-dot${index === active ? ' active' : ''}`;
+      dot.setAttribute('aria-current', index === active ? 'true' : 'false');
+      dot.setAttribute('aria-label', `Go to ChaCha set ${index + 1}`);
+      dot.addEventListener('click', () => setActive(index));
+      return dot;
+    }));
+  };
+
+  const setActive = (index, options = {}) => {
+    renderDots(index);
+    cards().forEach((card, i) => {
+      const active = i === index;
+      card.classList.toggle('active', active);
+      card.setAttribute('aria-current', active ? 'true' : 'false');
+      card.tabIndex = active ? 0 : -1;
+      if (active) {
+        loadPodcastCardPlayer(card);
+        setPeekCarouselPosition(list, card.closest('.podcast-slide'), Boolean(options.instant), options.wrapDirection);
+      } else {
+        unloadPodcastCardPlayer(card);
+      }
+    });
+  };
+
+  const move = (direction) => {
+    if (!count) return;
+    const current = activeIndex();
+    const next = (current + direction + count) % count;
+    const wraps = (direction < 0 && current === 0) || (direction > 0 && current === count - 1);
+    setActive(next, { wrapDirection: wraps ? direction : 0 });
+  };
+
+  // Newest sets first, trimmed to what the cards need (so they cache compactly)
+  const pickNewest = (sounds) => sounds
+    .filter((sound) => sound && sound.title)
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+    .slice(0, LIMIT)
+    .map(({ id, permalink_url, title, artwork_url, created_at, display_date }) =>
+      ({ id, permalink_url, title, artwork_url, created_at, display_date }));
+
+  // Like Monthly Dose: the last list is kept for 7 days so repeat visits show
+  // the cards instantly; SoundCloud is asked again in the background.
+  const CACHE_KEY = 'cidirilkChachaTracks';
+  const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+  const signature = (sets) => sets.map((set) => `${set.id}:${set.title}`).join('|');
+  const readCache = () => {
+    try {
+      const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+      if (cached?.playlist === PLAYLIST && Array.isArray(cached.sets) && cached.sets.length &&
+        Date.now() - cached.cachedAt < CACHE_TTL) return cached.sets;
+    } catch (e) {}
+    return null;
+  };
+  const writeCache = (sets) => {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ playlist: PLAYLIST, sets, cachedAt: Date.now() }));
+    } catch (e) {}
+  };
+
+  const render = (newest) => {
+    count = newest.length;
+    if (!count) {
+      status('ChaCha sets are not available right now.');
+      return;
+    }
+    list.replaceChildren();
+    newest.forEach((sound, index) => {
+      const name = cleanTitle(sound.title);
+      const label = `#${String(count - index).padStart(2, '0')}`;
+      const slide = document.createElement('div');
+      slide.className = 'podcast-slide';
+      const card = document.createElement('article');
+      card.className = 'podcast-episode';
+      card.dataset.chachaTrack = String(index);
+      card.setAttribute('role', 'group');
+      card.setAttribute('aria-label', `ChaCha ${name}`);
+      card.setAttribute('aria-current', 'false');
+      card.tabIndex = -1;
+      const artwork = normalizeSoundCloudArtworkUrl(sound.artwork_url);
+      if (artwork) {
+        card.classList.add('has-artwork');
+        card.style.setProperty('--podcast-artwork', `url("${artwork}")`);
+      }
+
+      const player = document.createElement('span');
+      player.className = 'podcast-episode-player is-unloaded';
+      player.dataset.soundcloudCardPlayer = '';
+      const trackUrl = getSoundCloudTrackUrl(sound);
+      if (trackUrl) {
+        const iframe = document.createElement('iframe');
+        iframe.className = 'podcast-card-frame';
+        iframe.title = `${name} SoundCloud preview`;
+        iframe.loading = 'eager';
+        iframe.scrolling = 'no';
+        iframe.allow = 'autoplay; encrypted-media';
+        iframe.dataset.soundcloudCardFrame = '';
+        iframe.dataset.soundcloudSrc = buildSoundCloudPlayerSrc(trackUrl, 0, false);
+        iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
+        iframe.addEventListener('load', () => bindPodcastWidget(card));
+        player.appendChild(iframe);
+      }
+
+      const meta = document.createElement('span');
+      meta.className = 'podcast-episode-meta';
+      const number = document.createElement('span');
+      number.className = 'podcast-episode-number';
+      number.textContent = label;
+      meta.appendChild(number);
+
+      const kicker = ['Hybrid set', formatDate(sound.display_date || sound.created_at)].filter(Boolean).join(' · ');
+      card.append(meta, player, createPodcastControls(sound, { label: name, kicker, title: name, onStep: move }));
+      slide.appendChild(card);
+      list.appendChild(slide);
+    });
+    addPodcastCarouselClones(list);
+    setActive(0, { instant: true });
+  };
+
+  const start = () => {
+    if (started) return;
+    started = true;
+    const cached = readCache();
+    if (cached) {
+      render(cached);
+      // Revalidate once the visible card has had a head start on the network
+      setTimeout(() => fetchSets(cached), 3000);
+      return;
+    }
+    status('Getting signals from SoundCloud...', true);
+    fetchSets(null);
+  };
+
+  const fetchSets = (cached) => {
+    if (!window.SC?.Widget) {
+      setTimeout(() => fetchSets(cached), 500);
+      return;
+    }
+    source.src = buildSoundCloudPlayerSrc(source.dataset.soundcloudUrl || PLAYLIST, 0, false);
+    const widget = window.SC.Widget(source);
+    let tries = 0;
+    let done = false;
+    const load = () => {
+      widget.getSounds((sounds) => {
+        const complete = Array.isArray(sounds) && sounds.length && sounds.every((sound) => sound?.title);
+        if (complete || tries >= 6) {
+          done = true;
+          source.removeAttribute('src');
+          const sets = pickNewest(Array.isArray(sounds) ? sounds : []);
+          if (!sets.length) {
+            if (!cached) status('ChaCha sets are not available right now.');
+            return;
+          }
+          writeCache(sets);
+          // Skip the redraw when nothing changed or a set is playing
+          if (cached && (signature(cached) === signature(sets) || list.querySelector('.is-playing-episode'))) return;
+          render(sets);
+        } else {
+          tries += 1;
+          setTimeout(load, 700);
+        }
+      });
+    };
+    widget.bind(window.SC.Widget.Events.READY, load);
+    if (!cached) setTimeout(() => { if (!done) status('Still connecting to SoundCloud...'); }, 8000);
+  };
+
+  prevBtn?.addEventListener('click', () => move(-1));
+  nextBtn?.addEventListener('click', () => move(1));
+  bindCarouselSwipe(carousel, prevBtn, nextBtn);
+
+  // The active card's widget loads only while it is visible
+  const loadVisible = () => {
+    const card = list.querySelector('.podcast-episode.active[data-chacha-track]:not([data-podcast-clone])');
+    if (card) loadPodcastCardPlayer(card);
+  };
+  window.addEventListener('cidirilk:tabchange', loadVisible);
+  window.addEventListener('resize', loadVisible, { passive: true });
+
+  // Load once the SoundCloud panel is on screen (desktop tab shown, or the
+  // section scrolled near on phones)
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        start();
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(list.closest('.tab-panel') || list);
+  } else {
+    start();
+  }
+})();
+
+// Any audio starting (a LiveSets session or the live radio) pauses the other
+// audio, every SoundCloud card and YouTube video
+document.addEventListener('play', (event) => {
+  if (!(event.target instanceof HTMLMediaElement)) return;
+  document.querySelectorAll('audio').forEach((audio) => {
+    if (audio !== event.target && !audio.paused) audio.pause();
+  });
+  document.querySelectorAll('.podcast-episode').forEach((card) => card._podcastWidget?.pause());
+  pauseYoutubePlayers();
+}, true);
+
+// Bookings dialog: the hero "Bookings" link opens it (without JS it stays a
+// plain mailto link). Native <dialog> handles focus, Escape and the backdrop.
+(() => {
+  const dialog = document.querySelector('[data-booking-dialog]');
+  const openers = document.querySelectorAll('[data-booking-open]');
+  if (!dialog || typeof dialog.showModal !== 'function') return;
+
+  const copyBtn = dialog.querySelector('[data-booking-copy]');
+  const copyLabel = dialog.querySelector('[data-booking-copy-label]');
+  const status = dialog.querySelector('[data-booking-status]');
+  const address = dialog.querySelector('.booking-address');
+  let resetTimer;
+
+  openers.forEach((opener) => {
+    opener.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (status) status.textContent = '';
+      dialog.showModal();
+    });
+  });
+
+  // Clicking the backdrop (outside the panel) closes the dialog
+  dialog.addEventListener('click', (event) => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    const inside =
+      event.clientX >= rect.left && event.clientX <= rect.right &&
+      event.clientY >= rect.top && event.clientY <= rect.bottom;
+    if (!inside) dialog.close();
+  });
+
+  const showCopied = (message) => {
+    if (copyLabel) copyLabel.textContent = 'Copied';
+    if (status) status.textContent = message;
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(() => {
+      if (copyLabel) copyLabel.textContent = 'Copy';
+    }, 2000);
+  };
+
+  copyBtn?.addEventListener('click', async () => {
+    const email = address?.textContent.trim() || '';
+    try {
+      await navigator.clipboard.writeText(email);
+      showCopied('Email copied to clipboard.');
+    } catch {
+      // Clipboard API unavailable: select the address so it can be copied manually
+      const range = document.createRange();
+      range.selectNodeContents(address);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      if (status) status.textContent = 'Press Ctrl+C (or ⌘C) to copy the selected email.';
+    }
+  });
+})();
+
+// Your Monthly Dose: our own player UI (mockup) on top of the SoundCloud
+// widget, which stays loaded but visually hidden and keeps streaming the
+// audio. Controls talk to it through the SoundCloud Widget API.
+function formatPodcastTime(ms) {
+  const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+}
+
+// opts (all optional) let another SoundCloud carousel reuse the same card
+// player: label, kicker, title, and onStep(direction) for prev/next.
+function createPodcastControls(track, opts = {}) {
+  const label = opts.label || formatPodcastEpisodeLabel(track);
+  const kicker = opts.kicker || `SoundCloud · ${label}`;
+  const title = opts.title || formatPodcastEpisodeTitle();
+  const onStep = opts.onStep || movePodcastCarousel;
+  const ui = document.createElement('div');
+  ui.className = 'podcast-ui';
+  ui.innerHTML = `
+    <span class="podcast-ui-kicker"></span>
+    <strong class="podcast-ui-title"></strong>
+    <span class="podcast-ui-progress" role="slider" tabindex="0" aria-label="Seek"
+      aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-podcast-seek>
+      <span class="podcast-ui-fill"></span>
+    </span>
+    <span class="podcast-ui-bottom">
+      <span class="podcast-ui-time" data-podcast-time>0:00</span>
+      <span class="podcast-ui-buttons">
+        <button type="button" class="podcast-ui-btn" data-podcast-step="-1" aria-label="Previous episode">
+          <i class="fa-solid fa-backward-step" aria-hidden="true"></i></button>
+        <button type="button" class="podcast-ui-btn podcast-ui-play" data-podcast-toggle aria-label="Play">
+          <i class="fa-solid fa-play" aria-hidden="true"></i><i class="fa-solid fa-pause" aria-hidden="true"></i></button>
+        <button type="button" class="podcast-ui-btn" data-podcast-step="1" aria-label="Next episode">
+          <i class="fa-solid fa-forward-step" aria-hidden="true"></i></button>
+      </span>
+    </span>`;
+  // Text set via textContent: titles come from SoundCloud
+  ui.querySelector('.podcast-ui-kicker').textContent = kicker;
+  ui.querySelector('.podcast-ui-title').textContent = title;
+  ui.querySelector('[data-podcast-seek]').setAttribute('aria-label', `Seek ${label}`);
+  ui.querySelector('[data-podcast-toggle]').setAttribute('aria-label', `Play ${label}`);
+
+  ui.querySelector('[data-podcast-toggle]').addEventListener('click', (event) => {
+    event.stopPropagation();
+    const card = ui.closest('.podcast-episode');
+    const widget = card?._podcastWidget;
+    if (widget && card.dataset.widgetReady === 'true') {
+      widget.toggle();
+    } else if (card) {
+      card.dataset.playWhenReady = 'true';
+      loadPodcastCardPlayer(card);
+    }
+  });
+
+  ui.querySelectorAll('[data-podcast-step]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      onStep(Number(button.dataset.podcastStep));
+    });
+  });
+
+  const seek = ui.querySelector('[data-podcast-seek]');
+  const seekTo = (ratio) => {
+    const card = ui.closest('.podcast-episode');
+    const widget = card?._podcastWidget;
+    const duration = Number(card?.dataset.durationMs || 0);
+    if (!widget || !duration) return;
+    widget.seekTo(Math.max(0, Math.min(1, ratio)) * duration);
+    widget.isPaused((paused) => { if (paused) widget.play(); });
+  };
+  seek.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const rect = seek.getBoundingClientRect();
+    seekTo((event.clientX - rect.left) / rect.width);
+  });
+  seek.addEventListener('keydown', (event) => {
+    const card = ui.closest('.podcast-episode');
+    const duration = Number(card?.dataset.durationMs || 0);
+    if (!duration || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    const now = Number(card.dataset.positionMs || 0);
+    seekTo((now + (event.key === 'ArrowRight' ? 15000 : -15000)) / duration);
+  });
+  return ui;
+}
+
+function updatePodcastControls(card, positionMs) {
+  const duration = Number(card.dataset.durationMs || 0);
+  const position = Math.max(0, Number(positionMs) || 0);
+  card.dataset.positionMs = String(position);
+  const ratio = duration ? Math.min(1, position / duration) : 0;
+  card.style.setProperty('--podcast-progress', `${(ratio * 100).toFixed(2)}%`);
+  card.querySelector('[data-podcast-seek]')?.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+  const time = card.querySelector('[data-podcast-time]');
+  if (time) {
+    const text = duration ? `${formatPodcastTime(position)} / ${formatPodcastTime(duration)}` : formatPodcastTime(position);
+    if (time.textContent !== text) time.textContent = text;
+  }
+}
+
+function setPodcastPlaying(card, playing) {
+  card.classList.toggle('is-playing-episode', playing);
+  const toggle = card.querySelector('[data-podcast-toggle]');
+  const label = card.querySelector('.podcast-episode-number')?.textContent || 'episode';
+  toggle?.setAttribute('aria-label', `${playing ? 'Pause' : 'Play'} ${label}`);
+}
+
+function resetPodcastControls(card) {
+  delete card._podcastWidget;
+  card.dataset.widgetReady = 'false';
+  setPodcastPlaying(card, false);
+}
+
+function bindPodcastWidget(card) {
+  const iframe = card.querySelector('[data-soundcloud-card-frame]');
+  const src = iframe?.getAttribute('src');
+  if (!iframe || !src || src === 'about:blank' || !window.SC?.Widget) return;
+  const widget = window.SC.Widget(iframe);
+  card._podcastWidget = widget;
+  const { Events } = window.SC.Widget;
+  widget.bind(Events.READY, () => {
+    card.dataset.widgetReady = 'true';
+    widget.getDuration((duration) => {
+      card.dataset.durationMs = String(duration || 0);
+      updatePodcastControls(card, 0);
+    });
+    if (card.dataset.playWhenReady === 'true') {
+      delete card.dataset.playWhenReady;
+      widget.play();
+    }
+  });
+  widget.bind(Events.PLAY, () => {
+    setPodcastPlaying(card, true);
+    // One player at a time: pause the other SoundCloud cards and any audio
+    document.querySelectorAll('.podcast-episode').forEach((other) => {
+      if (other !== card) other._podcastWidget?.pause();
+    });
+    document.querySelectorAll('audio').forEach((audio) => { if (!audio.paused) audio.pause(); });
+    pauseYoutubePlayers();
+  });
+  widget.bind(Events.PAUSE, () => setPodcastPlaying(card, false));
+  widget.bind(Events.FINISH, () => setPodcastPlaying(card, false));
+  widget.bind(Events.PLAY_PROGRESS, (event) => updatePodcastControls(card, event?.currentPosition));
+  widget.bind(Events.SEEK, (event) => updatePodcastControls(card, event?.currentPosition));
+}
+
+// Leaving the YouTube tab on the desktop console stops the playing video
+// (an embedded player otherwise keeps playing in the hidden panel).
+window.addEventListener('cidirilk:tabchange', (event) => {
+  if (event.detail?.target === 'youtube') return;
+  getYoutubeCards().forEach((card) => unloadYoutubeCardPlayer(card));
+});
+
+// Generated YouTube covers: a deterministic, theme-aware SVG per video
+// (gradient, glow, planet-ring orbit, waveform strip, title). Colours come
+// from CSS custom properties, so the same art renders for dark and light.
+function createYoutubePreview(video, index) {
+  let seed = [...String(video.id)].reduce((hash, ch) => (hash * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const rand = () => {
+    seed = (seed + 0x6d2b79f5) >>> 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const uid = `yt${index}`;
+  const glowX = Math.round(70 + rand() * 180);
+  const glowY = Math.round(40 + rand() * 60);
+  const ringTilt = Math.round(-14 + rand() * 28);
+  const ringRx = Math.round(118 + rand() * 40);
+  const bars = Array.from({ length: 56 }, (_, i) => {
+    const h = 4 + Math.round(Math.abs(Math.sin(i * 0.55 + rand() * 1.4) * Math.cos(i * 0.18 + index)) * 30 + rand() * 6);
+    const x = 24 + i * 4.9;
+    return `<rect x="${x.toFixed(1)}" y="${(118 - h / 2).toFixed(1)}" width="2.6" height="${h}" rx="1.3" style="opacity:${(0.35 + rand() * 0.6).toFixed(2)}"/>`;
+  }).join('');
+  const name = String(video.title || '').replace(/^cidirilk_/i, '').replace(/_/g, ' ').trim() || 'Untitled';
+  const label = `CIDIRILK · VIDEO ${String(index + 1).padStart(2, '0')}`;
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const art = document.createElement('span');
+  art.className = 'youtube-card-art';
+  art.setAttribute('aria-hidden', 'true');
+  art.innerHTML = `
+    <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" focusable="false">
+      <defs>
+        <linearGradient id="${uid}-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style="stop-color:var(--yt-bg-a)"/>
+          <stop offset="1" style="stop-color:var(--yt-bg-b)"/>
+        </linearGradient>
+        <radialGradient id="${uid}-glow" cx="${glowX}" cy="${glowY}" r="150" gradientUnits="userSpaceOnUse">
+          <stop offset="0" style="stop-color:var(--yt-glow);stop-opacity:var(--yt-glow-a)"/>
+          <stop offset="1" style="stop-color:var(--yt-glow);stop-opacity:0"/>
+        </radialGradient>
+      </defs>
+      <rect width="320" height="180" fill="url(#${uid}-bg)"/>
+      <rect width="320" height="180" fill="url(#${uid}-glow)"/>
+      <g transform="rotate(${ringTilt} 160 92)" fill="none" style="stroke:var(--yt-line)">
+        <ellipse cx="160" cy="92" rx="${ringRx}" ry="30" stroke-width="1.2"/>
+        <ellipse cx="160" cy="92" rx="${ringRx + 18}" ry="40" stroke-width="0.8" stroke-dasharray="2 5" style="opacity:.6"/>
+      </g>
+      <g style="fill:var(--yt-line)">${bars}</g>
+      <text x="296" y="26" text-anchor="end" style="fill:var(--yt-muted);font:500 8px var(--font-mono);letter-spacing:.18em">${esc(label)}</text>
+      <text x="22" y="160" style="fill:var(--yt-text);font:600 22px var(--font-body);letter-spacing:-.02em">${esc(name)}</text>
+    </svg>`;
+  return art;
+}
+
+// Artifacts on the desktop console: one featured product (large art, full
+// copy, payment buttons) + the others as compact tiles. Clicking a tile
+// features it; the featured product's image still opens the zoom modal.
+(() => {
+  const track = document.querySelector('[data-panel="shop"] [data-shop-track]');
+  if (!track) return;
+  const realSlides = () => [...track.querySelectorAll('.shop-slide')].filter(
+    (slide) => !slide.classList.contains('is-carousel-clone') && slide.dataset.carouselClone !== 'true',
+  );
+
+  const feature = (target) => {
+    const slides = realSlides();
+    slides.forEach((slide, index) => {
+      const featured = slide === target;
+      slide.classList.toggle('is-featured', featured);
+      slide.style.setProperty('--shop-index', `'${String(index + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}'`);
+      const item = slide.querySelector('.shop-item');
+      if (!item) return;
+      if (featured) {
+        item.removeAttribute('role');
+        item.removeAttribute('tabindex');
+        item.removeAttribute('aria-label');
+      } else {
+        const name = item.querySelector('h4')?.textContent.trim() || 'artifact';
+        item.setAttribute('role', 'button');
+        item.tabIndex = 0;
+        item.setAttribute('aria-label', `Show ${name}`);
+      }
+    });
+  };
+
+  // Each frame takes the colour of its product shot's side edges, so the
+  // letterbox around the photo reads as part of the photo in both themes
+  const sampleEdge = (img) => {
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, 96, 32);
+      const { data } = ctx.getImageData(0, 0, 96, 32);
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let y = 0; y < 32; y += 1) {
+        for (const x of [0, 95]) {
+          const i = (y * 96 + x) * 4;
+          r += data[i]; g += data[i + 1]; b += data[i + 2]; n += 1;
+        }
+      }
+      return `rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`;
+    } catch {
+      return '';
+    }
+  };
+  track.querySelectorAll('.shop-image-button').forEach((button) => {
+    const img = button.querySelector('img');
+    if (!img) return;
+    const apply = () => {
+      const colour = sampleEdge(img);
+      if (colour) button.style.setProperty('--shop-art-bg', colour);
+    };
+    if (img.complete && img.naturalWidth) apply();
+    else img.addEventListener('load', apply, { once: true });
+  });
+
+  feature(realSlides()[0]);
+
+  const pick = (event) => {
+    if (!consoleListQuery.matches) return;
+    const slide = event.target.closest('.shop-slide');
+    if (!slide || slide.classList.contains('is-featured') || !realSlides().includes(slide)) return;
+    // Selecting a tile must not also open the image zoom
+    event.preventDefault();
+    event.stopPropagation();
+    feature(slide);
+    slide.querySelector('.shop-image-button')?.focus({ preventScroll: true });
+  };
+  track.addEventListener('click', pick, true);
+  track.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') pick(event);
+  }, true);
+})();
