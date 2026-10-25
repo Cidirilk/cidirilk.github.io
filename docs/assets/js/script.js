@@ -27,8 +27,6 @@ const youtubeCarouselPrev = document.querySelector('[data-youtube-prev]');
 const youtubeCarouselNext = document.querySelector('[data-youtube-next]');
 const youtubeCarouselDots = document.querySelector('[data-youtube-dots]');
 const yearEl = document.getElementById('year');
-const LIVESETS_STATUS_ENDPOINT = 'https://livesets.com/app/polling/live/42069';
-const LIVESETS_SESSIONS_URL = 'https://livesets.com/cidirilk/sessions';
 const LIVESETS_POLL_INTERVAL = 15000;
 const MEDIA_CAROUSEL_LIMIT = 10;
 const PODCAST_DOT_WINDOW = MEDIA_CAROUSEL_LIMIT;
@@ -151,11 +149,34 @@ const setCookie = (name, value, days = 60) => {
   document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax${secure}`;
 };
 
-const getCookie = (name) =>
-  document.cookie
-    .split('; ')
-    .map((row) => row.split('='))
-    .reduce((acc, [key, val]) => (key === name ? decodeURIComponent(val) : acc), null);
+// CSS url() value for an image from a third party (SoundCloud, LiveSets,
+// YouTube): https only, and quotes/backslashes/newlines escaped so the value
+// can't break out of url("..."). Returns '' when the URL isn't acceptable.
+const cssImageUrl = (value) => {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.protocol !== 'https:') return '';
+    return `url("${url.href.replace(/["\\\n\r]/g, (ch) => `\\${ch === '\n' ? 'a ' : ch === '\r' ? 'd ' : ch}`)}")`;
+  } catch {
+    return '';
+  }
+};
+
+// Tolerates malformed cookies (decodeURIComponent throws on bad escapes) and
+// values containing '='
+const getCookie = (name) => {
+  let found = null;
+  document.cookie.split('; ').forEach((row) => {
+    const index = row.indexOf('=');
+    if (index < 0 || row.slice(0, index) !== name) return;
+    try {
+      found = decodeURIComponent(row.slice(index + 1));
+    } catch {
+      found = null;
+    }
+  });
+  return found;
+};
 
 const tabPanelsWrap = tabPanels[0]?.closest('.tab-panels') || null;
 const tabReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -208,22 +229,28 @@ let podcastTrackCount = 0;
 
 // Smoothly morph the panel container between the old and new panel heights so
 // switching tabs never jumps abruptly or flashes the column scrollbar.
+let tabHeightCleanup = null;
+
 const animatePanelHeight = (fromHeight) => {
   if (!tabPanelsWrap || tabReducedMotion || fromHeight == null) return;
-  const toHeight = tabPanelsWrap.offsetHeight;
-  if (Math.round(fromHeight) === Math.round(toHeight)) return;
-
+  // A previous switch may still be animating with a pinned inline height:
+  // finish it first, otherwise the new panel's height is measured wrong
   if (tabHeightTimer) {
     clearTimeout(tabHeightTimer);
     tabHeightTimer = null;
   }
+  tabHeightCleanup?.();
+  const toHeight = tabPanelsWrap.offsetHeight;
+  if (Math.round(fromHeight) === Math.round(toHeight)) return;
 
   const cleanup = () => {
     tabPanelsWrap.style.transition = '';
     tabPanelsWrap.style.height = '';
     tabPanelsWrap.style.overflow = '';
     tabPanelsWrap.removeEventListener('transitionend', onEnd);
+    if (tabHeightCleanup === cleanup) tabHeightCleanup = null;
   };
+  tabHeightCleanup = cleanup;
   const onEnd = (event) => {
     if (event.propertyName === 'height') cleanup();
   };
@@ -281,6 +308,8 @@ const setActiveTab = (target, persist = true, animate = false) => {
     const match = btn.getAttribute('data-tab') === target;
     btn.classList.toggle('active', match);
     btn.setAttribute('aria-selected', String(match));
+    // Roving tabindex: only the selected tab is in the Tab order (arrows move between tabs)
+    btn.tabIndex = match ? 0 : -1;
   });
   tabPanels.forEach((panel) => {
     const match = panel.getAttribute('data-panel') === target;
@@ -303,6 +332,7 @@ const showMobileTabSections = () => {
   tabButtons.forEach((btn) => {
     btn.classList.remove('active');
     btn.setAttribute('aria-selected', 'false');
+    btn.removeAttribute('tabindex');
   });
   tabPanels.forEach((panel) => {
     panel.removeAttribute('hidden');
@@ -333,6 +363,17 @@ const syncTabLayoutForViewport = () => {
 };
 
 if (tabButtons.length && tabPanels.length) {
+  // Link each tab to its panel for assistive tech (keeps existing panel ids,
+  // which double as in-page anchors)
+  tabButtons.forEach((btn) => {
+    const name = btn.getAttribute('data-tab');
+    const panel = [...tabPanels].find((el) => el.getAttribute('data-panel') === name);
+    if (!panel) return;
+    if (!btn.id) btn.id = `tab-${name}`;
+    if (!panel.id) panel.id = `panel-${name}`;
+    btn.setAttribute('aria-controls', panel.id);
+    if (!panel.hasAttribute('aria-labelledby')) panel.setAttribute('aria-labelledby', btn.id);
+  });
   syncMobileSectionLinks();
   const saved = getCookie(TAB_COOKIE);
   const hashTab = shouldPreserveInitialHash ? 'guides' : '';
@@ -651,9 +692,16 @@ const unloadPodcastCardPlayer = (card) => {
   const player = card?.querySelector('[data-soundcloud-card-player]');
   const iframe = card?.querySelector('[data-soundcloud-card-frame]');
   if (!iframe?.getAttribute('src') || iframe.getAttribute('src') === 'about:blank') return;
-  // Navigate away without collapsing the old widget to zero size mid-render.
-  iframe.setAttribute('src', 'about:blank');
-  iframe.tabIndex = -1;
+  card._podcastWidget?.pause?.();
+  // Swap in a fresh, empty iframe. Reusing the old element after
+  // about:blank made SC.Widget hand back its cached (now dead) widget when
+  // the card was shown again, so play/pause/seek stopped responding.
+  const fresh = iframe.cloneNode(false);
+  fresh.removeAttribute('src');
+  fresh.tabIndex = -1;
+  fresh.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
+  fresh.addEventListener('load', () => bindPodcastWidget(card));
+  iframe.replaceWith(fresh);
   resetPodcastControls(card);
   player?.classList.remove('is-loading-preview', 'is-preview-ready');
   player?.classList.add('is-unloaded');
@@ -962,7 +1010,7 @@ const renderSoundCloudEpisodes = (visibleTracks, playlistArtworkUrl = '') => {
       card.setAttribute('aria-current', active ? 'true' : 'false');
       if (playlistArtwork) {
         card.classList.add('has-artwork');
-        card.style.setProperty('--podcast-artwork', `url("${playlistArtwork}")`);
+        card.style.setProperty('--podcast-artwork', cssImageUrl(playlistArtwork));
       }
 
       const trackUrl = getSoundCloudTrackUrl(track);
@@ -1052,6 +1100,8 @@ const fetchSoundCloudTrackList = (playlistUrl, artworkPromise, cachedTracks) => 
         cachePodcastTracks(playlistUrl, visibleTracks);
         // Skip the re-render when the cached list was already current.
         if (cachedTracks && getPodcastTracksSignature(cachedTracks) === getPodcastTracksSignature(visibleTracks)) return;
+        // Never swap the cards out from under an episode that is playing
+        if (cachedTracks && document.querySelector('[data-soundcloud-episodes] .is-playing-episode')) return;
         renderSoundCloudEpisodes(visibleTracks, await artworkPromise);
       }
     });
@@ -1077,7 +1127,11 @@ window.addEventListener('resize', loadVisiblePodcastPreview, { passive: true });
 
 const setTheme = (mode) => {
   root.setAttribute('data-theme', mode);
-  localStorage.setItem('theme', mode);
+  // Storage can be blocked (Safari "Block all cookies", private modes);
+  // unguarded, this threw and stopped the rest of the script
+  try {
+    localStorage.setItem('theme', mode);
+  } catch {}
   syncThemeIcon();
   // Turnstile can't restyle live, so re-render it to match the new theme.
   renderTurnstile();
@@ -1089,7 +1143,10 @@ const setTheme = (mode) => {
 };
 
 const initTheme = () => {
-  const stored = localStorage.getItem('theme');
+  let stored = null;
+  try {
+    stored = localStorage.getItem('theme');
+  } catch {}
   
   if (stored === 'light' || stored === 'dark') {
     root.setAttribute('data-theme', stored);
@@ -1134,7 +1191,10 @@ let chatLoaded = false;
 const getSavedNickname = () => getCookie(NICKNAME_COOKIE);
 
 const saveNickname = (nickname) => {
-  setCookie(NICKNAME_COOKIE, nickname, 365); // Save for 1 year
+  // hack.chat reads "name#secret" as a password (tripcode): it is passed to
+  // the chat but only the name is remembered, never the secret
+  const name = String(nickname || '').split('#')[0].trim().slice(0, 24);
+  if (name) setCookie(NICKNAME_COOKIE, name, 365); // Save for 1 year
 };
 
 const showNicknamePrompt = () => {
@@ -1511,6 +1571,16 @@ function stopLiveRadio() {
   renderLiveRadioState();
 }
 
+// Used when SoundCloud or YouTube starts: pause every <audio>; the live
+// radio is stopped and released instead (a live stream cannot resume)
+function pauseAllAudio() {
+  document.querySelectorAll('audio').forEach((audio) => {
+    if (audio.paused) return;
+    if (audio === liveRadio.audio) stopLiveRadio();
+    else audio.pause();
+  });
+}
+
 function startLiveRadio() {
   const proxyBase = LIVESETS_PROXY_WORKER
     ? (LIVESETS_PROXY_WORKER.endsWith('/') ? LIVESETS_PROXY_WORKER : `${LIVESETS_PROXY_WORKER}/`)
@@ -1723,6 +1793,28 @@ const getLiveSetsProxyBase = () => {
     : `${LIVESETS_PROXY_WORKER}/`;
 };
 
+// https URLs on livesets.com (or its subdomains) only
+const isTrustedLiveSetsUrl = (value) => {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'https:' && (url.hostname === 'livesets.com' || url.hostname.endsWith('.livesets.com'));
+  } catch {
+    return false;
+  }
+};
+
+// A session is shown only if it points at CIDIRILK's LiveSets pages; text is
+// capped so a bad payload can't blow up the layout or storage
+const isTrustedLiveSetsSession = (session) => {
+  if (!session || typeof session !== 'object') return false;
+  if (!isTrustedLiveSetsUrl(session.url) || !new URL(session.url).pathname.startsWith('/cidirilk/')) return false;
+  if (session.artwork && !isTrustedLiveSetsUrl(session.artwork)) session.artwork = '';
+  ['title', 'genre', 'age', 'duration'].forEach((key) => {
+    session[key] = String(session[key] || '').slice(0, key === 'title' ? 160 : 60);
+  });
+  return Boolean(session.title);
+};
+
 const getLiveSetsSessionId = (session) => {
   const id = String(session?.id || '').trim();
   if (id) return id;
@@ -1752,7 +1844,8 @@ const readCachedLiveSetsSessions = () => {
       cached.sessions.length &&
       Date.now() - cached.cachedAt < LIVESETS_SESSIONS_CACHE_TTL
     ) {
-      return cached.sessions;
+      // Re-check: older copies may have come from the public proxies
+      return cached.sessions.filter(isTrustedLiveSetsSession);
     }
   } catch (error) {}
   return [];
@@ -1768,63 +1861,27 @@ const cacheLiveSetsSessions = (sessions) => {
   } catch (error) {}
 };
 
-const parseLiveSetsSessionsHtml = (html) => {
-  const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
-  return [...doc.querySelectorAll('.media-list.item')]
-    .map((item, index) => {
-      const titleLink = item.querySelector('.head a');
-      const avatarStyle = item.querySelector('.avatar')?.getAttribute('style') || '';
-      const artworkMatch = avatarStyle.match(/url\(['"]?([^'")]+)['"]?\)/i);
-      const subText = item.querySelector('.sub')?.textContent.replace(/\s+/g, ' ').trim() || '';
-      const [, age = ''] = subText.split('|').map((part) => part.trim());
-
-      return {
-        index: index + 1,
-        title: titleLink?.textContent.replace(/\s+/g, ' ').trim() || '',
-        url: normalizeLiveSetsUrl(item.dataset.url || titleLink?.getAttribute('href')),
-        age,
-        genre: item.querySelector('.info .meta')?.textContent.replace(/\s+/g, ' ').trim() || '',
-        duration: item.querySelector('.playtime')?.textContent.replace(/\s+/g, ' ').trim() || '',
-        artwork: normalizeLiveSetsUrl(artworkMatch?.[1] || ''),
-      };
-    })
-    .filter((session) => session.title && session.url);
-};
-
+// LiveSets data comes only from our own worker. The free public CORS proxies
+// (allorigins, codetabs) were dropped: whoever runs them could feed the page
+// arbitrary session data. If the worker is down, the built-in fallback list
+// (LIVESETS_FALLBACK_SESSIONS) is shown instead.
 const buildLiveSetsSessionStrategies = () => {
-  const encoded = encodeURIComponent(LIVESETS_SESSIONS_URL);
-  const strategies = [];
   const base = getLiveSetsProxyBase();
-
-  if (base) {
-    strategies.push({
-      name: 'worker',
-      url: `${base}sessions?t=${Date.now()}`,
-      extract: async (response) => {
-        const payload = await response.json();
-        return Array.isArray(payload?.sessions) ? payload.sessions : [];
-      },
-    });
-  }
-
-  strategies.push(
-    {
-      name: 'allorigins',
-      url: `https://api.allorigins.win/get?url=${encoded}`,
-      extract: async (response) => {
-        const payload = await response.json();
-        return parseLiveSetsSessionsHtml(payload?.contents || '');
-      },
+  if (!base) return [];
+  return [{
+    name: 'worker',
+    url: `${base}sessions?t=${Date.now()}`,
+    extract: async (response) => {
+      const payload = await response.json();
+      return Array.isArray(payload?.sessions) ? payload.sessions.filter(isTrustedLiveSetsSession) : [];
     },
-    {
-      name: 'codetabs',
-      url: `https://api.codetabs.com/v1/proxy/?quest=${encoded}`,
-      extract: async (response) => parseLiveSetsSessionsHtml(await response.text()),
-    },
-  );
-
-  return strategies;
+  }];
 };
+
+// Time limit for LiveSets requests, so a hung worker/proxy cannot leave a
+// card "loading" forever or stack up live polls
+const requestTimeout = (ms = 8000) =>
+  (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(ms) : undefined);
 
 const fetchLiveSetsSessions = async () => {
   for (const strategy of buildLiveSetsSessionStrategies()) {
@@ -1832,6 +1889,7 @@ const fetchLiveSetsSessions = async () => {
       const response = await fetch(strategy.url, {
         headers: { Accept: strategy.name === 'worker' ? 'application/json' : 'text/html, application/json' },
         cache: 'no-store',
+        signal: requestTimeout(),
       });
       if (!response.ok) throw new Error(`${strategy.name} status ${response.status}`);
       const sessions = await strategy.extract(response);
@@ -1844,39 +1902,19 @@ const fetchLiveSetsSessions = async () => {
 };
 
 const buildLiveSetsSessionMetaStrategies = (sessionId) => {
-  const target = `https://livesets.com/json/session/meta/${sessionId}`;
-  const encoded = encodeURIComponent(target);
-  const strategies = [];
   const base = getLiveSetsProxyBase();
-
-  if (base) {
-    strategies.push({
-      name: 'worker',
-      url: `${base}session-meta/${sessionId}?t=${Date.now()}`,
-      extract: async (response) => {
-        const payload = await response.json();
-        return normalizeLiveSetsSessionMeta(payload?.meta);
-      },
-    });
-  }
-
-  strategies.push(
-    {
-      name: 'allorigins',
-      url: `https://api.allorigins.win/get?url=${encoded}`,
-      extract: async (response) => {
-        const payload = await response.json();
-        return normalizeLiveSetsSessionMeta(JSON.parse(payload?.contents || '{}'));
-      },
+  if (!base || !/^\d+$/.test(String(sessionId))) return [];
+  return [{
+    name: 'worker',
+    url: `${base}session-meta/${sessionId}?t=${Date.now()}`,
+    extract: async (response) => {
+      const payload = await response.json();
+      const meta = normalizeLiveSetsSessionMeta(payload?.meta);
+      // Audio only from LiveSets itself (https)
+      if (meta?.urlAudio) meta.urlAudio = meta.urlAudio.filter((audio) => isTrustedLiveSetsUrl(audio.url));
+      return meta;
     },
-    {
-      name: 'codetabs',
-      url: `https://api.codetabs.com/v1/proxy/?quest=${encoded}`,
-      extract: async (response) => normalizeLiveSetsSessionMeta(JSON.parse(await response.text())),
-    },
-  );
-
-  return strategies;
+  }];
 };
 
 const fetchLiveSetsSessionMeta = async (sessionId) => {
@@ -1888,6 +1926,7 @@ const fetchLiveSetsSessionMeta = async (sessionId) => {
       const response = await fetch(strategy.url, {
         headers: { Accept: strategy.name === 'worker' ? 'application/json' : 'text/html, application/json' },
         cache: 'no-store',
+        signal: requestTimeout(),
       });
       if (!response.ok) throw new Error(`${strategy.name} status ${response.status}`);
       const meta = await strategy.extract(response);
@@ -2067,7 +2106,10 @@ const setYoutubeToggle = (card, playing) => {
 
 const pauseYoutubePlayers = (except) => {
   getYoutubeCards().forEach((card) => {
-    if (card !== except) card._ytPlayer?.pauseVideo?.();
+    // Only ready players: before onReady the API's iframe link is still null
+    // and pauseVideo() throws "Cannot read properties of null (postMessage)"
+    const player = card._ytPlayer;
+    if (card !== except && typeof player?.getPlayerState === 'function') player.pauseVideo();
   });
 };
 
@@ -2082,7 +2124,7 @@ function bindYoutubeApi(card, frame) {
           setYoutubeToggle(card, playing);
           if (event.data === YT.PlayerState.PLAYING) {
             pauseYoutubePlayers(card);
-            document.querySelectorAll('audio').forEach((audio) => { if (!audio.paused) audio.pause(); });
+            pauseAllAudio();
             document.querySelectorAll('.podcast-episode').forEach((episode) => episode._podcastWidget?.pause());
           }
         },
@@ -2129,7 +2171,7 @@ const setActiveLiveSetsSession = (sessionIndex, options = {}) => {
       card.setAttribute('aria-current', active ? 'true' : 'false');
       card.tabIndex = active || consoleListQuery.matches ? 0 : -1;
       if (!active) {
-        pauseLiveSetsCardPlayer(card);
+        releaseLiveSetsCardPlayer(card);
         return;
       }
       loadLiveSetsRealWave(card);
@@ -2223,6 +2265,28 @@ function getLiveSetsLoadedEnd(audio) {
   return currentTime;
 }
 
+// A jump can only happen in place when the target is both downloaded and
+// seekable. Streams restarted with ?t= are not seekable (no byte ranges), so
+// setting currentTime there silently snapped back; those restart via ?t=.
+function canSeekLiveSetsInPlace(audio, relative) {
+  const within = (ranges) => {
+    for (let i = 0; i < ranges.length; i += 1) {
+      if (ranges.start(i) <= relative && relative <= ranges.end(i) - 1) return true;
+    }
+    return false;
+  };
+  return relative >= 0 && within(audio.buffered) && within(audio.seekable);
+}
+
+// Set length before the audio has loaded: LiveSets meta, else the card label
+function getLiveSetsKnownTotal(card) {
+  const known = Number(card.dataset.totalDuration || 0);
+  if (known) return known;
+  const parts = String(card.dataset.durationLabel || '').split(':').map(Number);
+  if (!parts.length || parts.some((n) => !Number.isFinite(n))) return 0;
+  return parts.reduce((sum, n) => sum * 60 + n, 0);
+}
+
 function updateLiveSetsCardLoaded(card, audio) {
   const total = getLiveSetsTotal(card, audio);
   if (!total) return;
@@ -2249,20 +2313,37 @@ function showLiveSetsCardNotice(card, message) {
   }, 4000));
 }
 
-// Desktop console list: any card toggles play/pause; clicking the waveform
-// of the selected set skips within the loaded part.
+// Selected set (desktop list and phone carousel): the card toggles
+// play/pause; clicking the waveform seeks, whether the set is playing,
+// paused, or not started yet.
 async function toggleConsoleLiveSetsSession(card, event) {
   const audio = card.querySelector('[data-livesets-audio]');
   const wave = event?.target?.closest?.('.sessions-card-wave');
+  const proxyBase = getLiveSetsProxyBase();
+  // Not loaded yet: start the stream right at the clicked point
+  if (wave && audio && !audio.duration && card.classList.contains('active') && proxyBase) {
+    const total = getLiveSetsKnownTotal(card);
+    if (total) {
+      const rect = wave.getBoundingClientRect();
+      const target = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * total;
+      card.dataset.totalDuration = String(total);
+      delete card.dataset.resumeAt;
+      seekLiveSetsByUrl(card, audio, target, proxyBase);
+      // Exact length from LiveSets for the elapsed / total label
+      fetchLiveSetsSessionMeta(card.dataset.livesetsSessionId || '').then((meta) => {
+        if (meta?.duration) card.dataset.totalDuration = String(meta.duration);
+      });
+      return;
+    }
+  }
   if (wave && audio?.duration && card.classList.contains('active')) {
     const rect = wave.getBoundingClientRect();
     const total = getLiveSetsTotal(card, audio);
     const target = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * total;
     const relative = target - getLiveSetsOffset(card);
     const loadedEnd = getLiveSetsLoadedEnd(audio);
-    const proxyBase = getLiveSetsProxyBase();
     const viaProxy = Boolean(proxyBase) && audio.currentSrc.startsWith(proxyBase);
-    if (relative >= 0 && relative <= loadedEnd - 1) {
+    if (canSeekLiveSetsInPlace(audio, relative)) {
       audio.currentTime = relative; // already downloaded: instant
     } else if (viaProxy) {
       seekLiveSetsByUrl(card, audio, target, proxyBase);
@@ -2294,12 +2375,17 @@ function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
   const sessionId = card.dataset.livesetsSessionId || '';
   card.dataset.audioOffset = String(start);
   card.classList.add('is-buffering');
-  // Clear any earlier error as soon as audio flows again
-  audio.addEventListener('playing', () => setLiveSetsCardPlayerState(card, 'is-ready'), { once: true });
+  // Clear any earlier error as soon as audio flows again (one listener per
+  // card, replaced on every seek so failed seeks don't pile them up)
+  if (card._seekPlayingHandler) audio.removeEventListener('playing', card._seekPlayingHandler);
+  card._seekPlayingHandler = () => setLiveSetsCardPlayerState(card, 'is-ready');
+  audio.addEventListener('playing', card._seekPlayingHandler, { once: true });
   const query = new URLSearchParams();
   if (start) query.set('t', String(start));
   if (attempt > 1) query.set('retry', String(attempt));
-  audio.src = `${proxyBase}audio/${encodeURIComponent(sessionId)}${query.size ? `?${query}` : ''}`;
+  // toString(), not query.size: .size is missing on iOS 16 / older Chromium
+  const qs = query.toString();
+  audio.src = `${proxyBase}audio/${encodeURIComponent(sessionId)}${qs ? `?${qs}` : ''}`;
   audio.load();
   updateLiveSetsCardProgress(card, audio);
   updateLiveSetsCardLoaded(card, audio);
@@ -2348,6 +2434,35 @@ const pauseLiveSetsCardPlayer = (card) => {
   card.classList.remove('is-playing-session');
 };
 
+// Leaving a set (another one selected or started): stop its download too,
+// not just the sound, so the next set gets the bandwidth. The position is
+// kept and the set resumes there (via ?t=) when it is played again.
+const releaseLiveSetsCardPlayer = (card) => {
+  const audio = card?.querySelector('[data-livesets-audio]');
+  if (!audio) return;
+  audio.pause();
+  card.classList.remove('is-playing-session', 'is-buffering');
+  if (!audio.getAttribute('src') && !audio.querySelector('source')) return;
+  const position = getLiveSetsOffset(card) + (audio.currentTime || 0);
+  const total = getLiveSetsTotal(card, audio);
+  if (position > 5 && (!total || position < total - 5)) {
+    card.dataset.resumeAt = String(Math.floor(position));
+  } else {
+    delete card.dataset.resumeAt;
+    if (total) updateLiveSetsCardTime(card, 0, total);
+    card.style.removeProperty('--sessions-progress');
+    card.querySelectorAll('.sessions-card-wave span.is-played').forEach((bar) => bar.classList.remove('is-played'));
+    delete card.dataset.wavePlayed;
+  }
+  audio.removeAttribute('src');
+  audio.replaceChildren();
+  audio.load();
+  delete card.dataset.audioOffset;
+  delete card.dataset.waveLoaded;
+  card.querySelectorAll('.sessions-card-wave span.is-loaded').forEach((bar) => bar.classList.remove('is-loaded'));
+  setLiveSetsCardPlayerState(card, 'is-unloaded');
+};
+
 const setLiveSetsCardPlayerState = (card, state, message = '') => {
   const player = card?.querySelector('[data-livesets-player]');
   const status = card?.querySelector('[data-livesets-player-status]');
@@ -2364,7 +2479,8 @@ const setLiveSetsCardPlayerState = (card, state, message = '') => {
 const loadLiveSetsCardPlayer = async (card) => {
   const audio = card?.querySelector('[data-livesets-audio]');
   if (!audio) return null;
-  if (audio.querySelector('source')) return audio;
+  // Already has a stream (sources, or a ?t= stream started by a seek)
+  if (audio.querySelector('source') || audio.getAttribute('src')) return audio;
 
   const sessionId = card.dataset.livesetsSessionId || '';
   setLiveSetsCardPlayerState(card, 'is-loading', 'Loading session...');
@@ -2398,11 +2514,21 @@ const loadLiveSetsCardPlayer = async (card) => {
 const playLiveSetsCard = async (card) => {
   if (!card || !card.classList.contains('active') || card.classList.contains('is-loading-session')) return;
   const audio = await loadLiveSetsCardPlayer(card);
-  if (!audio || !card.classList.contains('active')) return;
+  // The card may have been redrawn (removed) while its meta loaded
+  if (!audio || !card.isConnected || !card.classList.contains('active')) return;
 
   getLiveSetsSessionCards().forEach((otherCard) => {
-    if (otherCard !== card) pauseLiveSetsCardPlayer(otherCard);
+    if (otherCard !== card) releaseLiveSetsCardPlayer(otherCard);
   });
+
+  // Coming back to a set that was left mid-way: resume where it was
+  const resumeAt = Number(card.dataset.resumeAt || 0);
+  const proxyBase = getLiveSetsProxyBase();
+  if (resumeAt && proxyBase) {
+    delete card.dataset.resumeAt;
+    seekLiveSetsByUrl(card, audio, resumeAt, proxyBase);
+    return;
+  }
 
   try {
     await audio.play();
@@ -2502,7 +2628,7 @@ const renderYoutubeVideos = () => {
       const player = document.createElement('span');
       player.className = 'youtube-card-player';
       player.dataset.youtubePlayer = '';
-      player.style.setProperty('--youtube-thumb', `url("${video.thumbnail}")`);
+      player.style.setProperty('--youtube-thumb', cssImageUrl(video.thumbnail));
       const frame = document.createElement('iframe');
       frame.className = 'youtube-card-frame';
       frame.title = `${video.title} YouTube video`;
@@ -2623,7 +2749,7 @@ const renderLiveSetsSessions = (sessions) => {
       card.setAttribute('aria-current', index === 0 ? 'true' : 'false');
       card.setAttribute('aria-label', `Play ${session.title} from LiveSets`);
       if (session.artwork) {
-        card.style.setProperty('--sessions-artwork', `url("${session.artwork}")`);
+        card.style.setProperty('--sessions-artwork', cssImageUrl(session.artwork));
       }
 
       const top = document.createElement('span');
@@ -2724,7 +2850,18 @@ const initLiveSetsSessions = async () => {
   const sessions = await fetchLiveSetsSessions();
   if (sessions.length) {
     cacheLiveSetsSessions(sessions);
-    renderLiveSetsSessions(sessions);
+    // Redraw only when the list changed and nothing is playing or loading:
+    // a redraw removes the cards (and their audio) from the page
+    const signature = (list) => list.slice(0, MEDIA_CAROUSEL_LIMIT)
+      .map((session) => `${getLiveSetsSessionId(session)}:${session.title}:${session.duration || ''}:${session.age || ''}`)
+      .join('|');
+    const busy = getLiveSetsSessionCards().some((card) => {
+      const audio = card.querySelector('[data-livesets-audio]');
+      return card.classList.contains('is-loading-session') || (audio && !audio.paused)
+        || card.classList.contains('is-buffering') || card.dataset.resumeAt;
+    });
+    const unchanged = cachedSessions.length && signature(cachedSessions) === signature(sessions);
+    if (!unchanged && !busy) renderLiveSetsSessions(sessions);
   } else if (!cachedSessions.length) {
     renderLiveSetsSessions(LIVESETS_FALLBACK_SESSIONS);
   }
@@ -2763,7 +2900,8 @@ liveSetsSessionLists.forEach((list) => {
       toggleConsoleLiveSetsSession(card, event);
       return;
     }
-    playLiveSetsCard(card);
+    // A neighbouring (peeking) card on phones: bring it into view first
+    setActiveLiveSetsSession(Number.parseInt(card.dataset.livesetsSession || '0', 10));
   });
 
   list.addEventListener('keydown', (event) => {
@@ -2775,7 +2913,7 @@ liveSetsSessionLists.forEach((list) => {
       toggleConsoleLiveSetsSession(card);
       return;
     }
-    playLiveSetsCard(card);
+    setActiveLiveSetsSession(Number.parseInt(card.dataset.livesetsSession || '0', 10));
   });
 });
 
@@ -2797,7 +2935,10 @@ youtubeVideoLists.forEach((list) => {
     if (toggle) {
       const player = toggle.closest('.youtube-card')?._ytPlayer;
       if (player?.getPlayerState) {
-        if (player.getPlayerState() === window.YT?.PlayerState?.PLAYING) player.pauseVideo();
+        // The button already reads "Pause" while buffering
+        const state = player.getPlayerState();
+        const { PLAYING, BUFFERING } = window.YT?.PlayerState || {};
+        if (state === PLAYING || state === BUFFERING) player.pauseVideo();
         else player.playVideo();
       }
       return;
@@ -2838,49 +2979,16 @@ liveSetsCarouselNext?.addEventListener('click', () => moveLiveSetsSessions(1));
 youtubeCarouselPrev?.addEventListener('click', () => moveYoutubeCarousel(-1));
 youtubeCarouselNext?.addEventListener('click', () => moveYoutubeCarousel(1));
 
-// Ordered list of ways to reach the LiveSets endpoint. The first that succeeds
-// is remembered and reused, so a single proxy outage no longer breaks the badge.
-// `extract` normalizes each proxy's response shape back to the raw status payload.
+// The live status comes only from our own worker (the public CORS proxies
+// that used to back it up could fake the "live" badge).
 const buildLiveStatusStrategies = () => {
-  const target = `${LIVESETS_STATUS_ENDPOINT}?t=${Date.now()}`;
-  const encoded = encodeURIComponent(target);
-  const strategies = [];
-
-  if (LIVESETS_PROXY_WORKER) {
-    const base = LIVESETS_PROXY_WORKER.endsWith('/')
-      ? LIVESETS_PROXY_WORKER
-      : `${LIVESETS_PROXY_WORKER}/`;
-    strategies.push({
-      name: 'worker',
-      url: `${base}?t=${Date.now()}`,
-      extract: (payload) => payload,
-    });
-  }
-
-  strategies.push(
-    {
-      name: 'allorigins',
-      url: `https://api.allorigins.win/get?url=${encoded}`,
-      // allorigins wraps the upstream body as a JSON string in `contents`.
-      extract: (payload) => {
-        if (payload && typeof payload.contents === 'string') {
-          try {
-            return JSON.parse(payload.contents);
-          } catch (err) {
-            return null;
-          }
-        }
-        return payload;
-      },
-    },
-    {
-      name: 'codetabs',
-      url: `https://api.codetabs.com/v1/proxy/?quest=${encoded}`,
-      extract: (payload) => payload,
-    },
-  );
-
-  return strategies;
+  const base = getLiveSetsProxyBase();
+  if (!base) return [];
+  return [{
+    name: 'worker',
+    url: `${base}?t=${Date.now()}`,
+    extract: (payload) => payload,
+  }];
 };
 
 // Remember which strategy last worked to avoid retrying dead proxies every poll.
@@ -2890,6 +2998,7 @@ const fetchLiveStatusVia = async (strategy) => {
   const response = await fetch(strategy.url, {
     headers: { Accept: 'application/json' },
     cache: 'no-store',
+    signal: requestTimeout(),
   });
   if (!response.ok) throw new Error(`${strategy.name} status ${response.status}`);
   const payload = await response.json();
@@ -2902,12 +3011,25 @@ const fetchLiveStatusVia = async (strategy) => {
 // the poll from overriding it. Set back to null to resume automatic polling.
 let liveManualOverride = null;
 
+// One live poll at a time: overlapping polls could land out of order
+let liveStatusInFlight = false;
+
 const checkLiveStatus = async () => {
   if (!hasLiveTargets()) return;
   if (liveManualOverride !== null) {
     updateLiveIndicator(liveManualOverride);
     return;
   }
+  if (liveStatusInFlight) return;
+  liveStatusInFlight = true;
+  try {
+    await pollLiveStatus();
+  } finally {
+    liveStatusInFlight = false;
+  }
+};
+
+const pollLiveStatus = async () => {
 
   const strategies = buildLiveStatusStrategies();
   // Try the last known-good strategy first, then the rest.
@@ -3156,6 +3278,15 @@ const initCollabCarousel = () => {
     }
   };
 
+  // A wrap-around clone at either end maps back to its real slide
+  const normalizeClonePosition = () => {
+    if (slides.length <= 1) return;
+    if (activePosition <= 0) activePosition = slides.length;
+    else if (activePosition >= renderedSlides.length - 1) activePosition = 1;
+  };
+
+  let animationGuard = null;
+
   const updateCarousel = (animate = true) => {
     if (consoleListQuery.matches) {
       isAnimating = false;
@@ -3163,10 +3294,20 @@ const initCollabCarousel = () => {
       return;
     }
 
+    clearTimeout(animationGuard);
     if (animate) {
       isAnimating = true;
+      // Safety net: if no transitionend arrives (no actual movement, tab
+      // hidden, transition interrupted), unlock instead of freezing
+      animationGuard = setTimeout(() => {
+        if (!isAnimating) return;
+        normalizeClonePosition();
+        updateCarousel(false);
+      }, 900);
     } else {
       isAnimating = false;
+      // A resize can land mid-wrap: never park on a clone without animating
+      normalizeClonePosition();
     }
 
     setTrackPosition(animate);
@@ -3221,16 +3362,15 @@ const initCollabCarousel = () => {
   });
 
   track.addEventListener('transitionend', (event) => {
+    // Only the track's own slide; cards' hover transforms bubble up too
+    if (event.target !== track) return;
     if (event.propertyName !== 'transform' || slides.length <= 1) return;
 
-    if (activePosition === 0) {
-      activePosition = slides.length;
-      updateCarousel(false);
-    } else if (activePosition === renderedSlides.length - 1) {
-      activePosition = 1;
+    if (activePosition === 0 || activePosition === renderedSlides.length - 1) {
       updateCarousel(false);
     }
 
+    clearTimeout(animationGuard);
     isAnimating = false;
   });
 
@@ -3362,6 +3502,15 @@ const initShopCarousel = () => {
     });
   };
 
+  // A wrap-around clone at either end maps back to its real slide
+  const normalizeClonePosition = () => {
+    if (slides.length <= 1) return;
+    if (activePosition <= 0) activePosition = slides.length;
+    else if (activePosition >= renderedSlides.length - 1) activePosition = 1;
+  };
+
+  let animationGuard = null;
+
   const updateCarousel = (animate = true) => {
     if (consoleListQuery.matches) {
       isAnimating = false;
@@ -3369,10 +3518,19 @@ const initShopCarousel = () => {
       return;
     }
 
+    clearTimeout(animationGuard);
     if (animate) {
       isAnimating = true;
+      // Safety net: unlock if no transitionend ever arrives
+      animationGuard = setTimeout(() => {
+        if (!isAnimating) return;
+        normalizeClonePosition();
+        updateCarousel(false);
+      }, 900);
     } else {
       isAnimating = false;
+      // A resize can land mid-wrap: never park on a clone without animating
+      normalizeClonePosition();
     }
 
     setTrackPosition(animate);
@@ -3414,16 +3572,15 @@ const initShopCarousel = () => {
   });
 
   track.addEventListener('transitionend', (event) => {
+    // Only the track's own slide; product cards' hover transforms bubble up too
+    if (event.target !== track) return;
     if (event.propertyName !== 'transform' || slides.length <= 1) return;
 
-    if (activePosition === 0) {
-      activePosition = slides.length;
-      updateCarousel(false);
-    } else if (activePosition === renderedSlides.length - 1) {
-      activePosition = 1;
+    if (activePosition === 0 || activePosition === renderedSlides.length - 1) {
       updateCarousel(false);
     }
 
+    clearTimeout(animationGuard);
     isAnimating = false;
   });
 
@@ -3540,6 +3697,25 @@ const initShopModal = () => {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !modal.hasAttribute('hidden')) {
       closeModal();
+      return;
+    }
+    // Keep Tab focus inside the open modal
+    if (event.key !== 'Tab' || modal.hasAttribute('hidden')) return;
+    const focusable = Array.from(
+      modal.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')
+    ).filter((element) => element.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!modal.contains(document.activeElement)) {
+      event.preventDefault();
+      first.focus();
+    } else if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
     }
   });
 };
@@ -3557,6 +3733,7 @@ const initCollabModal = () => {
   const modalReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const modalCloseDuration = 320;
   let modalCloseTimer = null;
+  let lastFocusBeforeModal = null;
 
   if (!modal || !collabCards.length) return;
 
@@ -3800,12 +3977,13 @@ const initCollabModal = () => {
     modalBody.innerHTML = data.content;
     resetModalScroll();
 
-    // Show modal
+    // Show modal (remember what had focus, to return there on close)
+    if (modal.hasAttribute('hidden')) lastFocusBeforeModal = document.activeElement;
     modal.classList.remove('is-closing');
     modal.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(resetModalScroll);
-    
+
     // Focus the close button for accessibility
     setTimeout(focusCloseButton, 100);
   };
@@ -3819,6 +3997,9 @@ const initCollabModal = () => {
       modal.classList.remove('is-closing');
       document.body.style.overflow = '';
       modalCloseTimer = null;
+      // Back to the collab card that opened it
+      if (lastFocusBeforeModal?.isConnected) lastFocusBeforeModal.focus({ preventScroll: true });
+      lastFocusBeforeModal = null;
     };
 
     if (modalReducedMotion) {
@@ -3854,6 +4035,23 @@ const initCollabModal = () => {
 
   // Overlay click
   overlay?.addEventListener('click', closeModal);
+
+  // Keep Tab inside the open modal
+  modal.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab' || modal.hasAttribute('hidden')) return;
+    const focusable = [...modal.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter((el) => el.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
 
   // ESC key
   document.addEventListener('keydown', (e) => {
@@ -4280,7 +4478,7 @@ const buildArchiveSlideFromNextEvent = (eventCard, eventEndTime) => {
   const tagText = eventCard.querySelector('.upcoming-event-tag')?.textContent.trim() || '';
   const isChaCha = tagText.toLowerCase().includes('chacha');
   const name = eventCard.querySelector('.upcoming-event-title')?.textContent.trim() || '';
-  const venueHTML = eventCard.querySelector('.upcoming-event-venue')?.innerHTML.trim() || '';
+  const venueSource = eventCard.querySelector('.upcoming-event-venue');
 
   const day = eventCard.querySelector('.date-day')?.textContent.trim() || '';
   const monthRaw = eventCard.querySelector('.date-month')?.textContent.trim() || '';
@@ -4293,17 +4491,33 @@ const buildArchiveSlideFromNextEvent = (eventCard, eventEndTime) => {
   const slide = document.createElement('div');
   slide.className = 'carousel-slide';
   if (raId) slide.dataset.archivedFrom = `RA${raId}`;
-  slide.innerHTML = `
-    <a href="${link}" target="_blank" rel="noopener" class="event-link">
-      <span class="event-top">
-        <span class="event-tag${isChaCha ? ' chacha' : ''}">${tagText}</span>
-        <span class="event-date">${dateText}</span>
-      </span>
-      <span class="event-name">${name}</span>
-      <span class="event-venue">${venueHTML}</span>
-      ${raId ? `<span class="event-id">RA${raId}</span>` : ''}
-    </a>
-  `;
+  // Built with DOM nodes and textContent (not innerHTML), so event text can
+  // never turn into markup; only https/relative links are kept
+  const span = (className, text) => {
+    const el = document.createElement('span');
+    el.className = className;
+    if (text) el.textContent = text;
+    return el;
+  };
+  const anchor = document.createElement('a');
+  try {
+    const href = new URL(link, window.location.href);
+    if (href.protocol !== 'https:' && href.origin !== window.location.origin) return null;
+    anchor.href = href.href;
+  } catch {
+    return null;
+  }
+  anchor.target = '_blank';
+  anchor.rel = 'noopener';
+  anchor.className = 'event-link';
+  const top = span('event-top');
+  top.append(span(`event-tag${isChaCha ? ' chacha' : ''}`, tagText), span('event-date', dateText));
+  const venue = span('event-venue');
+  // The venue keeps its location icon: copy the nodes, not their HTML
+  if (venueSource) venue.append(...[...venueSource.childNodes].map((node) => node.cloneNode(true)));
+  anchor.append(top, span('event-name', name), venue);
+  if (raId) anchor.append(span('event-id', `RA${raId}`));
+  slide.append(anchor);
   return slide;
 };
 
@@ -4636,7 +4850,7 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
       const artwork = normalizeSoundCloudArtworkUrl(sound.artwork_url);
       if (artwork) {
         card.classList.add('has-artwork');
-        card.style.setProperty('--podcast-artwork', `url("${artwork}")`);
+        card.style.setProperty('--podcast-artwork', cssImageUrl(artwork));
       }
 
       const player = document.createElement('span');
@@ -4687,8 +4901,16 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
     fetchSets(null);
   };
 
+  let apiWaits = 0;
   const fetchSets = (cached) => {
     if (!window.SC?.Widget) {
+      // SoundCloud's script can be blocked (ad blockers, networks): give up
+      // after ~10s instead of retrying forever
+      apiWaits += 1;
+      if (apiWaits > 20) {
+        if (!cached) status('ChaCha sets are not available right now.');
+        return;
+      }
       setTimeout(() => fetchSets(cached), 500);
       return;
     }
@@ -4753,7 +4975,10 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
 document.addEventListener('play', (event) => {
   if (!(event.target instanceof HTMLMediaElement)) return;
   document.querySelectorAll('audio').forEach((audio) => {
-    if (audio !== event.target && !audio.paused) audio.pause();
+    if (audio === event.target || audio.paused) return;
+    // The live stream cannot resume where it paused: stop and release it
+    if (audio === liveRadio.audio) stopLiveRadio();
+    else audio.pause();
   });
   document.querySelectorAll('.podcast-episode').forEach((card) => card._podcastWidget?.pause());
   pauseYoutubePlayers();
@@ -4955,7 +5180,7 @@ function bindPodcastWidget(card) {
     document.querySelectorAll('.podcast-episode').forEach((other) => {
       if (other !== card) other._podcastWidget?.pause();
     });
-    document.querySelectorAll('audio').forEach((audio) => { if (!audio.paused) audio.pause(); });
+    pauseAllAudio();
     pauseYoutubePlayers();
   });
   widget.bind(Events.PAUSE, () => setPodcastPlaying(card, false));
@@ -4966,9 +5191,20 @@ function bindPodcastWidget(card) {
 
 // Leaving the YouTube tab on the desktop console stops the playing video
 // (an embedded player otherwise keeps playing in the hidden panel).
+// Only when the YouTube tab is really left: a tablet rotating across 1024px
+// also fires tabchange, and must not stop a video playing in the stacked layout.
+// Crossing the desktop/phone breakpoint: re-apply the selected Session and
+// video so rows get the right tabIndex for the new layout (list vs carousel)
+consoleListQuery.addEventListener?.('change', () => {
+  if (getLiveSetsSessionCards().length) setActiveLiveSetsSession(getActiveLiveSetsSessionIndex(), { instant: true });
+  if (getYoutubeCards().length) setActiveYoutubeVideo(getActiveYoutubeVideoIndex(), { instant: true });
+});
+
+let youtubeTabActive = false;
 window.addEventListener('cidirilk:tabchange', (event) => {
-  if (event.detail?.target === 'youtube') return;
-  getYoutubeCards().forEach((card) => unloadYoutubeCardPlayer(card));
+  const nowYoutube = event.detail?.target === 'youtube';
+  if (youtubeTabActive && !nowYoutube) getYoutubeCards().forEach((card) => unloadYoutubeCardPlayer(card));
+  youtubeTabActive = nowYoutube;
 });
 
 // Generated YouTube covers: a deterministic, theme-aware SVG per video
@@ -5043,7 +5279,9 @@ function createYoutubePreview(video, index) {
       slide.style.setProperty('--shop-index', `'${String(index + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}'`);
       const item = slide.querySelector('.shop-item');
       if (!item) return;
-      if (featured) {
+      // Tiles are buttons only in the desktop showcase; on phones the
+      // carousel owns focus (off-screen slides must not be focusable)
+      if (featured || !consoleListQuery.matches) {
         item.removeAttribute('role');
         item.removeAttribute('tabindex');
         item.removeAttribute('aria-label');
@@ -5105,4 +5343,8 @@ function createYoutubePreview(video, index) {
   track.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') pick(event);
   }, true);
+  // Desktop <-> phone: re-apply tile roles for the new layout
+  consoleListQuery.addEventListener?.('change', () => {
+    feature(realSlides().find((slide) => slide.classList.contains('is-featured')) || realSlides()[0]);
+  });
 })();

@@ -1,2 +1,6 @@
 BREVO_API_KEY="replace-with-your-brevo-api-key"
 TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA"
+
+# Local `wrangler dev` only: accept localhost origins and skip the Turnstile
+# hostname check (the test keys report example.com). Never set in production.
+ALLOW_LOCAL_ORIGINS="true"

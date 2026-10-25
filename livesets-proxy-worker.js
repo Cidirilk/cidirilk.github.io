@@ -29,16 +29,18 @@
  * Routes:
  *   /                    LiveSets live status (polling)
  *   /sessions            latest sessions list (parsed)
- *   /session-meta/<id>   one session's metadata (audio + waveform URLs)
- *   /audio/<id>          the session MP3 with working byte ranges (seekable)
+ *   /session-meta/<id>   one of CIDIRILK's sessions: metadata (audio + waveform URLs)
+ *   /audio/<id>          the session MP3 with working byte ranges (seekable);
+ *                        ?t=<seconds> starts the stream at that time
  *   /waveform/<id>       the session's real waveform, downsampled to 240 peaks
  *   /live/meta           live radio state (connected, title, listeners)
  *   /live/audio          302 to the current live MP3 stream (?format=ogg for
  *                        OGG); 503 JSON {connected:false} while offline
+ *   anything else        404
  *
- * After deploying, check that Cloudflare caches the audio (seeks are then
- * instant): request /audio/<id> twice with a Range header and look for
- * "X-Upstream-Cache: HIT" on the second response.
+ * Session routes serve CIDIRILK's own sets only (LiveSets page under
+ * /cidirilk/), so the worker can't be used to stream other users' audio.
+ * Errors are never cached for long (see cacheFor).
  */
 
 const STATUS_UPSTREAM = 'https://livesets.com/app/polling/live/42069';
@@ -133,13 +135,33 @@ const normalizeSessionMeta = (meta) => ({
 // ---------------------------------------------------------------------------
 const AUDIO_CACHE_TTL = 60 * 60 * 24 * 7; // a week; sets don't change
 const WAVEFORM_POINTS = 240;
+// Only CIDIRILK's own sets are proxied (LiveSets page URLs are /<user>/...),
+// so the worker cannot be used to stream or mirror anyone else's audio.
+const OWNER_PATH_PREFIX = '/cidirilk/';
+
+// Cloudflare cache settings: cache successes, never keep errors around for
+// long (a passing LiveSets hiccup must not break a set for a week).
+const cacheFor = (seconds) => ({
+  cacheEverything: true,
+  cacheTtlByStatus: { '200-299': seconds, '404': 60, '500-599': 0 },
+});
+
+const isOwnSession = (meta) => {
+  try {
+    return new URL(meta?.urlPage || '').pathname.startsWith(OWNER_PATH_PREFIX);
+  } catch {
+    return false;
+  }
+};
 
 const fetchSessionMeta = async (sessionId) => {
   const upstream = await fetch(`${SESSION_META_UPSTREAM}${sessionId}`, {
     headers: { Accept: 'application/json' },
-    cf: { cacheTtl: 3600, cacheEverything: true },
+    cf: cacheFor(3600),
   });
-  return upstream.ok ? normalizeSessionMeta(await upstream.json()) : null;
+  if (!upstream.ok) return null;
+  const meta = normalizeSessionMeta(await upstream.json().catch(() => null));
+  return isOwnSession(meta) ? meta : null;
 };
 
 const isLiveSetsPubUrl = (value) => {
@@ -159,6 +181,8 @@ const parseRange = (header, size) => {
   if (match[1]) {
     start = Number(match[1]);
     end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+    // bytes=10-5 is invalid: ignore the header and serve the whole file
+    if (match[2] && Number(match[2]) < start) return null;
   } else {
     // suffix range: last N bytes
     start = Math.max(0, size - Number(match[2]));
@@ -184,12 +208,10 @@ const sliceStream = (body, start, end) => {
   );
 };
 
-// Cached responses can reach the worker without Content-Length; get the file
-// size from LiveSets directly (HEAD) and remember it per isolate.
+// File size from LiveSets with a HEAD request (no download), remembered per
+// isolate, so a ?t= seek never has to open the whole file first.
 const audioSizes = new Map();
-const getAudioSize = async (url, upstream) => {
-  const fromHeader = Number(upstream.headers.get('Content-Length') || 0);
-  if (fromHeader) return fromHeader;
+const getAudioSize = async (url) => {
   if (audioSizes.has(url)) return audioSizes.get(url);
   try {
     const head = await fetch(url, { method: 'HEAD' });
@@ -208,23 +230,60 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
     return new Response('Not Found', { status: 404, headers: corsHeaders });
   }
 
+  const isHead = request.method === 'HEAD';
   const rangeHeader = request.headers.get('Range');
-  const upstream = await fetch(mp3, {
-    headers: rangeHeader ? { Range: rangeHeader } : {},
-    cf: { cacheEverything: true, cacheTtl: AUDIO_CACHE_TTL },
-  });
-  if (!upstream.ok) {
-    return new Response('Upstream error', { status: upstream.status, headers: corsHeaders });
-  }
+  const tParam = new URL(request.url).searchParams.get('t');
+  const startSeconds = tParam === null ? 0 : Number(tParam);
 
   const headers = new Headers(corsHeaders);
+  headers.set('Content-Type', 'audio/mpeg');
+  headers.set('Cache-Control', `public, max-age=${AUDIO_CACHE_TTL}`);
+
+  // Cached byte range from Cloudflare (206): passing it through costs almost
+  // no CPU, unlike reading 40+ MB in JS (sliceStream), which can exceed the
+  // free plan's CPU limit and cut the response off.
+  const fetchRange = (start, end = '') => fetch(mp3, {
+    headers: { Range: `bytes=${start}-${end}` },
+    cf: cacheFor(AUDIO_CACHE_TTL),
+  });
+
+  // ?t=<seconds>: start the stream at that point of the set. Cloudflare does
+  // not pass the browser's Range header through to workers.dev, so the site
+  // seeks by URL instead. LiveSets sets are constant-bitrate MP3s, so a time
+  // maps linearly to a byte offset (MP3 frames resync on their own).
+  if (!rangeHeader && Number.isFinite(startSeconds) && startSeconds > 0 && meta.duration > 0) {
+    const size = await getAudioSize(mp3);
+    if (size) {
+      const startByte = Math.min(size - 1, Math.floor((Math.min(startSeconds, meta.duration) / meta.duration) * size));
+      // A partial body: no Accept-Ranges/ETag that would describe the whole file
+      headers.set('Content-Length', String(size - startByte));
+      headers.set('X-Audio-Start', String(startSeconds));
+      if (isHead) return new Response(null, { status: 200, headers });
+
+      const partial = await fetchRange(startByte);
+      if (partial.status === 206) return new Response(partial.body, { status: 200, headers });
+      if (partial.ok) {
+        // Upstream ignored the range: cut the slice ourselves (last resort)
+        return new Response(sliceStream(partial.body, startByte, size - 1), { status: 200, headers });
+      }
+      partial.body?.cancel();
+      return new Response('Upstream error', { status: 502, headers: { ...corsHeaders, 'Cache-Control': 'no-store' } });
+    }
+  }
+
+  const upstream = await fetch(mp3, {
+    method: isHead ? 'HEAD' : 'GET',
+    headers: rangeHeader ? { Range: rangeHeader } : {},
+    cf: cacheFor(AUDIO_CACHE_TTL),
+  });
+  if (!upstream.ok) {
+    upstream.body?.cancel();
+    return new Response('Upstream error', { status: upstream.status, headers: { ...corsHeaders, 'Cache-Control': 'no-store' } });
+  }
   headers.set('Content-Type', upstream.headers.get('Content-Type') || 'audio/mpeg');
   headers.set('Accept-Ranges', 'bytes');
-  headers.set('Cache-Control', `public, max-age=${AUDIO_CACHE_TTL}`);
   const etag = upstream.headers.get('ETag');
   if (etag) headers.set('ETag', etag);
-  // Debug aid: HIT once Cloudflare has cached the file (seeks are then instant)
-  headers.set('X-Upstream-Cache', upstream.headers.get('CF-Cache-Status') || 'none');
 
   // Upstream (or Cloudflare's cache) honoured the range: pass it through.
   if (upstream.status === 206) {
@@ -232,48 +291,12 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
       const value = upstream.headers.get(name);
       if (value) headers.set(name, value);
     });
-    return new Response(request.method === 'HEAD' ? null : upstream.body, { status: 206, headers });
+    if (isHead) upstream.body?.cancel();
+    return new Response(isHead ? null : upstream.body, { status: 206, headers });
   }
 
-  const size = await getAudioSize(mp3, upstream);
-
-  // ?t=<seconds>: start the stream at that point of the set. Cloudflare does
-  // not pass the browser's Range header through to workers.dev, so the site
-  // seeks by URL instead. LiveSets sets are constant-bitrate MP3s, so a
-  // time maps linearly to a byte offset (MP3 frames resync on their own).
-  const startSeconds = Number(new URL(request.url).searchParams.get('t'));
-  if (!rangeHeader && size && Number.isFinite(startSeconds) && startSeconds > 0 && meta.duration > 0) {
-    const startByte = Math.min(size - 1, Math.floor((startSeconds / meta.duration) * size));
-    headers.set('Content-Length', String(size - startByte));
-    headers.set('X-Audio-Start', String(startSeconds));
-    headers.delete('Accept-Ranges');
-    if (request.method === 'HEAD') {
-      upstream.body?.cancel();
-      return new Response(null, { status: 200, headers });
-    }
-
-    // Preferred: ask Cloudflare's cache for the byte range. A cached object
-    // can be served partially, and passing that stream through costs almost
-    // no CPU. Reading 40+ MB chunk by chunk in JS (sliceStream) can exceed
-    // the free plan's CPU limit and cut the response off.
-    const partial = await fetch(mp3, {
-      headers: { Range: `bytes=${startByte}-` },
-      cf: { cacheEverything: true, cacheTtl: AUDIO_CACHE_TTL },
-    });
-    if (partial.status === 206) {
-      upstream.body?.cancel();
-      headers.set('X-Range-Debug', `t=${startSeconds}|${startByte}/${size}|native-206|${partial.headers.get('CF-Cache-Status') || 'none'}`);
-      return new Response(partial.body, { status: 200, headers });
-    }
-    partial.body?.cancel();
-
-    headers.set('X-Range-Debug', `t=${startSeconds}|${startByte}/${size}|sliced|${partial.status}`);
-    return new Response(sliceStream(upstream.body, startByte, size - 1), { status: 200, headers });
-  }
-
+  const size = Number(upstream.headers.get('Content-Length') || 0) || await getAudioSize(mp3);
   const range = rangeHeader && size ? parseRange(rangeHeader, size) : null;
-  // Debug aid: what the worker saw (requested range | file size | upstream status)
-  headers.set('X-Range-Debug', `${rangeHeader || '-'}|${size}|${upstream.status}`);
   if (range === 'unsatisfiable') {
     upstream.body?.cancel();
     headers.set('Content-Range', `bytes */${size}`);
@@ -281,17 +304,22 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
   }
   if (!range) {
     if (size) headers.set('Content-Length', String(size));
-    return new Response(request.method === 'HEAD' ? null : upstream.body, { status: 200, headers });
+    if (isHead) upstream.body?.cancel();
+    return new Response(isHead ? null : upstream.body, { status: 200, headers });
   }
 
-  // Upstream ignored the range (200, whole file): cut the slice ourselves.
+  // Upstream ignored the range (200, whole file): ask the cache for the
+  // slice natively first, slice in JS only as a last resort.
+  upstream.body?.cancel();
   headers.set('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
   headers.set('Content-Length', String(range.end - range.start + 1));
-  if (request.method === 'HEAD') {
-    upstream.body?.cancel();
-    return new Response(null, { status: 206, headers });
-  }
-  return new Response(sliceStream(upstream.body, range.start, range.end), { status: 206, headers });
+  headers.delete('ETag');
+  if (isHead) return new Response(null, { status: 206, headers });
+  const partial = await fetchRange(range.start, range.end);
+  if (partial.status === 206) return new Response(partial.body, { status: 206, headers });
+  if (partial.ok) return new Response(sliceStream(partial.body, range.start, range.end), { status: 206, headers });
+  partial.body?.cancel();
+  return new Response('Upstream error', { status: 502, headers: { ...corsHeaders, 'Cache-Control': 'no-store' } });
 };
 
 const serveSessionWaveform = async (sessionId, corsHeaders) => {
@@ -303,8 +331,8 @@ const serveSessionWaveform = async (sessionId, corsHeaders) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
-  const upstream = await fetch(source, { cf: { cacheEverything: true, cacheTtl: AUDIO_CACHE_TTL } });
-  const data = upstream.ok ? await upstream.json() : null;
+  const upstream = await fetch(source, { cf: cacheFor(AUDIO_CACHE_TTL) });
+  const data = upstream.ok ? await upstream.json().catch(() => null) : null;
   const samples = Array.isArray(data?.left) ? data.left.map(Number).filter(Number.isFinite) : [];
   if (!samples.length) {
     return new Response(JSON.stringify({ error: 'no_waveform' }), {
@@ -317,7 +345,10 @@ const serveSessionWaveform = async (sessionId, corsHeaders) => {
   const peaks = Array.from({ length: Math.min(WAVEFORM_POINTS, samples.length) }, (_, i) => {
     const from = Math.floor(i * bucket);
     const to = Math.max(from + 1, Math.floor((i + 1) * bucket));
-    return Math.round(Math.max(...samples.slice(from, to)) * 1000) / 1000;
+    // Loop, not Math.max(...slice): a spread of a huge bucket throws RangeError
+    let peak = -Infinity;
+    for (let j = from; j < to && j < samples.length; j += 1) if (samples[j] > peak) peak = samples[j];
+    return Math.round((Number.isFinite(peak) ? peak : 0) * 1000) / 1000;
   });
   return new Response(JSON.stringify({ peaks, duration: Number(data.duration) || meta.duration || 0 }), {
     status: 200,
@@ -339,7 +370,8 @@ const fetchLiveMeta = async () => {
       cf: { cacheTtl: 0, cacheEverything: false },
     });
     const data = status.ok ? (await status.json())?.data : null;
-    if (data?.mountId) mountId = String(data.mountId);
+    // Upstream value goes into a URL path: digits only
+    if (/^\d+$/.test(String(data?.mountId || ''))) mountId = String(data.mountId);
   } catch {}
   const upstream = await fetch(`${LIVE_META_UPSTREAM}${mountId}?t=${Date.now()}`, {
     headers: { Accept: 'application/json' },
@@ -378,7 +410,18 @@ const serveLive = async (url, corsHeaders) => {
   // /live/audio: send the player to the current stream
   if (!live.connected) return json({ connected: false }, 503);
   const wantOgg = url.searchParams.get('format') === 'ogg' || url.pathname.endsWith('.ogg');
-  const stream = live.urlAudio.find((item) => item.type.includes(wantOgg ? 'ogg' : 'mpeg')) || live.urlAudio[0];
+  // Only ever redirect to LiveSets' own https stream URLs (never an open redirect)
+  const isLiveSetsStream = (value) => {
+    try {
+      const target = new URL(value);
+      return target.protocol === 'https:'
+        && (target.hostname === 'livesets.com' || target.hostname.endsWith('.livesets.com'));
+    } catch {
+      return false;
+    }
+  };
+  const streams = live.urlAudio.filter((item) => isLiveSetsStream(item.url));
+  const stream = streams.find((item) => item.type.includes(wantOgg ? 'ogg' : 'mpeg')) || streams[0];
   if (!stream) return json({ connected: true, error: 'no_stream' }, 502);
   return new Response(null, {
     status: 302,
@@ -425,51 +468,54 @@ export default {
         return await serveSessionWaveform(waveformMatch[1], corsHeaders);
       }
 
-      if (url.pathname === '/sessions') {
-        const upstream = await fetch(`${SESSIONS_UPSTREAM}?t=${Date.now()}`, {
-          headers: { Accept: 'text/html' },
-          cf: { cacheTtl: 300, cacheEverything: false },
-        });
+      // JSON helper: errors are never cached by browsers
+      const jsonResponse = (body, status, maxAge = 0) => new Response(JSON.stringify(body), {
+        status,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Cache-Control': status === 200 && maxAge ? `public, max-age=${maxAge}` : 'no-store',
+        },
+      });
 
-        const html = await upstream.text();
-        const sessions = parseSessionsHtml(html);
-        return new Response(JSON.stringify({ sessions }), {
-          status: upstream.ok ? 200 : upstream.status,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=300',
-          },
+      if (url.pathname === '/sessions') {
+        // No cache-buster: Cloudflare caches the page for 5 minutes, so
+        // visitors (or abuse) don't each hit LiveSets
+        const upstream = await fetch(SESSIONS_UPSTREAM, {
+          headers: { Accept: 'text/html' },
+          cf: cacheFor(300),
         });
+        if (!upstream.ok) {
+          upstream.body?.cancel();
+          return jsonResponse({ sessions: [], error: 'upstream_error' }, 502);
+        }
+        const sessions = parseSessionsHtml(await upstream.text());
+        return jsonResponse({ sessions }, 200, 300);
       }
 
       const sessionMetaMatch = url.pathname.match(/^\/session-meta\/(\d+)$/);
       if (sessionMetaMatch) {
-        const [, sessionId] = sessionMetaMatch;
-        const upstream = await fetch(`${SESSION_META_UPSTREAM}${sessionId}?t=${Date.now()}`, {
-          headers: { Accept: 'application/json' },
-          cf: { cacheTtl: 300, cacheEverything: false },
-        });
-
-        const meta = upstream.ok ? normalizeSessionMeta(await upstream.json()) : {};
-        return new Response(JSON.stringify({ meta }), {
-          status: upstream.ok ? 200 : upstream.status,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'public, max-age=300',
-          },
-        });
+        // CIDIRILK's own sets only (see fetchSessionMeta)
+        const meta = await fetchSessionMeta(sessionMetaMatch[1]);
+        if (!meta) return jsonResponse({ meta: {}, error: 'not_found' }, 404);
+        return jsonResponse({ meta }, 200, 300);
       }
 
+      if (url.pathname !== '/') {
+        return new Response('Not Found', { status: 404, headers: { ...corsHeaders, 'Cache-Control': 'no-store' } });
+      }
+
+      // Live status (the badge polls this every 15s)
       const upstream = await fetch(`${STATUS_UPSTREAM}?t=${Date.now()}`, {
         headers: { Accept: 'application/json' },
         cf: { cacheTtl: 0, cacheEverything: false },
       });
-
-      const body = await upstream.text();
-      return new Response(body, {
-        status: upstream.status,
+      if (!upstream.ok) {
+        upstream.body?.cancel();
+        return jsonResponse({ error: 'upstream_error' }, 502);
+      }
+      return new Response(await upstream.text(), {
+        status: 200,
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
