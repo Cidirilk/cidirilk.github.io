@@ -2355,6 +2355,8 @@ async function toggleConsoleLiveSetsSession(card, event) {
     const viaProxy = Boolean(proxyBase) && audio.currentSrc.startsWith(proxyBase);
     if (relative >= 0 && relative <= loadedEnd - 1) {
       audio.currentTime = relative; // already downloaded: instant
+      updateLiveSetsCardProgress(card, audio);
+      return;
     } else if (viaProxy) {
       seekLiveSetsByUrl(card, audio, target, proxyBase);
       return;
@@ -2362,10 +2364,9 @@ async function toggleConsoleLiveSetsSession(card, event) {
       // Direct LiveSets file (worker unavailable): stay inside the loaded part
       audio.currentTime = Math.max(0, Math.min(Math.max(audio.currentTime, loadedEnd - 2), relative));
       showLiveSetsCardNotice(card, 'Skipped to the loaded part. LiveSets loads sets from the start, so the rest unlocks as it plays.');
+      updateLiveSetsCardProgress(card, audio);
+      return;
     }
-    updateLiveSetsCardProgress(card, audio);
-    if (audio.paused) playLiveSetsCard(card);
-    return;
   }
   if (card.classList.contains('is-playing-session')) {
     pauseLiveSetsCardPlayer(card);
