@@ -14,10 +14,11 @@
     />
     <meta name="author" content="Kliridis Charalampos" />
     <meta name="theme-color" content="#c174ff" />
+    <link rel="canonical" href="https://cidirilk.com/" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://cidirilk.github.io/" />
+    <meta property="og:url" content="https://cidirilk.com/" />
     <meta property="og:title" content="Cidirilk" />
     <meta
       property="og:description"
@@ -25,12 +26,16 @@
     />
     <meta
       property="og:image"
-      content="https://cidirilk.github.io/assets/social-preview.jpg"
+      content="https://cidirilk.com/assets/images/social-preview.jpg"
+    />
+    <meta
+      property="og:image:alt"
+      content="Abstract violet transmission orb artwork for CIDIRILK"
     />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://cidirilk.github.io/" />
+    <meta property="twitter:url" content="https://cidirilk.com/" />
     <meta property="twitter:title" content="Cidirilk" />
     <meta
       property="twitter:description"
@@ -38,7 +43,11 @@
     />
     <meta
       property="twitter:image"
-      content="https://cidirilk.github.io/assets/social-preview.jpg"
+      content="https://cidirilk.com/assets/images/social-preview.jpg"
+    />
+    <meta
+      property="twitter:image:alt"
+      content="Abstract violet transmission orb artwork for CIDIRILK"
     />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1651,13 +1660,19 @@
 
     <!-- Custom Nickname Prompt -->
     <div class="chat-nickname-overlay" data-nickname-overlay hidden>
-      <div class="nickname-card">
+      <div
+        class="nickname-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="nickname-title"
+        aria-describedby="nickname-description"
+      >
         <div class="nickname-header">
           <div class="nickname-icon">
             <i class="fa-solid fa-user-astronaut"></i>
           </div>
-          <h3>Join the Conversation</h3>
-          <p class="nickname-subtitle">Choose your cosmic identity</p>
+          <h3 id="nickname-title">Join the Conversation</h3>
+          <p class="nickname-subtitle" id="nickname-description">Choose your cosmic identity</p>
         </div>
         <form class="nickname-form" data-nickname-form>
           <label for="chatNickname">Your Nickname</label>
@@ -1851,7 +1866,7 @@
         </a>
       </details>
       <div class="booking-email">
-        <span class="booking-address">cidirilk@gmail.com</span>
+        <span class="booking-address" data-booking-email="cidirilk@gmail.com">cidirilk@gmail.com</span>
         <button class="booking-copy" type="button" data-booking-copy>
           <i class="fa-regular fa-copy" aria-hidden="true"></i>
           <span data-booking-copy-label>Copy</span>
@@ -1871,7 +1886,7 @@
     </dialog>
 
     <script src="https://w.soundcloud.com/player/api.js" defer></script>
-    <script src="./assets/js/script.js?v=dark-loader-default-20261026c" defer></script>
+    <script src="./assets/js/script.js?v=quality-fixes-20261025" defer></script>
     <script
       src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstile"
       defer

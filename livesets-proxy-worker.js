@@ -167,6 +167,11 @@ const parseRange = (header, size) => {
   return start <= end && start < size ? { start, end } : 'unsatisfiable';
 };
 
+const isExactByteRange = (header, start, end) => {
+  const match = /^bytes\s+(\d+)-(\d+)\/(\d+|\*)$/i.exec(String(header || '').trim());
+  return Boolean(match && Number(match[1]) === start && Number(match[2]) === end);
+};
+
 // Pass through only bytes [start, end] of a stream.
 const sliceStream = (body, start, end) => {
   let offset = 0;
@@ -210,7 +215,11 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
 
   const rangeHeader = request.headers.get('Range');
   const upstream = await fetch(mp3, {
-    headers: rangeHeader ? { Range: rangeHeader } : {},
+    // Always start by fetching the complete representation. When ?t is used,
+    // the browser's Range value is relative to the shortened representation,
+    // not to the original MP3. Passing it upstream here mixes those two byte
+    // spaces and makes the player display the wrong seek position.
+    headers: {},
     cf: { cacheEverything: true, cacheTtl: AUDIO_CACHE_TTL },
   });
   if (!upstream.ok) {
@@ -226,72 +235,72 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
   // Debug aid: HIT once Cloudflare has cached the file (seeks are then instant)
   headers.set('X-Upstream-Cache', upstream.headers.get('CF-Cache-Status') || 'none');
 
-  // Upstream (or Cloudflare's cache) honoured the range: pass it through.
-  if (upstream.status === 206) {
-    ['Content-Range', 'Content-Length'].forEach((name) => {
-      const value = upstream.headers.get(name);
-      if (value) headers.set(name, value);
-    });
-    return new Response(request.method === 'HEAD' ? null : upstream.body, { status: 206, headers });
-  }
-
   const size = await getAudioSize(mp3, upstream);
 
-  // ?t=<seconds>: start the stream at that point of the set. Cloudflare does
-  // not pass the browser's Range header through to workers.dev, so the site
-  // seeks by URL instead. LiveSets sets are constant-bitrate MP3s, so a
-  // time maps linearly to a byte offset (MP3 frames resync on their own).
-  const startSeconds = Number(new URL(request.url).searchParams.get('t'));
-  if (!rangeHeader && size && Number.isFinite(startSeconds) && startSeconds > 0 && meta.duration > 0) {
-    const startByte = Math.min(size - 1, Math.floor((startSeconds / meta.duration) * size));
-    headers.set('Content-Length', String(size - startByte));
-    headers.set('X-Audio-Start', String(startSeconds));
-    headers.delete('Accept-Ranges');
-    if (request.method === 'HEAD') {
-      upstream.body?.cancel();
-      return new Response(null, { status: 200, headers });
-    }
-
-    // Preferred: ask Cloudflare's cache for the byte range. A cached object
-    // can be served partially, and passing that stream through costs almost
-    // no CPU. Reading 40+ MB chunk by chunk in JS (sliceStream) can exceed
-    // the free plan's CPU limit and cut the response off.
-    const partial = await fetch(mp3, {
-      headers: { Range: `bytes=${startByte}-` },
-      cf: { cacheEverything: true, cacheTtl: AUDIO_CACHE_TTL },
-    });
-    if (partial.status === 206) {
-      upstream.body?.cancel();
-      headers.set('X-Range-Debug', `t=${startSeconds}|${startByte}/${size}|native-206|${partial.headers.get('CF-Cache-Status') || 'none'}`);
-      return new Response(partial.body, { status: 200, headers });
-    }
-    partial.body?.cancel();
-
-    headers.set('X-Range-Debug', `t=${startSeconds}|${startByte}/${size}|sliced|${partial.status}`);
-    return new Response(sliceStream(upstream.body, startByte, size - 1), { status: 200, headers });
-  }
-
-  const range = rangeHeader && size ? parseRange(rangeHeader, size) : null;
-  // Debug aid: what the worker saw (requested range | file size | upstream status)
-  headers.set('X-Range-Debug', `${rangeHeader || '-'}|${size}|${upstream.status}`);
+  // ?t=<seconds> creates a representation that begins at the calculated MP3
+  // byte offset. Any Range header must therefore be evaluated relative to
+  // that representation, then translated back to the original MP3 before we
+  // ask LiveSets (or Cloudflare's cache) for a slice.
+  const requestedSeconds = Number(new URL(request.url).searchParams.get('t'));
+  const hasTimeOffset = size && Number.isFinite(requestedSeconds) && requestedSeconds > 0 && meta.duration > 0;
+  const effectiveSeconds = hasTimeOffset ? Math.min(requestedSeconds, meta.duration) : 0;
+  const startByte = hasTimeOffset
+    ? Math.min(size - 1, Math.floor((effectiveSeconds / meta.duration) * size))
+    : 0;
+  const availableSize = size ? size - startByte : 0;
+  const range = rangeHeader && availableSize ? parseRange(rangeHeader, availableSize) : null;
   if (range === 'unsatisfiable') {
     upstream.body?.cancel();
-    headers.set('Content-Range', `bytes */${size}`);
+    headers.set('Content-Range', `bytes */${availableSize}`);
     return new Response(null, { status: 416, headers });
   }
-  if (!range) {
+
+  const hasPartialRequest = Boolean(range);
+  const needsSlice = Boolean(startByte || hasPartialRequest);
+  if (!needsSlice) {
     if (size) headers.set('Content-Length', String(size));
     return new Response(request.method === 'HEAD' ? null : upstream.body, { status: 200, headers });
   }
 
-  // Upstream ignored the range (200, whole file): cut the slice ourselves.
-  headers.set('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
-  headers.set('Content-Length', String(range.end - range.start + 1));
+  const relativeStart = range?.start || 0;
+  const relativeEnd = range?.end ?? availableSize - 1;
+  const actualStart = startByte + relativeStart;
+  const actualEnd = startByte + relativeEnd;
+  headers.set('Content-Length', String(relativeEnd - relativeStart + 1));
+  if (hasTimeOffset) headers.set('X-Audio-Start', String(effectiveSeconds));
+  if (hasPartialRequest) headers.set('Content-Range', `bytes ${relativeStart}-${relativeEnd}/${availableSize}`);
   if (request.method === 'HEAD') {
     upstream.body?.cancel();
-    return new Response(null, { status: 206, headers });
+    return new Response(null, { status: hasPartialRequest ? 206 : 200, headers });
   }
-  return new Response(sliceStream(upstream.body, range.start, range.end), { status: 206, headers });
+
+  // Let the cache serve the translated range when it can. Only trust a 206
+  // that exactly matches the translated source bytes; some upstream paths
+  // have historically ignored Range requests or returned the wrong range.
+  const partial = await fetch(mp3, {
+    headers: { Range: `bytes=${actualStart}-${actualEnd}` },
+    cf: { cacheEverything: true, cacheTtl: AUDIO_CACHE_TTL },
+  });
+  if (partial.status === 206 && isExactByteRange(partial.headers.get('Content-Range'), actualStart, actualEnd)) {
+    upstream.body?.cancel();
+    return new Response(partial.body, { status: hasPartialRequest ? 206 : 200, headers });
+  }
+
+  // If the range request was ignored, it is a complete source stream and can
+  // be cut locally. For an invalid partial response, retain the first full
+  // response and slice that instead.
+  if (partial.status === 200) {
+    upstream.body?.cancel();
+    return new Response(sliceStream(partial.body, actualStart, actualEnd), {
+      status: hasPartialRequest ? 206 : 200,
+      headers,
+    });
+  }
+  partial.body?.cancel();
+  return new Response(sliceStream(upstream.body, actualStart, actualEnd), {
+    status: hasPartialRequest ? 206 : 200,
+    headers,
+  });
 };
 
 const serveSessionWaveform = async (sessionId, corsHeaders) => {
@@ -390,17 +399,25 @@ export default {
   async fetch(request) {
     const url = new URL(request.url);
     const requestOrigin = request.headers.get('Origin') || '';
-    const allowOrigin = isAllowedOrigin(requestOrigin)
-      ? requestOrigin
-      : ALLOWED_ORIGINS[0];
-
+    const originIsAllowed = Boolean(requestOrigin) && isAllowedOrigin(requestOrigin);
     const corsHeaders = {
-      'Access-Control-Allow-Origin': allowOrigin,
       'Vary': 'Origin',
       'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
       'Access-Control-Allow-Headers': 'Accept, Content-Type, Range',
       'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range',
     };
+    if (originIsAllowed) corsHeaders['Access-Control-Allow-Origin'] = requestOrigin;
+
+    // Origin is an effective browser CORS boundary only when it is present.
+    // Do not reject no-Origin media loads (audio elements and direct browser
+    // navigation can make them), but reject explicit requests from other
+    // websites before any upstream work is started.
+    if (requestOrigin && !originIsAllowed) {
+      return new Response(JSON.stringify({ error: 'origin_not_allowed' }), {
+        status: 403,
+        headers: { Vary: 'Origin', 'Content-Type': 'application/json' },
+      });
+    }
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders });
@@ -462,19 +479,26 @@ export default {
         });
       }
 
-      const upstream = await fetch(`${STATUS_UPSTREAM}?t=${Date.now()}`, {
-        headers: { Accept: 'application/json' },
-        cf: { cacheTtl: 0, cacheEverything: false },
-      });
+      if (url.pathname === '/') {
+        const upstream = await fetch(`${STATUS_UPSTREAM}?t=${Date.now()}`, {
+          headers: { Accept: 'application/json' },
+          cf: { cacheTtl: 0, cacheEverything: false },
+        });
 
-      const body = await upstream.text();
-      return new Response(body, {
-        status: upstream.status,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store',
-        },
+        const body = await upstream.text();
+        return new Response(body, {
+          status: upstream.status,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: 'not_found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     } catch (err) {
       return new Response(JSON.stringify({ error: 'upstream_unreachable' }), {

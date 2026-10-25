@@ -34,6 +34,11 @@ const ALLOWED_ORIGINS = [
 const LOCAL_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL_LEN = 254;
+// The form contains only an email address, honeypot value, and Turnstile token.
+// Keep the accepted request deliberately small so malformed requests cannot make
+// the Worker parse an unbounded body.
+const MAX_REQUEST_BYTES = 4 * 1024;
+const MAX_TURNSTILE_TOKEN_LEN = 2 * 1024;
 const TURNSTILE_VERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
@@ -57,6 +62,84 @@ const json = (body, status, origin) =>
     },
   });
 
+const readJsonBody = async (request) => {
+  const contentType = request.headers.get('Content-Type') || '';
+  if (contentType.split(';', 1)[0].trim().toLowerCase() !== 'application/json') {
+    return { error: 'unsupported_media_type' };
+  }
+
+  const contentLength = request.headers.get('Content-Length');
+  if (
+    contentLength &&
+    (!/^\d+$/.test(contentLength) || Number(contentLength) > MAX_REQUEST_BYTES)
+  ) {
+    return { error: 'body_too_large' };
+  }
+
+  if (!request.body) return { error: 'bad_request' };
+
+  const reader = request.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_REQUEST_BYTES) {
+        await reader.cancel();
+        return { error: 'body_too_large' };
+      }
+      chunks.push(value);
+    }
+  } catch (err) {
+    return { error: 'bad_request' };
+  } finally {
+    reader.releaseLock();
+  }
+
+  try {
+    const data = JSON.parse(new TextDecoder().decode(concatChunks(chunks, size)));
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { error: 'bad_request' };
+    }
+    return { data };
+  } catch (err) {
+    return { error: 'bad_request' };
+  }
+};
+
+const concatChunks = (chunks, size) => {
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+};
+
+const applyRateLimit = async (rateLimit, ip) => {
+  const key = `rl:${ip}`;
+  try {
+    const storedCount = await rateLimit.get(key);
+    const count = storedCount === null ? 0 : Number(storedCount);
+    if (!Number.isSafeInteger(count) || count < 0) {
+      console.error('rate_limit_invalid_counter');
+      return { ok: false, status: 503 };
+    }
+    if (count >= 5) return { ok: false, status: 429 };
+
+    await rateLimit.put(key, String(count + 1), { expirationTtl: 60 });
+    return { ok: true };
+  } catch (err) {
+    // Do not accept subscriptions without the configured abuse control when KV
+    // is unavailable. The detailed storage error stays out of the response.
+    console.error('rate_limit_exception', err && err.message);
+    return { ok: false, status: 503 };
+  }
+};
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
@@ -74,12 +157,16 @@ export default {
       return json({ ok: false, error: 'method_not_allowed' }, 405, origin);
     }
 
-    let data;
-    try {
-      data = await request.json();
-    } catch (err) {
-      return json({ ok: false, error: 'bad_request' }, 400, origin);
+    const parsed = await readJsonBody(request);
+    if (parsed.error) {
+      const status = parsed.error === 'unsupported_media_type'
+        ? 415
+        : parsed.error === 'body_too_large'
+          ? 413
+          : 400;
+      return json({ ok: false, error: parsed.error }, status, origin);
     }
+    const { data } = parsed;
 
     // Honeypot: real users never see the `company` field. If it is filled,
     // silently pretend success so bots get no signal.
@@ -97,18 +184,23 @@ export default {
     // Optional per-IP rate limit (enabled only when a RATE_LIMIT KV is bound).
     if (env.RATE_LIMIT) {
       const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-      const key = `rl:${ip}`;
-      const count = parseInt((await env.RATE_LIMIT.get(key)) || '0', 10);
-      if (count >= 5) {
-        return json({ ok: false, error: 'rate_limited' }, 429, origin);
+      const rateLimit = await applyRateLimit(env.RATE_LIMIT, ip);
+      if (!rateLimit.ok) {
+        if (rateLimit.status === 429) {
+          return json({ ok: false, error: 'rate_limited' }, 429, origin);
+        }
+        return json({ ok: false, error: 'service_unavailable' }, 503, origin);
       }
-      await env.RATE_LIMIT.put(key, String(count + 1), { expirationTtl: 60 });
     }
 
     // Cloudflare Turnstile: verify the challenge token server-side before doing
     // anything with the email. Fails closed (no secret or bad token => reject).
-    const token = data && typeof data.token === 'string' ? data.token : '';
-    if (!token || !env.TURNSTILE_SECRET_KEY) {
+    const token = data && typeof data.token === 'string' ? data.token.trim() : '';
+    if (
+      !token ||
+      token.length > MAX_TURNSTILE_TOKEN_LEN ||
+      !env.TURNSTILE_SECRET_KEY
+    ) {
       return json({ ok: false, error: 'failed_captcha' }, 403, origin);
     }
     try {
@@ -166,7 +258,7 @@ export default {
         /* non-JSON error body */
       }
       if (code === 'duplicate_parameter') {
-        return json({ ok: true, already: true }, 200, origin);
+        return json({ ok: true }, 200, origin);
       }
 
       console.error('brevo_error', resp.status, code);

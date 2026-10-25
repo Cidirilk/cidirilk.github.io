@@ -78,6 +78,42 @@ if (!shouldPreserveInitialHash) {
 
 const markBodyLoaded = () => document.body?.classList.add('is-loaded');
 
+function trapFocus(event, container) {
+  const focusable = [...container.querySelectorAll(
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )].filter((element) => !element.closest('[hidden], [aria-hidden="true"], [inert]'));
+  if (!focusable.length) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+function setCardDescendantFocusability(card, active) {
+  card.inert = !active;
+  card.querySelectorAll('a[href], button, input, select, textarea, iframe, [tabindex]').forEach((element) => {
+    if (!active) {
+      if (!Object.prototype.hasOwnProperty.call(element.dataset, 'inactiveTabindex')) {
+        element.dataset.inactiveTabindex = element.getAttribute('tabindex') || '';
+      }
+      element.tabIndex = -1;
+      return;
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(element.dataset, 'inactiveTabindex')) return;
+    const previousTabindex = element.dataset.inactiveTabindex;
+    if (previousTabindex) element.setAttribute('tabindex', previousTabindex);
+    else element.removeAttribute('tabindex');
+    delete element.dataset.inactiveTabindex;
+  });
+}
+
 const rememberLoaderSeen = () => {
   try {
     localStorage.setItem('loaderSeen', '1');
@@ -721,6 +757,7 @@ const setActiveSoundCloudTrack = (trackIndex, options = {}) => {
       card.classList.toggle('active', active);
       card.setAttribute('aria-current', active ? 'true' : 'false');
       card.tabIndex = active ? 0 : -1;
+      setCardDescendantFocusability(card, active);
       if (active) {
         loadPodcastCardPlayer(card);
       } else {
@@ -960,6 +997,7 @@ const renderSoundCloudEpisodes = (visibleTracks, playlistArtworkUrl = '') => {
       card.setAttribute('aria-label', `${formatPodcastEpisodeTitle()} ${formatPodcastEpisodeLabel(track)}`);
       card.setAttribute('tabindex', '0');
       card.setAttribute('aria-current', active ? 'true' : 'false');
+      setCardDescendantFocusability(card, active);
       if (playlistArtwork) {
         card.classList.add('has-artwork');
         card.style.setProperty('--podcast-artwork', `url("${playlistArtwork}")`);
@@ -1077,7 +1115,9 @@ window.addEventListener('resize', loadVisiblePodcastPreview, { passive: true });
 
 const setTheme = (mode) => {
   root.setAttribute('data-theme', mode);
-  localStorage.setItem('theme', mode);
+  try {
+    localStorage.setItem('theme', mode);
+  } catch (e) {}
   syncThemeIcon();
   // Turnstile can't restyle live, so re-render it to match the new theme.
   renderTurnstile();
@@ -1089,7 +1129,10 @@ const setTheme = (mode) => {
 };
 
 const initTheme = () => {
-  const stored = localStorage.getItem('theme');
+  let stored = null;
+  try {
+    stored = localStorage.getItem('theme');
+  } catch (e) {}
   
   if (stored === 'light' || stored === 'dark') {
     root.setAttribute('data-theme', stored);
@@ -1128,8 +1171,11 @@ const closeChat = () => {
 const nicknameOverlay = document.querySelector('[data-nickname-overlay]');
 const nicknameForm = document.querySelector('[data-nickname-form]');
 const nicknameCancel = document.querySelector('[data-nickname-cancel]');
+const nicknameCard = nicknameOverlay?.querySelector('.nickname-card');
 const NICKNAME_COOKIE = 'cidirilkChatNickname';
 let chatLoaded = false;
+let nicknameLastFocus = null;
+let nicknamePreviousBodyOverflow = '';
 
 const getSavedNickname = () => getCookie(NICKNAME_COOKIE);
 
@@ -1138,6 +1184,9 @@ const saveNickname = (nickname) => {
 };
 
 const showNicknamePrompt = () => {
+  nicknameLastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  nicknamePreviousBodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
   nicknameOverlay?.removeAttribute('hidden');
   // Pre-fill with saved nickname if exists
   const savedNick = getSavedNickname();
@@ -1151,8 +1200,21 @@ const showNicknamePrompt = () => {
   }, 100);
 };
 
-const hideNicknamePrompt = () => {
+const hideNicknamePrompt = ({ restoreFocus = true } = {}) => {
+  if (nicknameOverlay?.hasAttribute('hidden')) return;
   nicknameOverlay?.setAttribute('hidden', '');
+  document.body.style.overflow = nicknamePreviousBodyOverflow;
+  const focusTarget = nicknameLastFocus?.isConnected
+    ? nicknameLastFocus
+    : chatToggles[0];
+  if (restoreFocus && focusTarget instanceof HTMLElement) {
+    try {
+      focusTarget.focus({ preventScroll: true });
+    } catch (e) {
+      focusTarget.focus();
+    }
+  }
+  nicknameLastFocus = null;
 };
 
 const loadChatWithNickname = (nickname) => {
@@ -1199,7 +1261,7 @@ const loadChatWithNickname = (nickname) => {
   newCloseBtn?.addEventListener('click', closeChat);
   
   openChat();
-  hideNicknamePrompt();
+  hideNicknamePrompt({ restoreFocus: false });
 };
 
 nicknameForm?.addEventListener('submit', (e) => {
@@ -1217,6 +1279,17 @@ nicknameOverlay?.addEventListener('click', (e) => {
   if (e.target === nicknameOverlay) {
     hideNicknamePrompt();
   }
+});
+
+nicknameOverlay?.addEventListener('keydown', (event) => {
+  if (nicknameOverlay.hasAttribute('hidden')) return;
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    hideNicknamePrompt();
+    return;
+  }
+  if (event.key !== 'Tab' || !nicknameCard) return;
+  trapFocus(event, nicknameCard);
 });
 
 chatToggles.forEach((toggle) =>
@@ -1925,6 +1998,24 @@ const renderLiveSetsSessionsStatus = (message, isLoading = false) => {
 
 let liveSetsSessionCount = 0;
 let youtubeVideoCount = 0;
+let renderedLiveSetsSignature = '';
+let pendingLiveSetsSessions = null;
+
+const getLiveSetsSessionsSignature = (sessions) => sessions
+  .slice(0, MEDIA_CAROUSEL_LIMIT)
+  .map((session) => [
+    getLiveSetsSessionId(session),
+    String(session?.title || ''),
+    String(session?.url || ''),
+    String(session?.duration || ''),
+    String(session?.genre || ''),
+    String(session?.artwork || ''),
+  ].join('\u001f'))
+  .join('\u001e');
+
+const hasPlayingLiveSetsSession = () => getLiveSetsSessionCards().some((card) =>
+  card.classList.contains('is-playing-session') || !card.querySelector('[data-livesets-audio]')?.paused,
+);
 
 const YOUTUBE_VIDEOS = [
   {
@@ -2607,6 +2698,7 @@ const renderYoutubeVideos = () => {
 
 const renderLiveSetsSessions = (sessions) => {
   const visibleSessions = sessions.slice(0, MEDIA_CAROUSEL_LIMIT);
+  renderedLiveSetsSignature = getLiveSetsSessionsSignature(visibleSessions);
   liveSetsSessionLists.forEach((list) => {
     list.replaceChildren();
     visibleSessions.forEach((session, index) => {
@@ -2669,8 +2761,14 @@ const renderLiveSetsSessions = (sessions) => {
       audio.preload = 'none';
       audio.dataset.livesetsAudio = '';
       audio.addEventListener('play', () => setLiveSetsCardPlaying(card, session.title, true));
-      audio.addEventListener('pause', () => setLiveSetsCardPlaying(card, session.title, false));
-      audio.addEventListener('ended', () => setLiveSetsCardPlaying(card, session.title, false));
+      audio.addEventListener('pause', () => {
+        setLiveSetsCardPlaying(card, session.title, false);
+        setTimeout(flushPendingLiveSetsSessions, 0);
+      });
+      audio.addEventListener('ended', () => {
+        setLiveSetsCardPlaying(card, session.title, false);
+        setTimeout(flushPendingLiveSetsSessions, 0);
+      });
       audio.addEventListener('timeupdate', () => updateLiveSetsCardProgress(card, audio));
       audio.addEventListener('progress', () => updateLiveSetsCardLoaded(card, audio));
       audio.addEventListener('waiting', () => card.classList.add('is-buffering'));
@@ -2712,6 +2810,22 @@ const renderLiveSetsSessions = (sessions) => {
   setActiveLiveSetsSession(0, { instant: true });
 };
 
+const flushPendingLiveSetsSessions = () => {
+  if (!pendingLiveSetsSessions || hasPlayingLiveSetsSession()) return;
+  const sessions = pendingLiveSetsSessions;
+  pendingLiveSetsSessions = null;
+  renderLiveSetsSessions(sessions);
+};
+
+const refreshLiveSetsSessions = (sessions) => {
+  if (getLiveSetsSessionsSignature(sessions) === renderedLiveSetsSignature) return;
+  if (hasPlayingLiveSetsSession()) {
+    pendingLiveSetsSessions = sessions;
+    return;
+  }
+  renderLiveSetsSessions(sessions);
+};
+
 const initLiveSetsSessions = async () => {
   if (!liveSetsSessionLists.length) return;
   const cachedSessions = readCachedLiveSetsSessions();
@@ -2724,7 +2838,7 @@ const initLiveSetsSessions = async () => {
   const sessions = await fetchLiveSetsSessions();
   if (sessions.length) {
     cacheLiveSetsSessions(sessions);
-    renderLiveSetsSessions(sessions);
+    refreshLiveSetsSessions(sessions);
   } else if (!cachedSessions.length) {
     renderLiveSetsSessions(LIVESETS_FALLBACK_SESSIONS);
   }
@@ -3537,6 +3651,10 @@ const initShopModal = () => {
   closeBtn?.addEventListener('click', closeModal);
   overlay?.addEventListener('click', closeModal);
 
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Tab') trapFocus(event, modal);
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !modal.hasAttribute('hidden')) {
       closeModal();
@@ -3557,6 +3675,7 @@ const initCollabModal = () => {
   const modalReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const modalCloseDuration = 320;
   let modalCloseTimer = null;
+  let lastFocus = null;
 
   if (!modal || !collabCards.length) return;
 
@@ -3794,6 +3913,8 @@ const initCollabModal = () => {
       modalCloseTimer = null;
     }
 
+    lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     // Update modal content
     modalIcon.innerHTML = `<i class="fa-solid ${data.icon}"></i>`;
     modalTitle.textContent = data.title;
@@ -3819,6 +3940,14 @@ const initCollabModal = () => {
       modal.classList.remove('is-closing');
       document.body.style.overflow = '';
       modalCloseTimer = null;
+      if (lastFocus?.isConnected) {
+        try {
+          lastFocus.focus({ preventScroll: true });
+        } catch (e) {
+          lastFocus.focus();
+        }
+      }
+      lastFocus = null;
     };
 
     if (modalReducedMotion) {
@@ -3854,6 +3983,10 @@ const initCollabModal = () => {
 
   // Overlay click
   overlay?.addEventListener('click', closeModal);
+
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Tab') trapFocus(event, modal);
+  });
 
   // ESC key
   document.addEventListener('keydown', (e) => {
@@ -4570,6 +4703,7 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
       card.classList.toggle('active', active);
       card.setAttribute('aria-current', active ? 'true' : 'false');
       card.tabIndex = active ? 0 : -1;
+      setCardDescendantFocusability(card, active);
       if (active) {
         loadPodcastCardPlayer(card);
         setPeekCarouselPosition(list, card.closest('.podcast-slide'), Boolean(options.instant), options.wrapDirection);
@@ -4633,6 +4767,7 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
       card.setAttribute('aria-label', `ChaCha ${name}`);
       card.setAttribute('aria-current', 'false');
       card.tabIndex = -1;
+      setCardDescendantFocusability(card, false);
       const artwork = normalizeSoundCloudArtworkUrl(sound.artwork_url);
       if (artwork) {
         card.classList.add('has-artwork');
@@ -4800,7 +4935,7 @@ document.addEventListener('play', (event) => {
   };
 
   copyBtn?.addEventListener('click', async () => {
-    const email = address?.textContent.trim() || '';
+    const email = address?.dataset.bookingEmail || address?.textContent.trim() || '';
     try {
       await navigator.clipboard.writeText(email);
       showCopied('Email copied to clipboard.');
@@ -4886,7 +5021,6 @@ function createPodcastControls(track, opts = {}) {
     const duration = Number(card?.dataset.durationMs || 0);
     if (!widget || !duration) return;
     widget.seekTo(Math.max(0, Math.min(1, ratio)) * duration);
-    widget.isPaused((paused) => { if (paused) widget.play(); });
   };
   seek.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -5043,15 +5177,24 @@ function createYoutubePreview(video, index) {
       slide.style.setProperty('--shop-index', `'${String(index + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}'`);
       const item = slide.querySelector('.shop-item');
       if (!item) return;
+      const imageButton = item.querySelector('.shop-image-button');
+      const name = item.querySelector('h4')?.textContent.trim() || 'artifact';
+      const previewLabel = imageButton?.dataset.previewLabel
+        || imageButton?.getAttribute('aria-label')
+        || `View ${name} full size`;
+      if (imageButton) imageButton.dataset.previewLabel = previewLabel;
       if (featured) {
         item.removeAttribute('role');
         item.removeAttribute('tabindex');
         item.removeAttribute('aria-label');
+        imageButton?.setAttribute('aria-label', previewLabel);
       } else {
-        const name = item.querySelector('h4')?.textContent.trim() || 'artifact';
-        item.setAttribute('role', 'button');
-        item.tabIndex = 0;
-        item.setAttribute('aria-label', `Show ${name}`);
+        // The image button remains the only keyboard target. A focusable card
+        // around it would create nested interactive controls.
+        item.removeAttribute('role');
+        item.removeAttribute('tabindex');
+        item.removeAttribute('aria-label');
+        imageButton?.setAttribute('aria-label', `Show ${name}`);
       }
     });
   };
