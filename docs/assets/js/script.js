@@ -661,12 +661,20 @@ const finishPodcastPreviewLoad = (player) => {
   }, delay);
 };
 
+const preparePodcastCardFrame = (card, player, iframe) => {
+  iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
+  // Our own player UI drives the visually hidden SoundCloud widget. This
+  // listener intentionally runs for every fresh iframe, not just the first card visit.
+  iframe.addEventListener('load', () => bindPodcastWidget(card));
+};
+
 const loadPodcastCardPlayer = (card) => {
   const player = card?.querySelector('[data-soundcloud-card-player]');
   const iframe = card?.querySelector('[data-soundcloud-card-frame]');
   if (!iframe) return;
   if (!player?.isConnected || !player.clientWidth) return;
   if (iframe.getAttribute('src') && iframe.getAttribute('src') !== 'about:blank') {
+    if (!card._podcastWidget) bindPodcastWidget(card);
     finishPodcastPreviewLoad(player);
     return;
   }
@@ -686,10 +694,15 @@ const loadPodcastCardPlayer = (card) => {
 const unloadPodcastCardPlayer = (card) => {
   const player = card?.querySelector('[data-soundcloud-card-player]');
   const iframe = card?.querySelector('[data-soundcloud-card-frame]');
-  if (!iframe?.getAttribute('src') || iframe.getAttribute('src') === 'about:blank') return;
-  // Navigate away without collapsing the old widget to zero size mid-render.
-  iframe.setAttribute('src', 'about:blank');
-  iframe.tabIndex = -1;
+  if (!iframe) return;
+  // A SoundCloud Widget is not reliably reusable after its iframe has been
+  // sent to about:blank. Recreate the hidden frame for the next card visit.
+  const replacement = iframe.cloneNode(false);
+  replacement.removeAttribute('src');
+  replacement.tabIndex = -1;
+  replacement.setAttribute('aria-hidden', 'true');
+  preparePodcastCardFrame(card, player, replacement);
+  iframe.replaceWith(replacement);
   resetPodcastControls(card);
   player?.classList.remove('is-loading-preview', 'is-preview-ready');
   player?.classList.add('is-unloaded');
@@ -1019,9 +1032,7 @@ const renderSoundCloudEpisodes = (visibleTracks, playlistArtworkUrl = '') => {
         iframe.allow = 'autoplay; encrypted-media';
         iframe.dataset.soundcloudCardFrame = '';
         iframe.dataset.soundcloudSrc = buildSoundCloudPlayerSrc(playerUrl, playerIndex, !trackUrl);
-        iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
-        // Our own player UI drives the (visually hidden) SoundCloud widget
-        iframe.addEventListener('load', () => bindPodcastWidget(card));
+        preparePodcastCardFrame(card, player, iframe);
         // setActiveSoundCloudTrack loads the frame after the card is attached.
         player.appendChild(iframe);
       }
@@ -1952,7 +1963,7 @@ const buildLiveSetsSessionMetaStrategies = (sessionId) => {
   return strategies;
 };
 
-const fetchLiveSetsSessionMeta = async (sessionId) => {
+const fetchLiveSetsSessionMeta = async (sessionId, signal) => {
   if (!sessionId) return null;
   if (liveSetsSessionMetaCache.has(sessionId)) return liveSetsSessionMetaCache.get(sessionId);
 
@@ -1961,6 +1972,7 @@ const fetchLiveSetsSessionMeta = async (sessionId) => {
       const response = await fetch(strategy.url, {
         headers: { Accept: strategy.name === 'worker' ? 'application/json' : 'text/html, application/json' },
         cache: 'no-store',
+        signal,
       });
       if (!response.ok) throw new Error(`${strategy.name} status ${response.status}`);
       const meta = await strategy.extract(response);
@@ -1969,6 +1981,7 @@ const fetchLiveSetsSessionMeta = async (sessionId) => {
         return meta;
       }
     } catch (error) {
+      if (signal?.aborted) return null;
       continue;
     }
   }
@@ -2220,7 +2233,7 @@ const setActiveLiveSetsSession = (sessionIndex, options = {}) => {
       card.setAttribute('aria-current', active ? 'true' : 'false');
       card.tabIndex = active || consoleListQuery.matches ? 0 : -1;
       if (!active) {
-        pauseLiveSetsCardPlayer(card);
+        releaseLiveSetsCardPlayer(card);
         return;
       }
       loadLiveSetsRealWave(card);
@@ -2386,6 +2399,7 @@ function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
   const start = Math.max(0, Math.floor(seconds));
   const sessionId = card.dataset.livesetsSessionId || '';
   const shouldResume = !audio.paused;
+  const requestVersion = invalidateLiveSetsCardRequest(card);
   card.dataset.audioOffset = String(start);
   card.classList.add('is-buffering');
   const query = new URLSearchParams();
@@ -2398,6 +2412,7 @@ function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
 
   if (!shouldResume) {
     audio.addEventListener('loadedmetadata', () => {
+      if (!isCurrentLiveSetsCardRequest(card, requestVersion)) return;
       card.classList.remove('is-buffering');
       setLiveSetsCardPlayerState(card, 'is-ready');
     }, { once: true });
@@ -2405,14 +2420,19 @@ function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
   }
 
   // Clear any earlier error as soon as audio flows again.
-  audio.addEventListener('playing', () => setLiveSetsCardPlayerState(card, 'is-ready'), { once: true });
+  audio.addEventListener('playing', () => {
+    if (isCurrentLiveSetsCardRequest(card, requestVersion)) {
+      setLiveSetsCardPlayerState(card, 'is-ready');
+    }
+  }, { once: true });
   audio.play().catch((error) => {
     if (error.name === 'AbortError') return;
     // One automatic retry covers a stream the worker cut off early
-    if (attempt < 2 && card.classList.contains('active')) {
+    if (attempt < 2 && isCurrentLiveSetsCardRequest(card, requestVersion) && card.classList.contains('active')) {
       setTimeout(() => seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt + 1), 600);
       return;
     }
+    if (!isCurrentLiveSetsCardRequest(card, requestVersion)) return;
     card.classList.remove('is-buffering');
     setLiveSetsCardPlayerState(card, 'has-error', "Couldn't skip there right now. Try again.");
   });
@@ -2424,10 +2444,17 @@ async function loadLiveSetsRealWave(card) {
   const proxyBase = getLiveSetsProxyBase();
   const sessionId = card?.dataset.livesetsSessionId;
   if (!proxyBase || !sessionId || card.dataset.realWave) return;
+  const controller = new AbortController();
+  card._liveSetsWaveController?.abort();
+  card._liveSetsWaveController = controller;
   card.dataset.realWave = 'loading';
   try {
-    const response = await fetch(`${proxyBase}waveform/${encodeURIComponent(sessionId)}`, { headers: { Accept: 'application/json' } });
+    const response = await fetch(`${proxyBase}waveform/${encodeURIComponent(sessionId)}`, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
     const data = response.ok ? await response.json() : null;
+    if (controller.signal.aborted || card._liveSetsWaveController !== controller) return;
     const peaks = Array.isArray(data?.peaks) ? data.peaks.map(Number).filter(Number.isFinite) : [];
     if (peaks.length < LIVESETS_WAVE_BARS) throw new Error('no waveform');
     const bucket = peaks.length / LIVESETS_WAVE_BARS;
@@ -2440,15 +2467,60 @@ async function loadLiveSetsRealWave(card) {
     });
     card.dataset.realWave = 'true';
   } catch {
-    card.dataset.realWave = 'unavailable';
+    if (!controller.signal.aborted && card._liveSetsWaveController === controller) {
+      card.dataset.realWave = 'unavailable';
+    }
+  } finally {
+    if (card._liveSetsWaveController === controller) card._liveSetsWaveController = null;
   }
+}
+
+function invalidateLiveSetsCardRequest(card) {
+  const nextVersion = Number(card?._liveSetsRequestVersion || 0) + 1;
+  if (card) card._liveSetsRequestVersion = nextVersion;
+  return nextVersion;
+}
+
+function isCurrentLiveSetsCardRequest(card, requestVersion) {
+  return Number(card?._liveSetsRequestVersion || 0) === requestVersion;
 }
 
 const pauseLiveSetsCardPlayer = (card) => {
   const audio = card?.querySelector('[data-livesets-audio]');
   if (!audio) return;
+  invalidateLiveSetsCardRequest(card);
   audio.pause();
   card.classList.remove('is-playing-session');
+};
+
+// Pausing an audio element can leave its network request buffering in the
+// background. A set change must fully release the old source so only the
+// currently selected set competes for bandwidth and Worker capacity.
+const releaseLiveSetsCardPlayer = (card) => {
+  const audio = card?.querySelector('[data-livesets-audio]');
+  if (!audio) return;
+  invalidateLiveSetsCardRequest(card);
+  card._liveSetsMetaController?.abort();
+  card._liveSetsMetaController = null;
+  card._liveSetsWaveController?.abort();
+  card._liveSetsWaveController = null;
+  if (card.dataset.realWave === 'loading') delete card.dataset.realWave;
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.replaceChildren();
+  audio.load();
+  delete card.dataset.audioOffset;
+  delete card.dataset.totalDuration;
+  delete card.dataset.waveLoaded;
+  delete card.dataset.wavePlayed;
+  card.style.removeProperty('--sessions-progress');
+  const duration = card.querySelector('.sessions-card-duration');
+  if (duration) duration.textContent = card.dataset.durationLabel || 'LiveSets';
+  card.querySelectorAll('.sessions-card-wave span').forEach((bar) => {
+    bar.classList.remove('is-played', 'is-loaded');
+  });
+  card.classList.remove('is-playing-session', 'is-buffering');
+  setLiveSetsCardPlayerState(card, 'is-unloaded');
 };
 
 const setLiveSetsCardPlayerState = (card, state, message = '') => {
@@ -2470,8 +2542,17 @@ const loadLiveSetsCardPlayer = async (card) => {
   if (audio.querySelector('source')) return audio;
 
   const sessionId = card.dataset.livesetsSessionId || '';
+  const requestVersion = invalidateLiveSetsCardRequest(card);
+  const controller = new AbortController();
+  card._liveSetsMetaController?.abort();
+  card._liveSetsMetaController = controller;
   setLiveSetsCardPlayerState(card, 'is-loading', 'Loading session...');
-  const meta = await fetchLiveSetsSessionMeta(sessionId);
+  const meta = await fetchLiveSetsSessionMeta(sessionId, controller.signal);
+
+  // The visitor may have selected another set while metadata was loading.
+  // Do not attach an obsolete source or overwrite the current player state.
+  if (controller.signal.aborted || !isCurrentLiveSetsCardRequest(card, requestVersion) || !card.classList.contains('active')) return null;
+  if (card._liveSetsMetaController === controller) card._liveSetsMetaController = null;
 
   if (!meta?.urlAudio?.length) {
     setLiveSetsCardPlayerState(card, 'has-error', 'Player could not load right now.');
@@ -2504,7 +2585,7 @@ const playLiveSetsCard = async (card) => {
   if (!audio || !card.classList.contains('active')) return;
 
   getLiveSetsSessionCards().forEach((otherCard) => {
-    if (otherCard !== card) pauseLiveSetsCardPlayer(otherCard);
+    if (otherCard !== card) releaseLiveSetsCardPlayer(otherCard);
   });
 
   try {
@@ -2791,6 +2872,7 @@ const renderLiveSetsSessions = (sessions) => {
       const playerStatus = document.createElement('span');
       playerStatus.className = 'sessions-card-player-status';
       playerStatus.dataset.livesetsPlayerStatus = '';
+      playerStatus.setAttribute('role', 'status');
       player.append(audio, playerStatus);
 
       // Desktop console list (mockup): featured card + rows. These pieces are
@@ -4799,8 +4881,7 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
         iframe.allow = 'autoplay; encrypted-media';
         iframe.dataset.soundcloudCardFrame = '';
         iframe.dataset.soundcloudSrc = buildSoundCloudPlayerSrc(trackUrl, 0, false);
-        iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
-        iframe.addEventListener('load', () => bindPodcastWidget(card));
+        preparePodcastCardFrame(card, player, iframe);
         player.appendChild(iframe);
       }
 
@@ -5073,20 +5154,29 @@ function setPodcastPlaying(card, playing) {
 
 function resetPodcastControls(card) {
   delete card._podcastWidget;
+  delete card._podcastWidgetFrame;
   card.dataset.widgetReady = 'false';
   setPodcastPlaying(card, false);
+  updatePodcastControls(card, 0);
 }
 
 function bindPodcastWidget(card) {
   const iframe = card.querySelector('[data-soundcloud-card-frame]');
   const src = iframe?.getAttribute('src');
   if (!iframe || !src || src === 'about:blank' || !window.SC?.Widget) return;
+  if (card._podcastWidget && card._podcastWidgetFrame === iframe) return;
   const widget = window.SC.Widget(iframe);
   card._podcastWidget = widget;
+  card._podcastWidgetFrame = iframe;
   const { Events } = window.SC.Widget;
+  const isCurrentFrame = () =>
+    iframe.isConnected && card.querySelector('[data-soundcloud-card-frame]') === iframe;
+
   widget.bind(Events.READY, () => {
+    if (!isCurrentFrame()) return;
     card.dataset.widgetReady = 'true';
     widget.getDuration((duration) => {
+      if (!isCurrentFrame()) return;
       card.dataset.durationMs = String(duration || 0);
       updatePodcastControls(card, 0);
     });
@@ -5096,6 +5186,7 @@ function bindPodcastWidget(card) {
     }
   });
   widget.bind(Events.PLAY, () => {
+    if (!isCurrentFrame()) return;
     setPodcastPlaying(card, true);
     // One player at a time: pause the other SoundCloud cards and any audio
     document.querySelectorAll('.podcast-episode').forEach((other) => {
@@ -5104,10 +5195,18 @@ function bindPodcastWidget(card) {
     document.querySelectorAll('audio').forEach((audio) => { if (!audio.paused) audio.pause(); });
     pauseYoutubePlayers();
   });
-  widget.bind(Events.PAUSE, () => setPodcastPlaying(card, false));
-  widget.bind(Events.FINISH, () => setPodcastPlaying(card, false));
-  widget.bind(Events.PLAY_PROGRESS, (event) => updatePodcastControls(card, event?.currentPosition));
-  widget.bind(Events.SEEK, (event) => updatePodcastControls(card, event?.currentPosition));
+  widget.bind(Events.PAUSE, () => {
+    if (isCurrentFrame()) setPodcastPlaying(card, false);
+  });
+  widget.bind(Events.FINISH, () => {
+    if (isCurrentFrame()) setPodcastPlaying(card, false);
+  });
+  widget.bind(Events.PLAY_PROGRESS, (event) => {
+    if (isCurrentFrame()) updatePodcastControls(card, event?.currentPosition);
+  });
+  widget.bind(Events.SEEK, (event) => {
+    if (isCurrentFrame()) updatePodcastControls(card, event?.currentPosition);
+  });
 }
 
 // Leaving the YouTube tab on the desktop console stops the playing video
