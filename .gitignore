@@ -18,5 +18,3 @@ Thumbs.db
 .vscode/
 .cursor/
 .claude/
-tests/turnstile-lifecycle.test.cjs
-README.md

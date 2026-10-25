@@ -78,42 +78,6 @@ if (!shouldPreserveInitialHash) {
 
 const markBodyLoaded = () => document.body?.classList.add('is-loaded');
 
-function trapFocus(event, container) {
-  const focusable = [...container.querySelectorAll(
-    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-  )].filter((element) => !element.closest('[hidden], [aria-hidden="true"], [inert]'));
-  if (!focusable.length) return;
-
-  const first = focusable[0];
-  const last = focusable[focusable.length - 1];
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault();
-    first.focus();
-  }
-}
-
-function setCardDescendantFocusability(card, active) {
-  card.inert = !active;
-  card.querySelectorAll('a[href], button, input, select, textarea, iframe, [tabindex]').forEach((element) => {
-    if (!active) {
-      if (!Object.prototype.hasOwnProperty.call(element.dataset, 'inactiveTabindex')) {
-        element.dataset.inactiveTabindex = element.getAttribute('tabindex') || '';
-      }
-      element.tabIndex = -1;
-      return;
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(element.dataset, 'inactiveTabindex')) return;
-    const previousTabindex = element.dataset.inactiveTabindex;
-    if (previousTabindex) element.setAttribute('tabindex', previousTabindex);
-    else element.removeAttribute('tabindex');
-    delete element.dataset.inactiveTabindex;
-  });
-}
-
 const rememberLoaderSeen = () => {
   try {
     localStorage.setItem('loaderSeen', '1');
@@ -527,7 +491,6 @@ subscribeForm?.addEventListener('submit', async (event) => {
 // Turnstile: render explicitly so the widget theme follows the site's dark/light
 // toggle instead of the visitor's OS preference.
 let turnstileWidgetId = null;
-let turnstileWidgetTheme = null;
 const TURNSTILE_TEST_SITEKEY = '1x00000000000000000000AA';
 const TURNSTILE_MIN_WIDTH = 300; // "flexible" widget can't render narrower than this.
 const TURNSTILE_SIDE_INSET = 6; // px narrower than the input/button on each side.
@@ -566,17 +529,6 @@ fitTurnstile = () => {
 const renderTurnstile = () => {
   const el = document.getElementById('subscribeTurnstile');
   if (!el || !window.turnstile) return;
-  // Hidden desktop tabs and offscreen mobile forms do not need a running
-  // challenge. Start near the form so verification can finish before submit.
-  const wrap = el.closest('.subscribe-turnstile');
-  if (!wrap || !wrap.getClientRects().length) return;
-  const bounds = wrap.getBoundingClientRect();
-  if (bounds.bottom < -200 || bounds.top > window.innerHeight + 200) return;
-  const theme = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-  if (turnstileWidgetId !== null && turnstileWidgetTheme === theme) {
-    fitTurnstile();
-    return;
-  }
   if (turnstileWidgetId !== null) {
     try {
       window.turnstile.remove(turnstileWidgetId);
@@ -586,10 +538,9 @@ const renderTurnstile = () => {
   turnstileWidgetId = window.turnstile.render(el, {
     sitekey: getTurnstileSitekey(el),
     action: el.dataset.action,
-    theme,
+    theme: root.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
     size: 'flexible',
   });
-  turnstileWidgetTheme = theme;
   fitTurnstile();
   // The widget iframe sizes itself shortly after render; refit once it's ready.
   setTimeout(fitTurnstile, 300);
@@ -597,19 +548,6 @@ const renderTurnstile = () => {
 
 // Cloudflare's api.js invokes this once it has finished loading.
 window.onloadTurnstile = renderTurnstile;
-// Tab changes reveal the desktop form; intersection handles mobile scrolling
-// and also picks up a deferred theme change when the form returns into view.
-window.addEventListener('cidirilk:tabchange', () => requestAnimationFrame(renderTurnstile));
-window.addEventListener('resize', () => requestAnimationFrame(renderTurnstile), { passive: true });
-const turnstileWrap = document.querySelector('.subscribe-turnstile');
-if (turnstileWrap && 'IntersectionObserver' in window) {
-  const observer = new IntersectionObserver((entries) => {
-    if (entries.some((entry) => entry.isIntersecting)) renderTurnstile();
-  }, { rootMargin: '200px 0px' });
-  observer.observe(turnstileWrap);
-} else {
-  window.addEventListener('scroll', renderTurnstile, { passive: true });
-}
 renderTurnstile();
 
 const syncThemeIcon = () => {
@@ -687,20 +625,12 @@ const finishPodcastPreviewLoad = (player) => {
   }, delay);
 };
 
-const preparePodcastCardFrame = (card, player, iframe) => {
-  iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
-  // Our own player UI drives the visually hidden SoundCloud widget. This
-  // listener intentionally runs for every fresh iframe, not just the first card visit.
-  iframe.addEventListener('load', () => bindPodcastWidget(card));
-};
-
 const loadPodcastCardPlayer = (card) => {
   const player = card?.querySelector('[data-soundcloud-card-player]');
   const iframe = card?.querySelector('[data-soundcloud-card-frame]');
   if (!iframe) return;
   if (!player?.isConnected || !player.clientWidth) return;
   if (iframe.getAttribute('src') && iframe.getAttribute('src') !== 'about:blank') {
-    if (!card._podcastWidget) bindPodcastWidget(card);
     finishPodcastPreviewLoad(player);
     return;
   }
@@ -720,15 +650,10 @@ const loadPodcastCardPlayer = (card) => {
 const unloadPodcastCardPlayer = (card) => {
   const player = card?.querySelector('[data-soundcloud-card-player]');
   const iframe = card?.querySelector('[data-soundcloud-card-frame]');
-  if (!iframe) return;
-  // A SoundCloud Widget is not reliably reusable after its iframe has been
-  // sent to about:blank. Recreate the hidden frame for the next card visit.
-  const replacement = iframe.cloneNode(false);
-  replacement.removeAttribute('src');
-  replacement.tabIndex = -1;
-  replacement.setAttribute('aria-hidden', 'true');
-  preparePodcastCardFrame(card, player, replacement);
-  iframe.replaceWith(replacement);
+  if (!iframe?.getAttribute('src') || iframe.getAttribute('src') === 'about:blank') return;
+  // Navigate away without collapsing the old widget to zero size mid-render.
+  iframe.setAttribute('src', 'about:blank');
+  iframe.tabIndex = -1;
   resetPodcastControls(card);
   player?.classList.remove('is-loading-preview', 'is-preview-ready');
   player?.classList.add('is-unloaded');
@@ -796,7 +721,6 @@ const setActiveSoundCloudTrack = (trackIndex, options = {}) => {
       card.classList.toggle('active', active);
       card.setAttribute('aria-current', active ? 'true' : 'false');
       card.tabIndex = active ? 0 : -1;
-      setCardDescendantFocusability(card, active);
       if (active) {
         loadPodcastCardPlayer(card);
       } else {
@@ -1036,7 +960,6 @@ const renderSoundCloudEpisodes = (visibleTracks, playlistArtworkUrl = '') => {
       card.setAttribute('aria-label', `${formatPodcastEpisodeTitle()} ${formatPodcastEpisodeLabel(track)}`);
       card.setAttribute('tabindex', '0');
       card.setAttribute('aria-current', active ? 'true' : 'false');
-      setCardDescendantFocusability(card, active);
       if (playlistArtwork) {
         card.classList.add('has-artwork');
         card.style.setProperty('--podcast-artwork', `url("${playlistArtwork}")`);
@@ -1058,7 +981,9 @@ const renderSoundCloudEpisodes = (visibleTracks, playlistArtworkUrl = '') => {
         iframe.allow = 'autoplay; encrypted-media';
         iframe.dataset.soundcloudCardFrame = '';
         iframe.dataset.soundcloudSrc = buildSoundCloudPlayerSrc(playerUrl, playerIndex, !trackUrl);
-        preparePodcastCardFrame(card, player, iframe);
+        iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
+        // Our own player UI drives the (visually hidden) SoundCloud widget
+        iframe.addEventListener('load', () => bindPodcastWidget(card));
         // setActiveSoundCloudTrack loads the frame after the card is attached.
         player.appendChild(iframe);
       }
@@ -1152,9 +1077,7 @@ window.addEventListener('resize', loadVisiblePodcastPreview, { passive: true });
 
 const setTheme = (mode) => {
   root.setAttribute('data-theme', mode);
-  try {
-    localStorage.setItem('theme', mode);
-  } catch (e) {}
+  localStorage.setItem('theme', mode);
   syncThemeIcon();
   // Turnstile can't restyle live, so re-render it to match the new theme.
   renderTurnstile();
@@ -1166,10 +1089,7 @@ const setTheme = (mode) => {
 };
 
 const initTheme = () => {
-  let stored = null;
-  try {
-    stored = localStorage.getItem('theme');
-  } catch (e) {}
+  const stored = localStorage.getItem('theme');
   
   if (stored === 'light' || stored === 'dark') {
     root.setAttribute('data-theme', stored);
@@ -1208,11 +1128,8 @@ const closeChat = () => {
 const nicknameOverlay = document.querySelector('[data-nickname-overlay]');
 const nicknameForm = document.querySelector('[data-nickname-form]');
 const nicknameCancel = document.querySelector('[data-nickname-cancel]');
-const nicknameCard = nicknameOverlay?.querySelector('.nickname-card');
 const NICKNAME_COOKIE = 'cidirilkChatNickname';
 let chatLoaded = false;
-let nicknameLastFocus = null;
-let nicknamePreviousBodyOverflow = '';
 
 const getSavedNickname = () => getCookie(NICKNAME_COOKIE);
 
@@ -1221,9 +1138,6 @@ const saveNickname = (nickname) => {
 };
 
 const showNicknamePrompt = () => {
-  nicknameLastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  nicknamePreviousBodyOverflow = document.body.style.overflow;
-  document.body.style.overflow = 'hidden';
   nicknameOverlay?.removeAttribute('hidden');
   // Pre-fill with saved nickname if exists
   const savedNick = getSavedNickname();
@@ -1237,21 +1151,8 @@ const showNicknamePrompt = () => {
   }, 100);
 };
 
-const hideNicknamePrompt = ({ restoreFocus = true } = {}) => {
-  if (nicknameOverlay?.hasAttribute('hidden')) return;
+const hideNicknamePrompt = () => {
   nicknameOverlay?.setAttribute('hidden', '');
-  document.body.style.overflow = nicknamePreviousBodyOverflow;
-  const focusTarget = nicknameLastFocus?.isConnected
-    ? nicknameLastFocus
-    : chatToggles[0];
-  if (restoreFocus && focusTarget instanceof HTMLElement) {
-    try {
-      focusTarget.focus({ preventScroll: true });
-    } catch (e) {
-      focusTarget.focus();
-    }
-  }
-  nicknameLastFocus = null;
 };
 
 const loadChatWithNickname = (nickname) => {
@@ -1298,7 +1199,7 @@ const loadChatWithNickname = (nickname) => {
   newCloseBtn?.addEventListener('click', closeChat);
   
   openChat();
-  hideNicknamePrompt({ restoreFocus: false });
+  hideNicknamePrompt();
 };
 
 nicknameForm?.addEventListener('submit', (e) => {
@@ -1316,17 +1217,6 @@ nicknameOverlay?.addEventListener('click', (e) => {
   if (e.target === nicknameOverlay) {
     hideNicknamePrompt();
   }
-});
-
-nicknameOverlay?.addEventListener('keydown', (event) => {
-  if (nicknameOverlay.hasAttribute('hidden')) return;
-  if (event.key === 'Escape') {
-    event.preventDefault();
-    hideNicknamePrompt();
-    return;
-  }
-  if (event.key !== 'Tab' || !nicknameCard) return;
-  trapFocus(event, nicknameCard);
 });
 
 chatToggles.forEach((toggle) =>
@@ -1989,7 +1879,7 @@ const buildLiveSetsSessionMetaStrategies = (sessionId) => {
   return strategies;
 };
 
-const fetchLiveSetsSessionMeta = async (sessionId, signal) => {
+const fetchLiveSetsSessionMeta = async (sessionId) => {
   if (!sessionId) return null;
   if (liveSetsSessionMetaCache.has(sessionId)) return liveSetsSessionMetaCache.get(sessionId);
 
@@ -1998,7 +1888,6 @@ const fetchLiveSetsSessionMeta = async (sessionId, signal) => {
       const response = await fetch(strategy.url, {
         headers: { Accept: strategy.name === 'worker' ? 'application/json' : 'text/html, application/json' },
         cache: 'no-store',
-        signal,
       });
       if (!response.ok) throw new Error(`${strategy.name} status ${response.status}`);
       const meta = await strategy.extract(response);
@@ -2007,7 +1896,6 @@ const fetchLiveSetsSessionMeta = async (sessionId, signal) => {
         return meta;
       }
     } catch (error) {
-      if (signal?.aborted) return null;
       continue;
     }
   }
@@ -2037,24 +1925,6 @@ const renderLiveSetsSessionsStatus = (message, isLoading = false) => {
 
 let liveSetsSessionCount = 0;
 let youtubeVideoCount = 0;
-let renderedLiveSetsSignature = '';
-let pendingLiveSetsSessions = null;
-
-const getLiveSetsSessionsSignature = (sessions) => sessions
-  .slice(0, MEDIA_CAROUSEL_LIMIT)
-  .map((session) => [
-    getLiveSetsSessionId(session),
-    String(session?.title || ''),
-    String(session?.url || ''),
-    String(session?.duration || ''),
-    String(session?.genre || ''),
-    String(session?.artwork || ''),
-  ].join('\u001f'))
-  .join('\u001e');
-
-const hasPlayingLiveSetsSession = () => getLiveSetsSessionCards().some((card) =>
-  card.classList.contains('is-playing-session') || !card.querySelector('[data-livesets-audio]')?.paused,
-);
 
 const YOUTUBE_VIDEOS = [
   {
@@ -2259,7 +2129,7 @@ const setActiveLiveSetsSession = (sessionIndex, options = {}) => {
       card.setAttribute('aria-current', active ? 'true' : 'false');
       card.tabIndex = active || consoleListQuery.matches ? 0 : -1;
       if (!active) {
-        releaseLiveSetsCardPlayer(card);
+        pauseLiveSetsCardPlayer(card);
         return;
       }
       loadLiveSetsRealWave(card);
@@ -2394,8 +2264,6 @@ async function toggleConsoleLiveSetsSession(card, event) {
     const viaProxy = Boolean(proxyBase) && audio.currentSrc.startsWith(proxyBase);
     if (relative >= 0 && relative <= loadedEnd - 1) {
       audio.currentTime = relative; // already downloaded: instant
-      updateLiveSetsCardProgress(card, audio);
-      return;
     } else if (viaProxy) {
       seekLiveSetsByUrl(card, audio, target, proxyBase);
       return;
@@ -2403,9 +2271,10 @@ async function toggleConsoleLiveSetsSession(card, event) {
       // Direct LiveSets file (worker unavailable): stay inside the loaded part
       audio.currentTime = Math.max(0, Math.min(Math.max(audio.currentTime, loadedEnd - 2), relative));
       showLiveSetsCardNotice(card, 'Skipped to the loaded part. LiveSets loads sets from the start, so the rest unlocks as it plays.');
-      updateLiveSetsCardProgress(card, audio);
-      return;
     }
+    updateLiveSetsCardProgress(card, audio);
+    if (audio.paused) playLiveSetsCard(card);
+    return;
   }
   if (card.classList.contains('is-playing-session')) {
     pauseLiveSetsCardPlayer(card);
@@ -2419,15 +2288,14 @@ async function toggleConsoleLiveSetsSession(card, event) {
   await playLiveSetsCard(card);
 }
 
-// Restart the stream at `seconds` through the worker (?t=). Preserve a user's
-// paused state: seeking must not unexpectedly start audio.
+// Restart the stream at `seconds` through the worker (?t=) and keep playing.
 function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
   const start = Math.max(0, Math.floor(seconds));
   const sessionId = card.dataset.livesetsSessionId || '';
-  const shouldResume = !audio.paused;
-  const requestVersion = invalidateLiveSetsCardRequest(card);
   card.dataset.audioOffset = String(start);
   card.classList.add('is-buffering');
+  // Clear any earlier error as soon as audio flows again
+  audio.addEventListener('playing', () => setLiveSetsCardPlayerState(card, 'is-ready'), { once: true });
   const query = new URLSearchParams();
   if (start) query.set('t', String(start));
   if (attempt > 1) query.set('retry', String(attempt));
@@ -2435,30 +2303,13 @@ function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
   audio.load();
   updateLiveSetsCardProgress(card, audio);
   updateLiveSetsCardLoaded(card, audio);
-
-  if (!shouldResume) {
-    audio.addEventListener('loadedmetadata', () => {
-      if (!isCurrentLiveSetsCardRequest(card, requestVersion)) return;
-      card.classList.remove('is-buffering');
-      setLiveSetsCardPlayerState(card, 'is-ready');
-    }, { once: true });
-    return;
-  }
-
-  // Clear any earlier error as soon as audio flows again.
-  audio.addEventListener('playing', () => {
-    if (isCurrentLiveSetsCardRequest(card, requestVersion)) {
-      setLiveSetsCardPlayerState(card, 'is-ready');
-    }
-  }, { once: true });
   audio.play().catch((error) => {
     if (error.name === 'AbortError') return;
     // One automatic retry covers a stream the worker cut off early
-    if (attempt < 2 && isCurrentLiveSetsCardRequest(card, requestVersion) && card.classList.contains('active')) {
+    if (attempt < 2 && card.classList.contains('active')) {
       setTimeout(() => seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt + 1), 600);
       return;
     }
-    if (!isCurrentLiveSetsCardRequest(card, requestVersion)) return;
     card.classList.remove('is-buffering');
     setLiveSetsCardPlayerState(card, 'has-error', "Couldn't skip there right now. Try again.");
   });
@@ -2470,17 +2321,10 @@ async function loadLiveSetsRealWave(card) {
   const proxyBase = getLiveSetsProxyBase();
   const sessionId = card?.dataset.livesetsSessionId;
   if (!proxyBase || !sessionId || card.dataset.realWave) return;
-  const controller = new AbortController();
-  card._liveSetsWaveController?.abort();
-  card._liveSetsWaveController = controller;
   card.dataset.realWave = 'loading';
   try {
-    const response = await fetch(`${proxyBase}waveform/${encodeURIComponent(sessionId)}`, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-    });
+    const response = await fetch(`${proxyBase}waveform/${encodeURIComponent(sessionId)}`, { headers: { Accept: 'application/json' } });
     const data = response.ok ? await response.json() : null;
-    if (controller.signal.aborted || card._liveSetsWaveController !== controller) return;
     const peaks = Array.isArray(data?.peaks) ? data.peaks.map(Number).filter(Number.isFinite) : [];
     if (peaks.length < LIVESETS_WAVE_BARS) throw new Error('no waveform');
     const bucket = peaks.length / LIVESETS_WAVE_BARS;
@@ -2493,60 +2337,15 @@ async function loadLiveSetsRealWave(card) {
     });
     card.dataset.realWave = 'true';
   } catch {
-    if (!controller.signal.aborted && card._liveSetsWaveController === controller) {
-      card.dataset.realWave = 'unavailable';
-    }
-  } finally {
-    if (card._liveSetsWaveController === controller) card._liveSetsWaveController = null;
+    card.dataset.realWave = 'unavailable';
   }
-}
-
-function invalidateLiveSetsCardRequest(card) {
-  const nextVersion = Number(card?._liveSetsRequestVersion || 0) + 1;
-  if (card) card._liveSetsRequestVersion = nextVersion;
-  return nextVersion;
-}
-
-function isCurrentLiveSetsCardRequest(card, requestVersion) {
-  return Number(card?._liveSetsRequestVersion || 0) === requestVersion;
 }
 
 const pauseLiveSetsCardPlayer = (card) => {
   const audio = card?.querySelector('[data-livesets-audio]');
   if (!audio) return;
-  invalidateLiveSetsCardRequest(card);
   audio.pause();
   card.classList.remove('is-playing-session');
-};
-
-// Pausing an audio element can leave its network request buffering in the
-// background. A set change must fully release the old source so only the
-// currently selected set competes for bandwidth and Worker capacity.
-const releaseLiveSetsCardPlayer = (card) => {
-  const audio = card?.querySelector('[data-livesets-audio]');
-  if (!audio) return;
-  invalidateLiveSetsCardRequest(card);
-  card._liveSetsMetaController?.abort();
-  card._liveSetsMetaController = null;
-  card._liveSetsWaveController?.abort();
-  card._liveSetsWaveController = null;
-  if (card.dataset.realWave === 'loading') delete card.dataset.realWave;
-  audio.pause();
-  audio.removeAttribute('src');
-  audio.replaceChildren();
-  audio.load();
-  delete card.dataset.audioOffset;
-  delete card.dataset.totalDuration;
-  delete card.dataset.waveLoaded;
-  delete card.dataset.wavePlayed;
-  card.style.removeProperty('--sessions-progress');
-  const duration = card.querySelector('.sessions-card-duration');
-  if (duration) duration.textContent = card.dataset.durationLabel || 'LiveSets';
-  card.querySelectorAll('.sessions-card-wave span').forEach((bar) => {
-    bar.classList.remove('is-played', 'is-loaded');
-  });
-  card.classList.remove('is-playing-session', 'is-buffering');
-  setLiveSetsCardPlayerState(card, 'is-unloaded');
 };
 
 const setLiveSetsCardPlayerState = (card, state, message = '') => {
@@ -2568,17 +2367,8 @@ const loadLiveSetsCardPlayer = async (card) => {
   if (audio.querySelector('source')) return audio;
 
   const sessionId = card.dataset.livesetsSessionId || '';
-  const requestVersion = invalidateLiveSetsCardRequest(card);
-  const controller = new AbortController();
-  card._liveSetsMetaController?.abort();
-  card._liveSetsMetaController = controller;
   setLiveSetsCardPlayerState(card, 'is-loading', 'Loading session...');
-  const meta = await fetchLiveSetsSessionMeta(sessionId, controller.signal);
-
-  // The visitor may have selected another set while metadata was loading.
-  // Do not attach an obsolete source or overwrite the current player state.
-  if (controller.signal.aborted || !isCurrentLiveSetsCardRequest(card, requestVersion) || !card.classList.contains('active')) return null;
-  if (card._liveSetsMetaController === controller) card._liveSetsMetaController = null;
+  const meta = await fetchLiveSetsSessionMeta(sessionId);
 
   if (!meta?.urlAudio?.length) {
     setLiveSetsCardPlayerState(card, 'has-error', 'Player could not load right now.');
@@ -2611,7 +2401,7 @@ const playLiveSetsCard = async (card) => {
   if (!audio || !card.classList.contains('active')) return;
 
   getLiveSetsSessionCards().forEach((otherCard) => {
-    if (otherCard !== card) releaseLiveSetsCardPlayer(otherCard);
+    if (otherCard !== card) pauseLiveSetsCardPlayer(otherCard);
   });
 
   try {
@@ -2817,7 +2607,6 @@ const renderYoutubeVideos = () => {
 
 const renderLiveSetsSessions = (sessions) => {
   const visibleSessions = sessions.slice(0, MEDIA_CAROUSEL_LIMIT);
-  renderedLiveSetsSignature = getLiveSetsSessionsSignature(visibleSessions);
   liveSetsSessionLists.forEach((list) => {
     list.replaceChildren();
     visibleSessions.forEach((session, index) => {
@@ -2880,14 +2669,8 @@ const renderLiveSetsSessions = (sessions) => {
       audio.preload = 'none';
       audio.dataset.livesetsAudio = '';
       audio.addEventListener('play', () => setLiveSetsCardPlaying(card, session.title, true));
-      audio.addEventListener('pause', () => {
-        setLiveSetsCardPlaying(card, session.title, false);
-        setTimeout(flushPendingLiveSetsSessions, 0);
-      });
-      audio.addEventListener('ended', () => {
-        setLiveSetsCardPlaying(card, session.title, false);
-        setTimeout(flushPendingLiveSetsSessions, 0);
-      });
+      audio.addEventListener('pause', () => setLiveSetsCardPlaying(card, session.title, false));
+      audio.addEventListener('ended', () => setLiveSetsCardPlaying(card, session.title, false));
       audio.addEventListener('timeupdate', () => updateLiveSetsCardProgress(card, audio));
       audio.addEventListener('progress', () => updateLiveSetsCardLoaded(card, audio));
       audio.addEventListener('waiting', () => card.classList.add('is-buffering'));
@@ -2898,7 +2681,6 @@ const renderLiveSetsSessions = (sessions) => {
       const playerStatus = document.createElement('span');
       playerStatus.className = 'sessions-card-player-status';
       playerStatus.dataset.livesetsPlayerStatus = '';
-      playerStatus.setAttribute('role', 'status');
       player.append(audio, playerStatus);
 
       // Desktop console list (mockup): featured card + rows. These pieces are
@@ -2930,22 +2712,6 @@ const renderLiveSetsSessions = (sessions) => {
   setActiveLiveSetsSession(0, { instant: true });
 };
 
-const flushPendingLiveSetsSessions = () => {
-  if (!pendingLiveSetsSessions || hasPlayingLiveSetsSession()) return;
-  const sessions = pendingLiveSetsSessions;
-  pendingLiveSetsSessions = null;
-  renderLiveSetsSessions(sessions);
-};
-
-const refreshLiveSetsSessions = (sessions) => {
-  if (getLiveSetsSessionsSignature(sessions) === renderedLiveSetsSignature) return;
-  if (hasPlayingLiveSetsSession()) {
-    pendingLiveSetsSessions = sessions;
-    return;
-  }
-  renderLiveSetsSessions(sessions);
-};
-
 const initLiveSetsSessions = async () => {
   if (!liveSetsSessionLists.length) return;
   const cachedSessions = readCachedLiveSetsSessions();
@@ -2958,7 +2724,7 @@ const initLiveSetsSessions = async () => {
   const sessions = await fetchLiveSetsSessions();
   if (sessions.length) {
     cacheLiveSetsSessions(sessions);
-    refreshLiveSetsSessions(sessions);
+    renderLiveSetsSessions(sessions);
   } else if (!cachedSessions.length) {
     renderLiveSetsSessions(LIVESETS_FALLBACK_SESSIONS);
   }
@@ -3771,10 +3537,6 @@ const initShopModal = () => {
   closeBtn?.addEventListener('click', closeModal);
   overlay?.addEventListener('click', closeModal);
 
-  modal.addEventListener('keydown', (event) => {
-    if (event.key === 'Tab') trapFocus(event, modal);
-  });
-
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !modal.hasAttribute('hidden')) {
       closeModal();
@@ -3795,7 +3557,6 @@ const initCollabModal = () => {
   const modalReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const modalCloseDuration = 320;
   let modalCloseTimer = null;
-  let lastFocus = null;
 
   if (!modal || !collabCards.length) return;
 
@@ -4033,8 +3794,6 @@ const initCollabModal = () => {
       modalCloseTimer = null;
     }
 
-    lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-
     // Update modal content
     modalIcon.innerHTML = `<i class="fa-solid ${data.icon}"></i>`;
     modalTitle.textContent = data.title;
@@ -4060,14 +3819,6 @@ const initCollabModal = () => {
       modal.classList.remove('is-closing');
       document.body.style.overflow = '';
       modalCloseTimer = null;
-      if (lastFocus?.isConnected) {
-        try {
-          lastFocus.focus({ preventScroll: true });
-        } catch (e) {
-          lastFocus.focus();
-        }
-      }
-      lastFocus = null;
     };
 
     if (modalReducedMotion) {
@@ -4103,10 +3854,6 @@ const initCollabModal = () => {
 
   // Overlay click
   overlay?.addEventListener('click', closeModal);
-
-  modal.addEventListener('keydown', (event) => {
-    if (event.key === 'Tab') trapFocus(event, modal);
-  });
 
   // ESC key
   document.addEventListener('keydown', (e) => {
@@ -4823,7 +4570,6 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
       card.classList.toggle('active', active);
       card.setAttribute('aria-current', active ? 'true' : 'false');
       card.tabIndex = active ? 0 : -1;
-      setCardDescendantFocusability(card, active);
       if (active) {
         loadPodcastCardPlayer(card);
         setPeekCarouselPosition(list, card.closest('.podcast-slide'), Boolean(options.instant), options.wrapDirection);
@@ -4887,7 +4633,6 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
       card.setAttribute('aria-label', `ChaCha ${name}`);
       card.setAttribute('aria-current', 'false');
       card.tabIndex = -1;
-      setCardDescendantFocusability(card, false);
       const artwork = normalizeSoundCloudArtworkUrl(sound.artwork_url);
       if (artwork) {
         card.classList.add('has-artwork');
@@ -4907,7 +4652,8 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
         iframe.allow = 'autoplay; encrypted-media';
         iframe.dataset.soundcloudCardFrame = '';
         iframe.dataset.soundcloudSrc = buildSoundCloudPlayerSrc(trackUrl, 0, false);
-        preparePodcastCardFrame(card, player, iframe);
+        iframe.addEventListener('load', () => finishPodcastPreviewLoad(player), { once: true });
+        iframe.addEventListener('load', () => bindPodcastWidget(card));
         player.appendChild(iframe);
       }
 
@@ -5054,7 +4800,7 @@ document.addEventListener('play', (event) => {
   };
 
   copyBtn?.addEventListener('click', async () => {
-    const email = address?.dataset.bookingEmail || address?.textContent.trim() || '';
+    const email = address?.textContent.trim() || '';
     try {
       await navigator.clipboard.writeText(email);
       showCopied('Email copied to clipboard.');
@@ -5140,6 +4886,7 @@ function createPodcastControls(track, opts = {}) {
     const duration = Number(card?.dataset.durationMs || 0);
     if (!widget || !duration) return;
     widget.seekTo(Math.max(0, Math.min(1, ratio)) * duration);
+    widget.isPaused((paused) => { if (paused) widget.play(); });
   };
   seek.addEventListener('click', (event) => {
     event.stopPropagation();
@@ -5180,29 +4927,20 @@ function setPodcastPlaying(card, playing) {
 
 function resetPodcastControls(card) {
   delete card._podcastWidget;
-  delete card._podcastWidgetFrame;
   card.dataset.widgetReady = 'false';
   setPodcastPlaying(card, false);
-  updatePodcastControls(card, 0);
 }
 
 function bindPodcastWidget(card) {
   const iframe = card.querySelector('[data-soundcloud-card-frame]');
   const src = iframe?.getAttribute('src');
   if (!iframe || !src || src === 'about:blank' || !window.SC?.Widget) return;
-  if (card._podcastWidget && card._podcastWidgetFrame === iframe) return;
   const widget = window.SC.Widget(iframe);
   card._podcastWidget = widget;
-  card._podcastWidgetFrame = iframe;
   const { Events } = window.SC.Widget;
-  const isCurrentFrame = () =>
-    iframe.isConnected && card.querySelector('[data-soundcloud-card-frame]') === iframe;
-
   widget.bind(Events.READY, () => {
-    if (!isCurrentFrame()) return;
     card.dataset.widgetReady = 'true';
     widget.getDuration((duration) => {
-      if (!isCurrentFrame()) return;
       card.dataset.durationMs = String(duration || 0);
       updatePodcastControls(card, 0);
     });
@@ -5212,7 +4950,6 @@ function bindPodcastWidget(card) {
     }
   });
   widget.bind(Events.PLAY, () => {
-    if (!isCurrentFrame()) return;
     setPodcastPlaying(card, true);
     // One player at a time: pause the other SoundCloud cards and any audio
     document.querySelectorAll('.podcast-episode').forEach((other) => {
@@ -5221,18 +4958,10 @@ function bindPodcastWidget(card) {
     document.querySelectorAll('audio').forEach((audio) => { if (!audio.paused) audio.pause(); });
     pauseYoutubePlayers();
   });
-  widget.bind(Events.PAUSE, () => {
-    if (isCurrentFrame()) setPodcastPlaying(card, false);
-  });
-  widget.bind(Events.FINISH, () => {
-    if (isCurrentFrame()) setPodcastPlaying(card, false);
-  });
-  widget.bind(Events.PLAY_PROGRESS, (event) => {
-    if (isCurrentFrame()) updatePodcastControls(card, event?.currentPosition);
-  });
-  widget.bind(Events.SEEK, (event) => {
-    if (isCurrentFrame()) updatePodcastControls(card, event?.currentPosition);
-  });
+  widget.bind(Events.PAUSE, () => setPodcastPlaying(card, false));
+  widget.bind(Events.FINISH, () => setPodcastPlaying(card, false));
+  widget.bind(Events.PLAY_PROGRESS, (event) => updatePodcastControls(card, event?.currentPosition));
+  widget.bind(Events.SEEK, (event) => updatePodcastControls(card, event?.currentPosition));
 }
 
 // Leaving the YouTube tab on the desktop console stops the playing video
@@ -5314,24 +5043,15 @@ function createYoutubePreview(video, index) {
       slide.style.setProperty('--shop-index', `'${String(index + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}'`);
       const item = slide.querySelector('.shop-item');
       if (!item) return;
-      const imageButton = item.querySelector('.shop-image-button');
-      const name = item.querySelector('h4')?.textContent.trim() || 'artifact';
-      const previewLabel = imageButton?.dataset.previewLabel
-        || imageButton?.getAttribute('aria-label')
-        || `View ${name} full size`;
-      if (imageButton) imageButton.dataset.previewLabel = previewLabel;
       if (featured) {
         item.removeAttribute('role');
         item.removeAttribute('tabindex');
         item.removeAttribute('aria-label');
-        imageButton?.setAttribute('aria-label', previewLabel);
       } else {
-        // The image button remains the only keyboard target. A focusable card
-        // around it would create nested interactive controls.
-        item.removeAttribute('role');
-        item.removeAttribute('tabindex');
-        item.removeAttribute('aria-label');
-        imageButton?.setAttribute('aria-label', `Show ${name}`);
+        const name = item.querySelector('h4')?.textContent.trim() || 'artifact';
+        item.setAttribute('role', 'button');
+        item.tabIndex = 0;
+        item.setAttribute('aria-label', `Show ${name}`);
       }
     });
   };

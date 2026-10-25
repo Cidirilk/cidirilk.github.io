@@ -3513,8 +3513,8 @@ html:not([data-theme='light']) .bg-fx-fog {
     order: -1;
   }
 
-  /* Loading a selected session or buffering after a skip: pulse the play control. */
-  .tab-panel[data-panel='sessions'] .sessions-card:is(.is-buffering, .is-loading-session) .sessions-card-play {
+  /* Buffering after a skip: the play button pulses */
+  .tab-panel[data-panel='sessions'] .sessions-card.is-buffering .sessions-card-play {
     animation: sessionsBuffering 1s ease-in-out infinite;
   }
 
@@ -3594,19 +3594,6 @@ html:not([data-theme='light']) .bg-fx-fog {
 
   .tab-panel[data-panel='sessions'] .sessions-card-player:is(.is-loading, .has-error) {
     display: block;
-  }
-
-  /* The loading message is announced to assistive technology, but it must not
-     add a grid row and make the featured player jump before its waveform loads. */
-  .tab-panel[data-panel='sessions'] .sessions-card-player.is-loading {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 
   .tab-panel[data-panel='sessions'] .sessions-card-player-status {
@@ -3872,7 +3859,7 @@ html:not([data-theme='light']) .bg-fx-fog {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tab-panel[data-panel='sessions'] .sessions-card:is(.is-buffering, .is-loading-session) .sessions-card-play {
+  .tab-panel[data-panel='sessions'] .sessions-card.is-buffering .sessions-card-play {
     animation: none;
     opacity: 0.7;
   }

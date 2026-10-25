@@ -94,21 +94,6 @@ cidirilk.github.io/
 2. Add `CNAME` record: `www` → `cidirilk.github.io`
 3. In Pages settings, add custom domain and enforce HTTPS
 
-### Production security headers
-
-The site includes a Content Security Policy in `docs/index.html`. It limits the
-services that can load code, media, embeds, and network data while preserving
-the SoundCloud, YouTube, LiveSets, Turnstile, and chat features used by the
-site.
-
-HSTS is a response header and cannot be set by GitHub Pages source files. Set
-it at the service that fronts `cidirilk.com` after confirming HTTPS works on
-every public subdomain. If the domain is proxied through Cloudflare, open
-**SSL/TLS → Edge Certificates → HTTP Strict Transport Security (HSTS)** and
-enable it with a `max-age` of `15552000` seconds. Leave **Include subdomains**
-and **preload** disabled initially. Enable them only after every subdomain is
-permanently available over HTTPS.
-
 ## Email Subscription
 
 The Subscribe tab is backed by a Cloudflare Worker (`subscribe-worker.js`) that
