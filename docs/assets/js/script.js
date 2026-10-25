@@ -527,6 +527,7 @@ subscribeForm?.addEventListener('submit', async (event) => {
 // Turnstile: render explicitly so the widget theme follows the site's dark/light
 // toggle instead of the visitor's OS preference.
 let turnstileWidgetId = null;
+let turnstileWidgetTheme = null;
 const TURNSTILE_TEST_SITEKEY = '1x00000000000000000000AA';
 const TURNSTILE_MIN_WIDTH = 300; // "flexible" widget can't render narrower than this.
 const TURNSTILE_SIDE_INSET = 6; // px narrower than the input/button on each side.
@@ -565,6 +566,17 @@ fitTurnstile = () => {
 const renderTurnstile = () => {
   const el = document.getElementById('subscribeTurnstile');
   if (!el || !window.turnstile) return;
+  // Hidden desktop tabs and offscreen mobile forms do not need a running
+  // challenge. Start near the form so verification can finish before submit.
+  const wrap = el.closest('.subscribe-turnstile');
+  if (!wrap || !wrap.getClientRects().length) return;
+  const bounds = wrap.getBoundingClientRect();
+  if (bounds.bottom < -200 || bounds.top > window.innerHeight + 200) return;
+  const theme = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  if (turnstileWidgetId !== null && turnstileWidgetTheme === theme) {
+    fitTurnstile();
+    return;
+  }
   if (turnstileWidgetId !== null) {
     try {
       window.turnstile.remove(turnstileWidgetId);
@@ -574,9 +586,10 @@ const renderTurnstile = () => {
   turnstileWidgetId = window.turnstile.render(el, {
     sitekey: getTurnstileSitekey(el),
     action: el.dataset.action,
-    theme: root.getAttribute('data-theme') === 'light' ? 'light' : 'dark',
+    theme,
     size: 'flexible',
   });
+  turnstileWidgetTheme = theme;
   fitTurnstile();
   // The widget iframe sizes itself shortly after render; refit once it's ready.
   setTimeout(fitTurnstile, 300);
@@ -584,6 +597,19 @@ const renderTurnstile = () => {
 
 // Cloudflare's api.js invokes this once it has finished loading.
 window.onloadTurnstile = renderTurnstile;
+// Tab changes reveal the desktop form; intersection handles mobile scrolling
+// and also picks up a deferred theme change when the form returns into view.
+window.addEventListener('cidirilk:tabchange', () => requestAnimationFrame(renderTurnstile));
+window.addEventListener('resize', () => requestAnimationFrame(renderTurnstile), { passive: true });
+const turnstileWrap = document.querySelector('.subscribe-turnstile');
+if (turnstileWrap && 'IntersectionObserver' in window) {
+  const observer = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) renderTurnstile();
+  }, { rootMargin: '200px 0px' });
+  observer.observe(turnstileWrap);
+} else {
+  window.addEventListener('scroll', renderTurnstile, { passive: true });
+}
 renderTurnstile();
 
 const syncThemeIcon = () => {
