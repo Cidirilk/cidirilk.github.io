@@ -73,7 +73,7 @@
       />
     </noscript>
     <link rel="stylesheet" href="./assets/css/main.css?v=dark-loader-default-20261005" />
-    <link rel="stylesheet" href="./assets/css/redesign.css?v=3000-20261026h" />
+    <link rel="stylesheet" href="./assets/css/redesign.css?v=3000-20261027g" />
     <noscript>
       <style>
         body {
@@ -163,6 +163,17 @@
     </script>
   </head>
   <body>
+    <!-- Brand duotone for ChaCha and YouTube covers: shadows deep violet, highlights lavender -->
+    <svg class="svg-filters" width="0" height="0" aria-hidden="true" focusable="false">
+      <filter id="brand-duotone" color-interpolation-filters="sRGB">
+        <feColorMatrix type="matrix" values="0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0.33 0.33 0.33 0 0  0 0 0 1 0" />
+        <feComponentTransfer>
+          <feFuncR type="table" tableValues="0.05 0.39 0.76 0.97" />
+          <feFuncG type="table" tableValues="0.02 0.15 0.45 0.92" />
+          <feFuncB type="table" tableValues="0.13 0.84 1 1" />
+        </feComponentTransfer>
+      </filter>
+    </svg>
     <div class="bg-fx" aria-hidden="true">
       <span class="bg-fx-noise"></span>
       <span class="bg-fx-bloom"></span>
@@ -1882,7 +1893,7 @@
     </dialog>
 
     <script src="https://w.soundcloud.com/player/api.js" defer></script>
-    <script src="./assets/js/script.js?v=fix-20261025d" defer></script>
+    <script src="./assets/js/script.js?v=fix-20261027e" defer></script>
     <script
       src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstile"
       defer

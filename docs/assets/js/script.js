@@ -2649,8 +2649,7 @@ const renderYoutubeVideos = () => {
       playButton.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true"></i>';
       player.appendChild(playButton);
 
-      // Generated cover (brand art, follows the theme) instead of YouTube's
-      // own thumbnail; hidden once the embed loads
+      // Duotone thumbnail cover; hidden once the embed loads
       player.prepend(createYoutubePreview(video, index));
 
       // Mockup chip on the thumbnail: these videos are unlisted on YouTube
@@ -4873,6 +4872,13 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
 
       const meta = document.createElement('span');
       meta.className = 'podcast-episode-meta';
+      // Original-colour cover under the brand duotone; shown while playing
+      if (artwork) {
+        const original = document.createElement('span');
+        original.className = 'chacha-cover-original';
+        original.setAttribute('aria-hidden', 'true');
+        meta.appendChild(original);
+      }
       const number = document.createElement('span');
       number.className = 'podcast-episode-number';
       number.textContent = label;
@@ -5207,28 +5213,11 @@ window.addEventListener('cidirilk:tabchange', (event) => {
   youtubeTabActive = nowYoutube;
 });
 
-// Generated YouTube covers: a deterministic, theme-aware SVG per video
-// (gradient, glow, planet-ring orbit, waveform strip, title). Colours come
-// from CSS custom properties, so the same art renders for dark and light.
+// YouTube covers: the video's own thumbnail in the brand duotone
+// (#brand-duotone in index.html) with the label and name on top. The embed
+// replaces it once the video plays, so the real colours show then.
 function createYoutubePreview(video, index) {
-  let seed = [...String(video.id)].reduce((hash, ch) => (hash * 31 + ch.charCodeAt(0)) >>> 0, 7);
-  const rand = () => {
-    seed = (seed + 0x6d2b79f5) >>> 0;
-    let t = seed;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
   const uid = `yt${index}`;
-  const glowX = Math.round(70 + rand() * 180);
-  const glowY = Math.round(40 + rand() * 60);
-  const ringTilt = Math.round(-14 + rand() * 28);
-  const ringRx = Math.round(118 + rand() * 40);
-  const bars = Array.from({ length: 56 }, (_, i) => {
-    const h = 4 + Math.round(Math.abs(Math.sin(i * 0.55 + rand() * 1.4) * Math.cos(i * 0.18 + index)) * 30 + rand() * 6);
-    const x = 24 + i * 4.9;
-    return `<rect x="${x.toFixed(1)}" y="${(118 - h / 2).toFixed(1)}" width="2.6" height="${h}" rx="1.3" style="opacity:${(0.35 + rand() * 0.6).toFixed(2)}"/>`;
-  }).join('');
   const name = String(video.title || '').replace(/^cidirilk_/i, '').replace(/_/g, ' ').trim() || 'Untitled';
   const label = `CIDIRILK · VIDEO ${String(index + 1).padStart(2, '0')}`;
   const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -5243,21 +5232,23 @@ function createYoutubePreview(video, index) {
           <stop offset="0" style="stop-color:var(--yt-bg-a)"/>
           <stop offset="1" style="stop-color:var(--yt-bg-b)"/>
         </linearGradient>
-        <radialGradient id="${uid}-glow" cx="${glowX}" cy="${glowY}" r="150" gradientUnits="userSpaceOnUse">
-          <stop offset="0" style="stop-color:var(--yt-glow);stop-opacity:var(--yt-glow-a)"/>
-          <stop offset="1" style="stop-color:var(--yt-glow);stop-opacity:0"/>
-        </radialGradient>
+        <linearGradient id="${uid}-scrim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#07060f" stop-opacity=".45"/>
+          <stop offset=".3" stop-color="#07060f" stop-opacity="0"/>
+          <stop offset=".55" stop-color="#07060f" stop-opacity="0"/>
+          <stop offset="1" stop-color="#07060f" stop-opacity=".85"/>
+        </linearGradient>
       </defs>
       <rect width="320" height="180" fill="url(#${uid}-bg)"/>
-      <rect width="320" height="180" fill="url(#${uid}-glow)"/>
-      <g transform="rotate(${ringTilt} 160 92)" fill="none" style="stroke:var(--yt-line)">
-        <ellipse cx="160" cy="92" rx="${ringRx}" ry="30" stroke-width="1.2"/>
-        <ellipse cx="160" cy="92" rx="${ringRx + 18}" ry="40" stroke-width="0.8" stroke-dasharray="2 5" style="opacity:.6"/>
-      </g>
-      <g style="fill:var(--yt-line)">${bars}</g>
-      <text x="296" y="26" text-anchor="end" style="fill:var(--yt-muted);font:500 8px var(--font-mono);letter-spacing:.18em">${esc(label)}</text>
-      <text x="22" y="160" style="fill:var(--yt-text);font:600 22px var(--font-body);letter-spacing:-.02em">${esc(name)}</text>
+      <image class="youtube-card-thumb" width="320" height="180" preserveAspectRatio="xMidYMid slice" filter="url(#brand-duotone)"/>
+      <rect width="320" height="180" fill="url(#${uid}-scrim)"/>
+      <text x="296" y="26" text-anchor="end" style="fill:#d9cdf5;font:500 8px var(--font-mono);letter-spacing:.18em">${esc(label)}</text>
+      <text x="22" y="160" style="fill:#f3f0fc;font:600 22px var(--font-body);letter-spacing:-.02em">${esc(name)}</text>
     </svg>`;
+  // hqdefault is 4:3 with letterbox bars; the 16:9 slice crops them off
+  const thumb = art.querySelector('.youtube-card-thumb');
+  if (video.thumbnail) thumb.setAttribute('href', video.thumbnail);
+  else thumb.remove();
   return art;
 }
 

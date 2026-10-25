@@ -4580,9 +4580,9 @@ html:not([data-theme='light']) .profile-cards .tab-panel[data-panel='youtube'] .
 }
 
 /* --------------------------------------------------------------------------
-   YouTube generated covers (replace YouTube's own thumbnails). The SVG reads
-   these variables, so it follows the theme: near-black + violet in dark,
-   white + lilac in light.
+   YouTube covers: the video thumbnail in the brand duotone with the label
+   and name on top (see createYoutubePreview). The background gradient reads
+   these variables and only shows if the thumbnail fails to load.
    -------------------------------------------------------------------------- */
 .youtube-card-art {
   --yt-bg-a: #1b1236;
@@ -6192,5 +6192,61 @@ html[data-theme='light'] .profile-cards .tab-panel [data-guides-track] .guide-ca
   .mobile-radio-popover .live-radio-btn.is-radio-starting {
     animation: none;
     opacity: 0.75;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   ChaCha covers: the festival posters are drawn in the brand duotone
+   (#brand-duotone in index.html) so the row reads as one series. The
+   original colours fade in only while a card plays. YouTube embeds get a
+   matching tint below.
+   -------------------------------------------------------------------------- */
+.svg-filters {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] [data-chacha-episodes] .podcast-episode.has-artwork .podcast-episode-meta::before {
+  filter: url(#brand-duotone) blur(14px) brightness(0.62);
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] [data-chacha-episodes] .podcast-episode.has-artwork .podcast-episode-meta::after {
+  filter: url(#brand-duotone);
+  transition: opacity 0.45s ease;
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] [data-chacha-episodes] .chacha-cover-original {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(7, 6, 15, 0) 55%, rgba(7, 6, 15, 0.35)),
+    var(--podcast-artwork) center / contain no-repeat;
+  pointer-events: none;
+}
+
+.profile-cards .tab-panel[data-panel='podcast'] [data-chacha-episodes] .podcast-episode.is-playing-episode .podcast-episode-meta::after {
+  opacity: 0;
+}
+
+/* YouTube embeds keep the brand tint while loading and playing. SVG url()
+   filters are ignored on cross-origin iframes, so this chain of CSS filters
+   approximates #brand-duotone (it also tints YouTube's own controls). */
+.youtube-card-frame {
+  filter: grayscale(1) sepia(1) hue-rotate(218deg) saturate(2.6) brightness(0.82) contrast(1.08);
+}
+
+@media (max-width: 640px) {
+  .profile-cards .tab-panel[data-panel='podcast'] [data-chacha-episodes] .chacha-cover-original {
+    background-size: auto, cover;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-cards .tab-panel[data-panel='podcast'] [data-chacha-episodes] .podcast-episode.has-artwork .podcast-episode-meta::after {
+    transition: none;
   }
 }
