@@ -2379,14 +2379,14 @@ async function toggleConsoleLiveSetsSession(card, event) {
   await playLiveSetsCard(card);
 }
 
-// Restart the stream at `seconds` through the worker (?t=) and keep playing.
+// Restart the stream at `seconds` through the worker (?t=). Preserve a user's
+// paused state: seeking must not unexpectedly start audio.
 function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
   const start = Math.max(0, Math.floor(seconds));
   const sessionId = card.dataset.livesetsSessionId || '';
+  const shouldResume = !audio.paused;
   card.dataset.audioOffset = String(start);
   card.classList.add('is-buffering');
-  // Clear any earlier error as soon as audio flows again
-  audio.addEventListener('playing', () => setLiveSetsCardPlayerState(card, 'is-ready'), { once: true });
   const query = new URLSearchParams();
   if (start) query.set('t', String(start));
   if (attempt > 1) query.set('retry', String(attempt));
@@ -2394,6 +2394,17 @@ function seekLiveSetsByUrl(card, audio, seconds, proxyBase, attempt = 1) {
   audio.load();
   updateLiveSetsCardProgress(card, audio);
   updateLiveSetsCardLoaded(card, audio);
+
+  if (!shouldResume) {
+    audio.addEventListener('loadedmetadata', () => {
+      card.classList.remove('is-buffering');
+      setLiveSetsCardPlayerState(card, 'is-ready');
+    }, { once: true });
+    return;
+  }
+
+  // Clear any earlier error as soon as audio flows again.
+  audio.addEventListener('playing', () => setLiveSetsCardPlayerState(card, 'is-ready'), { once: true });
   audio.play().catch((error) => {
     if (error.name === 'AbortError') return;
     // One automatic retry covers a stream the worker cut off early
