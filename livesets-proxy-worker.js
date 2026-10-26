@@ -255,7 +255,8 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
     const size = await getAudioSize(mp3);
     if (size) {
       const startByte = Math.min(size - 1, Math.floor((Math.min(startSeconds, meta.duration) / meta.duration) * size));
-      // A partial body: no Accept-Ranges/ETag that would describe the whole file
+      // A partial body: no ETag, and no byte ranges (see the 200 path below)
+      headers.set('Accept-Ranges', 'none');
       headers.set('Content-Length', String(size - startByte));
       headers.set('X-Audio-Start', String(startSeconds));
       if (isHead) return new Response(null, { status: 200, headers });
@@ -281,12 +282,18 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
     return new Response('Upstream error', { status: upstream.status, headers: { ...corsHeaders, 'Cache-Control': 'no-store' } });
   }
   headers.set('Content-Type', upstream.headers.get('Content-Type') || 'audio/mpeg');
-  headers.set('Accept-Ranges', 'bytes');
-  const etag = upstream.headers.get('ETag');
-  if (etag) headers.set('ETag', etag);
+  // Byte ranges are only advertised on real 206 answers. Cloudflare strips the
+  // browser's Range header on workers.dev, so a 200 here can't honour a later
+  // "from byte N" request: phones (iOS Safari) that relied on it got the file
+  // from byte 0 and the set restarted. "none" makes them stream it straight
+  // through; the site seeks with ?t= instead.
+  headers.set('Accept-Ranges', 'none');
 
   // Upstream (or Cloudflare's cache) honoured the range: pass it through.
   if (upstream.status === 206) {
+    headers.set('Accept-Ranges', 'bytes');
+    const etag = upstream.headers.get('ETag');
+    if (etag) headers.set('ETag', etag);
     ['Content-Range', 'Content-Length'].forEach((name) => {
       const value = upstream.headers.get(name);
       if (value) headers.set(name, value);
@@ -313,7 +320,7 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
   upstream.body?.cancel();
   headers.set('Content-Range', `bytes ${range.start}-${range.end}/${size}`);
   headers.set('Content-Length', String(range.end - range.start + 1));
-  headers.delete('ETag');
+  headers.set('Accept-Ranges', 'bytes');
   if (isHead) return new Response(null, { status: 206, headers });
   const partial = await fetchRange(range.start, range.end);
   if (partial.status === 206) return new Response(partial.body, { status: 206, headers });
