@@ -2278,13 +2278,6 @@ function canSeekLiveSetsInPlace(audio, relative) {
   return relative >= 0 && within(audio.buffered) && within(audio.seekable);
 }
 
-// Phones (iOS Safari especially) re-request the file to jump inside it, even
-// within the downloaded part. The worker can't serve byte ranges (Cloudflare
-// strips Range on workers.dev) and answers from byte 0, so the set restarted
-// or kept playing the same part. On touch devices a seek always restarts the
-// stream at the exact time via ?t= instead.
-const liveSetsTouchSeekQuery = window.matchMedia('(hover: none), (pointer: coarse)');
-
 // Set length before the audio has loaded: LiveSets meta, else the card label
 function getLiveSetsKnownTotal(card) {
   const known = Number(card.dataset.totalDuration || 0);
@@ -2350,8 +2343,7 @@ async function toggleConsoleLiveSetsSession(card, event) {
     const relative = target - getLiveSetsOffset(card);
     const loadedEnd = getLiveSetsLoadedEnd(audio);
     const viaProxy = Boolean(proxyBase) && audio.currentSrc.startsWith(proxyBase);
-    const seekByUrl = viaProxy && liveSetsTouchSeekQuery.matches;
-    if (!seekByUrl && canSeekLiveSetsInPlace(audio, relative)) {
+    if (canSeekLiveSetsInPlace(audio, relative)) {
       audio.currentTime = relative; // already downloaded: instant
     } else if (viaProxy) {
       seekLiveSetsByUrl(card, audio, target, proxyBase);
