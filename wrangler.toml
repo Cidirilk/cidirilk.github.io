@@ -1,3 +1,11 @@
 name = "livesets-proxy"
 main = "livesets-proxy-worker.js"
 compatibility_date = "2024-11-01"
+
+# Workers Caching (Wrangler 4.69+): Cloudflare caches the worker's full 200
+# answers (the session MP3s) in front of it and serves byte ranges from them
+# as real 206 answers. Without it the browser's Range header never reaches
+# the worker, so iPhones (which stream and seek with ranges) got the file
+# from the start. Only answers with a public Cache-Control are stored.
+[cache]
+enabled = true

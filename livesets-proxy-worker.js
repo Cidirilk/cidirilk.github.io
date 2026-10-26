@@ -355,7 +355,9 @@ const serveSessionWaveform = async (sessionId, corsHeaders) => {
     headers: {
       ...corsHeaders,
       'Content-Type': 'application/json',
-      'Cache-Control': `public, max-age=${AUDIO_CACHE_TTL}`,
+      // private: the CORS header depends on the requesting site, so the
+      // shared Workers cache (wrangler.toml [cache]) must not store it
+      'Cache-Control': `private, max-age=${AUDIO_CACHE_TTL}`,
     },
   });
 };
@@ -443,6 +445,10 @@ export default {
       'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
       'Access-Control-Allow-Headers': 'Accept, Content-Type, Range',
       'Access-Control-Expose-Headers': 'Accept-Ranges, Content-Length, Content-Range',
+      // Default for every answer (errors, 404s, redirects): never stored by
+      // the Workers cache in front of this worker. Cacheable answers (audio,
+      // JSON) set their own Cache-Control after spreading these headers.
+      'Cache-Control': 'no-store',
     };
 
     if (request.method === 'OPTIONS') {
@@ -468,13 +474,15 @@ export default {
         return await serveSessionWaveform(waveformMatch[1], corsHeaders);
       }
 
-      // JSON helper: errors are never cached by browsers
+      // JSON helper: errors are never cached. Successes are cached by the
+      // browser only (private): the CORS header depends on the requesting
+      // site, so the shared Workers cache must not store them.
       const jsonResponse = (body, status, maxAge = 0) => new Response(JSON.stringify(body), {
         status,
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
-          'Cache-Control': status === 200 && maxAge ? `public, max-age=${maxAge}` : 'no-store',
+          'Cache-Control': status === 200 && maxAge ? `private, max-age=${maxAge}` : 'no-store',
         },
       });
 
