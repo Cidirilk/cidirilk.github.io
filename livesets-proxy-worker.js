@@ -223,6 +223,51 @@ const getAudioSize = async (url) => {
   }
 };
 
+// How long a ?t= seek waits for Cloudflare's cache before asking LiveSets
+const CACHE_PROBE_MS = 1500;
+
+// Audio from byte `start` to the end of the set, for a ?t= seek. When
+// Cloudflare's cache holds the set it answers the range at once. When it
+// doesn't, it first downloads the set from LiveSets from byte 0 (~230 KB/s),
+// so a seek deep into a set nobody played lately hung until the phone gave
+// up. A 1-byte probe tells the two apart; on a miss the range is asked from
+// LiveSets directly, past the cache (cache: 'no-store' needs the
+// cache_option_enabled flag in wrangler.toml). Bodies are passed through, never
+// read in JS, so this stays inside the free plan's CPU limit.
+const fetchSeekStream = async (mp3, start) => {
+  const fromCache = () => fetch(mp3, {
+    headers: { Range: `bytes=${start}-` },
+    cf: cacheFor(AUDIO_CACHE_TTL),
+  });
+  const probe = new AbortController();
+  const timer = setTimeout(() => probe.abort(), CACHE_PROBE_MS);
+  const cached = await fetch(mp3, {
+    headers: { Range: `bytes=${start}-${start}` },
+    cf: cacheFor(AUDIO_CACHE_TTL),
+    signal: probe.signal,
+  })
+    .then(async (response) => {
+      if (response.status !== 206) {
+        response.body?.cancel();
+        return false;
+      }
+      await response.arrayBuffer();
+      return true;
+    })
+    .catch(() => false)
+    .finally(() => clearTimeout(timer));
+  if (cached) return fromCache();
+
+  const direct = await fetch(mp3, {
+    headers: { Range: `bytes=${start}-` },
+    cache: 'no-store',
+  }).catch(() => null);
+  if (direct?.status === 206) return direct;
+  // LiveSets ignored the range: wait for the cache after all
+  direct?.body?.cancel();
+  return fromCache();
+};
+
 const serveSessionAudio = async (request, sessionId, corsHeaders) => {
   const meta = await fetchSessionMeta(sessionId);
   const mp3 = meta?.urlAudio?.find((audio) => /mpeg|mp3/i.test(audio.type) || /\.mp3$/i.test(audio.url))?.url;
@@ -264,7 +309,7 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
       headers.set('X-Audio-Start', String(startSeconds));
       if (isHead) return new Response(null, { status: 200, headers });
 
-      const partial = await fetchRange(startByte);
+      const partial = await fetchSeekStream(mp3, startByte);
       if (partial.status === 206) return new Response(partial.body, { status: 200, headers });
       if (partial.ok) {
         // Upstream ignored the range: cut the slice ourselves (last resort)

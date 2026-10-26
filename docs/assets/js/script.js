@@ -2223,6 +2223,8 @@ function updateLiveSetsCardTime(card, position, total) {
 }
 
 function updateLiveSetsCardProgress(card, audio) {
+  // A seek waiting for taps to settle already shows its target
+  if (card._seekTimer) return;
   const total = getLiveSetsTotal(card, audio);
   if (!total) return;
   const position = getLiveSetsOffset(card) + audio.currentTime;
@@ -2328,7 +2330,7 @@ async function toggleConsoleLiveSetsSession(card, event) {
       const target = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * total;
       card.dataset.totalDuration = String(total);
       delete card.dataset.resumeAt;
-      seekLiveSetsByUrl(card, audio, target, proxyBase);
+      requestLiveSetsSeek(card, audio, target, proxyBase);
       // Exact length from LiveSets for the elapsed / total label
       fetchLiveSetsSessionMeta(card.dataset.livesetsSessionId || '').then((meta) => {
         if (meta?.duration) card.dataset.totalDuration = String(meta.duration);
@@ -2346,7 +2348,7 @@ async function toggleConsoleLiveSetsSession(card, event) {
     if (canSeekLiveSetsInPlace(audio, relative)) {
       audio.currentTime = relative; // already downloaded: instant
     } else if (viaProxy) {
-      seekLiveSetsByUrl(card, audio, target, proxyBase);
+      requestLiveSetsSeek(card, audio, target, proxyBase);
       return;
     } else {
       // Direct LiveSets file (worker unavailable): stay inside the loaded part
@@ -2367,6 +2369,34 @@ async function toggleConsoleLiveSetsSession(card, event) {
     card.closest('.tab-panel')?.scrollTo({ top: 0, behavior: 'smooth' });
   }
   await playLiveSetsCard(card);
+}
+
+// Waveform taps: only the last of a quick series starts a stream. Each ?t=
+// seek is a new download, and the earlier ones only slowed the last one down
+// (phones on mobile data most). The first tap still starts at once: iOS only
+// allows play() straight from a tap until the set has played.
+const LIVESETS_SEEK_SETTLE_MS = 400;
+
+function requestLiveSetsSeek(card, audio, seconds, proxyBase) {
+  clearTimeout(card._seekTimer);
+  const now = Date.now();
+  const recent = now - (card._lastSeekAt || 0) < LIVESETS_SEEK_SETTLE_MS * 2;
+  card._lastSeekAt = now;
+  if (!recent) {
+    seekLiveSetsByUrl(card, audio, seconds, proxyBase);
+    return;
+  }
+  // Show where it is going right away; the stream follows when taps stop
+  const total = getLiveSetsTotal(card, audio);
+  if (total) {
+    updateLiveSetsCardTime(card, seconds, total);
+    card.style.setProperty('--sessions-progress', `${((seconds / total) * 100).toFixed(2)}%`);
+  }
+  card._seekTimer = setTimeout(() => {
+    card._seekTimer = 0;
+    if (!card.isConnected || !card.classList.contains('active')) return;
+    seekLiveSetsByUrl(card, audio, seconds, proxyBase);
+  }, LIVESETS_SEEK_SETTLE_MS);
 }
 
 // Restart the stream at `seconds` through the worker (?t=) and keep playing.
@@ -2440,6 +2470,9 @@ const pauseLiveSetsCardPlayer = (card) => {
 const releaseLiveSetsCardPlayer = (card) => {
   const audio = card?.querySelector('[data-livesets-audio]');
   if (!audio) return;
+  // A seek still waiting for taps to settle must not start this set again
+  clearTimeout(card._seekTimer);
+  card._seekTimer = 0;
   audio.pause();
   card.classList.remove('is-playing-session', 'is-buffering');
   if (!audio.getAttribute('src') && !audio.querySelector('source')) return;

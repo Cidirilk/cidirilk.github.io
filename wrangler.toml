@@ -1,6 +1,9 @@
 name = "livesets-proxy"
 main = "livesets-proxy-worker.js"
 compatibility_date = "2024-11-01"
+# fetch(..., { cache: 'no-store' }): ?t= seeks into a set Cloudflare hasn't
+# cached ask LiveSets directly (see fetchSeekStream)
+compatibility_flags = ["cache_option_enabled"]
 
 # Workers Caching (Wrangler 4.69+): Cloudflare caches the worker's full 200
 # answers (the session MP3s) in front of it and serves byte ranges from them
