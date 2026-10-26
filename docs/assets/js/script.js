@@ -2119,10 +2119,13 @@ function bindYoutubeApi(card, frame) {
     if (!frame.getAttribute('src') || card._ytPlayer) return;
     card._ytPlayer = new YT.Player(frame, {
       events: {
+        // Page volume (desktop), see applyPageVolume
+        onReady: (event) => setPlayerPageVolume(event.target),
         onStateChange: (event) => {
           const playing = event.data === YT.PlayerState.PLAYING || event.data === YT.PlayerState.BUFFERING;
           setYoutubeToggle(card, playing);
           if (event.data === YT.PlayerState.PLAYING) {
+            setPlayerPageVolume(event.target);
             pauseYoutubePlayers(card);
             pauseAllAudio();
             document.querySelectorAll('.podcast-episode').forEach((episode) => episode._podcastWidget?.pause());
@@ -5023,6 +5026,212 @@ document.addEventListener('play', (event) => {
   pauseYoutubePlayers();
 }, true);
 
+// Page volume (desktop): one level for every player on the page — LiveSets
+// sessions, the live radio, SoundCloud cards (Monthly Dose, ChaCha) and
+// YouTube videos. Phones keep their own volume buttons (iOS ignores a page's
+// volume anyway), so it only applies with a mouse, and only when the browser
+// really lets the page set volume. The level is remembered per browser.
+const PAGE_VOLUME_KEY = 'cidirilkVolume';
+const pageVolume = { level: 80, muted: false };
+const pageVolumeSupported = (() => {
+  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return false;
+  try {
+    const probe = document.createElement('audio');
+    probe.volume = 0.5;
+    return probe.volume === 0.5;
+  } catch {
+    return false;
+  }
+})();
+try {
+  const saved = JSON.parse(localStorage.getItem(PAGE_VOLUME_KEY) || 'null');
+  if (saved && Number.isFinite(saved.level)) {
+    pageVolume.level = Math.max(0, Math.min(100, Math.round(saved.level)));
+    pageVolume.muted = Boolean(saved.muted);
+  }
+} catch {}
+
+// 0–100, or null where the page doesn't manage volume (phones)
+function getPageVolumeLevel() {
+  if (!pageVolumeSupported) return null;
+  return pageVolume.muted ? 0 : pageVolume.level;
+}
+
+// A SoundCloud widget or YouTube player (both take 0–100)
+function setPlayerPageVolume(player) {
+  const level = getPageVolumeLevel();
+  if (level === null || typeof player?.setVolume !== 'function') return;
+  player.setVolume(level);
+  if (level > 0 && typeof player.unMute === 'function') player.unMute();
+}
+
+function applyPageVolume() {
+  const level = getPageVolumeLevel();
+  if (level === null) return;
+  document.querySelectorAll('audio').forEach((audio) => {
+    audio.volume = level / 100;
+  });
+  document.querySelectorAll('.podcast-episode').forEach((card) => setPlayerPageVolume(card._podcastWidget));
+  document.querySelectorAll('.youtube-card').forEach((card) => {
+    // Only players that finished loading (see pauseYoutubePlayers)
+    if (typeof card._ytPlayer?.getPlayerState === 'function') setPlayerPageVolume(card._ytPlayer);
+  });
+}
+
+// Any <audio> that starts picks the level up (sets, live radio)
+document.addEventListener('play', (event) => {
+  const level = getPageVolumeLevel();
+  if (level !== null && event.target instanceof HTMLMediaElement) event.target.volume = level / 100;
+}, true);
+
+(() => {
+  const bar = document.querySelector('[data-now-playing]');
+  const control = bar?.querySelector('[data-volume-control]');
+  const button = bar?.querySelector('[data-now-playing-toggle]');
+  const sourceText = bar?.querySelector('[data-now-playing-source]');
+  const titleText = bar?.querySelector('[data-now-playing-title]');
+  const mute = control?.querySelector('[data-volume-mute]');
+  const slider = control?.querySelector('[data-volume-slider]');
+  const value = control?.querySelector('[data-volume-value]');
+  if (!bar || !pageVolumeSupported || !button || !sourceText || !titleText || !mute || !slider || !value) return;
+
+  // Volume: mute, slider and level; the level is kept while muted
+  const renderVolume = () => {
+    const silent = pageVolume.muted || pageVolume.level === 0;
+    const icon = silent ? 'fa-volume-xmark' : pageVolume.level < 40 ? 'fa-volume-low' : 'fa-volume-high';
+    control.querySelectorAll('[data-volume-icon]').forEach((el) => {
+      el.className = `fa-solid ${icon}`;
+    });
+    control.classList.toggle('is-muted', silent);
+    slider.value = String(pageVolume.level);
+    slider.style.setProperty('--volume', `${pageVolume.level}%`);
+    slider.setAttribute('aria-valuetext', pageVolume.muted ? 'Muted' : `${pageVolume.level}%`);
+    value.textContent = pageVolume.muted ? 'Muted' : `${pageVolume.level}%`;
+    mute.setAttribute('aria-pressed', String(pageVolume.muted));
+    mute.setAttribute('aria-label', pageVolume.muted ? 'Unmute' : 'Mute');
+  };
+
+  const setVolume = (level, muted) => {
+    pageVolume.level = Math.max(0, Math.min(100, Math.round(level)));
+    pageVolume.muted = muted;
+    renderVolume();
+    applyPageVolume();
+    try {
+      localStorage.setItem(PAGE_VOLUME_KEY, JSON.stringify(pageVolume));
+    } catch {}
+  };
+
+  slider.addEventListener('input', () => setVolume(Number(slider.value), false));
+  mute.addEventListener('click', () => {
+    if (pageVolume.muted || pageVolume.level === 0) setVolume(pageVolume.level || 50, false);
+    else setVolume(pageVolume.level, true);
+  });
+  // Mouse wheel over the volume nudges the level
+  control.addEventListener('wheel', (event) => {
+    event.preventDefault();
+    setVolume(pageVolume.level + (event.deltaY < 0 ? 5 : -5), false);
+  }, { passive: false });
+
+  renderVolume();
+  applyPageVolume();
+
+  // What played last — a set, the live radio, a SoundCloud card or a YouTube
+  // video. The bar shows while it plays or is paused, and hides once it is
+  // stopped or unloaded.
+  let current = null;
+
+  const describe = ({ kind, el }) => {
+    if (!el?.isConnected) return null;
+    if (kind === 'audio') {
+      if (el === liveRadio.audio) {
+        return liveRadio.playing || liveRadio.starting
+          ? { source: 'Live radio', title: 'LiveSets broadcast', playing: true }
+          : null;
+      }
+      const card = el.closest('.sessions-card');
+      if (!card || (!el.getAttribute('src') && !el.querySelector('source'))) return null;
+      return {
+        source: 'Sessions',
+        title: card.querySelector('.sessions-card-title')?.textContent.trim() || 'LiveSets set',
+        playing: !el.paused,
+      };
+    }
+    if (kind === 'sc') {
+      const chacha = Boolean(el.closest('[data-chacha-episodes]'));
+      const name = el.querySelector('.podcast-ui-title')?.textContent.trim() || 'SoundCloud';
+      // Monthly Dose cards share one title: add the episode ("#033")
+      const number = chacha ? '' : el.querySelector('.podcast-episode-number')?.textContent.trim() || '';
+      return {
+        source: chacha ? 'ChaCha' : 'SoundCloud',
+        title: number ? `${name} ${number}` : name,
+        playing: el.classList.contains('is-playing-episode'),
+      };
+    }
+    if (kind === 'yt') {
+      if (!el.querySelector('iframe[src]')) return null;
+      return {
+        source: 'YouTube',
+        title: el.querySelector('.youtube-card-name')?.textContent.trim() || 'YouTube',
+        playing: el.classList.contains('is-yt-playing'),
+      };
+    }
+    return null;
+  };
+
+  const renderBar = () => {
+    const info = current && describe(current);
+    bar.hidden = !info;
+    document.documentElement.classList.toggle('has-now-playing', Boolean(info));
+    if (!info) return;
+    sourceText.textContent = info.source;
+    titleText.textContent = info.title;
+    titleText.title = info.title;
+    button.querySelector('i').className = `fa-solid ${info.playing ? 'fa-pause' : 'fa-play'}`;
+    button.setAttribute('aria-label', `${info.playing ? 'Pause' : 'Play'} ${info.title}`);
+  };
+  const note = (item) => {
+    current = item;
+    renderBar();
+  };
+
+  document.addEventListener('play', (event) => {
+    if (event.target instanceof HTMLMediaElement) note({ kind: 'audio', el: event.target });
+  }, true);
+  ['pause', 'emptied', 'ended'].forEach((type) => document.addEventListener(type, renderBar, true));
+  // SoundCloud and YouTube play inside iframes: follow their cards' playing classes
+  new MutationObserver((records) => {
+    records.forEach(({ target }) => {
+      if (target.classList.contains('is-playing-episode')) note({ kind: 'sc', el: target });
+      else if (target.classList.contains('is-yt-playing')) note({ kind: 'yt', el: target });
+    });
+    if (records.some(({ target }) => target.matches('.podcast-episode, .youtube-card, .sessions-card'))) renderBar();
+  }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  // The live radio can also stop from its status poll
+  setInterval(renderBar, 2000);
+
+  button.addEventListener('click', () => {
+    if (!current) return;
+    const { kind, el } = current;
+    if (kind === 'audio') {
+      if (el === liveRadio.audio) {
+        stopLiveRadio();
+        return;
+      }
+      const card = el.closest('.sessions-card');
+      if (el.paused) playLiveSetsCard(card);
+      else pauseLiveSetsCardPlayer(card);
+    } else if (kind === 'sc') {
+      el.querySelector('[data-podcast-toggle]')?.click();
+    } else if (kind === 'yt') {
+      const player = el._ytPlayer;
+      if (typeof player?.getPlayerState !== 'function') return;
+      if (el.classList.contains('is-yt-playing')) player.pauseVideo();
+      else player.playVideo();
+    }
+  });
+})();
+
+
 // Bookings dialog: the hero "Bookings" link opens it (without JS it stays a
 // plain mailto link). Native <dialog> handles focus, Escape and the backdrop.
 (() => {
@@ -5204,6 +5413,8 @@ function bindPodcastWidget(card) {
   const { Events } = window.SC.Widget;
   widget.bind(Events.READY, () => {
     card.dataset.widgetReady = 'true';
+    // Page volume (desktop), see applyPageVolume
+    setPlayerPageVolume(widget);
     widget.getDuration((duration) => {
       card.dataset.durationMs = String(duration || 0);
       updatePodcastControls(card, 0);

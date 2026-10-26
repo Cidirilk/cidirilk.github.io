@@ -6250,3 +6250,262 @@ html[data-theme='light'] .profile-cards .tab-panel [data-guides-track] .guide-ca
     transition: none;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Now playing (desktop only, see script.js): a glass bar at the bottom,
+   between the chat and radio buttons, while something plays or is paused —
+   play/pause, source + title, and one volume for every player on the page.
+   Phones use their own volume buttons, so it never shows there.
+   -------------------------------------------------------------------------- */
+.now-playing {
+  display: none;
+}
+
+@media (min-width: 1025px) and (hover: hover) and (pointer: fine) {
+  .now-playing:not([hidden]) {
+    position: fixed;
+    left: 50%;
+    bottom: 40px;
+    z-index: 140;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: min(620px, calc(100vw - 260px));
+    height: 60px;
+    padding: 0 18px 0 8px;
+    border-radius: 999px;
+    background: var(--rd-glass);
+    border: 1px solid var(--rd-glass-border);
+    box-shadow: var(--rd-glass-shadow);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    transform: translateX(-50%);
+    animation: now-playing-in 0.25s ease;
+  }
+
+  @keyframes now-playing-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, 10px);
+    }
+  }
+
+  .now-playing-toggle {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--rd-primary-grad);
+    box-shadow: var(--rd-primary-shadow);
+    color: #ffffff;
+    font-size: 15px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .now-playing-toggle:hover {
+    transform: scale(1.06);
+  }
+
+  .now-playing-toggle .fa-play {
+    transform: translateX(1.5px);
+  }
+
+  .now-playing-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .now-playing-source {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #c174ff;
+  }
+
+  .now-playing-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 600;
+    color: #f3f0fc;
+  }
+
+  [data-theme='light'] .now-playing-source {
+    color: #7a2dff;
+  }
+
+  [data-theme='light'] .now-playing-title {
+    color: #1a1033;
+  }
+
+  /* Volume: mute, violet slider, level */
+  .volume-control {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 210px;
+  }
+
+  .volume-mute {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(193, 116, 255, 0.35);
+    background: rgba(193, 116, 255, 0.1);
+    color: #e3ccff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+  }
+
+  .volume-mute:hover {
+    background: rgba(193, 116, 255, 0.22);
+    border-color: #d59bff;
+  }
+
+  [data-theme='light'] .volume-mute {
+    color: #3b1d6e;
+    border-color: rgba(122, 45, 255, 0.3);
+    background: rgba(122, 45, 255, 0.07);
+  }
+
+  .volume-control.is-muted .volume-mute {
+    color: #a99bc9;
+  }
+
+  [data-theme='light'] .volume-control.is-muted .volume-mute {
+    color: #7a6aa0;
+  }
+
+  .volume-slider {
+    flex: 1;
+    min-width: 0;
+    height: 18px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .volume-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--rd-primary-grad) 0 0 / var(--volume, 80%) 100% no-repeat, rgba(255, 255, 255, 0.14);
+  }
+
+  .volume-slider::-moz-range-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--rd-primary-grad) 0 0 / var(--volume, 80%) 100% no-repeat, rgba(255, 255, 255, 0.14);
+  }
+
+  .volume-slider::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+    border: 0;
+    border-radius: 50%;
+    background: #f3f0fc;
+    box-shadow: 0 0 0 3px rgba(193, 116, 255, 0.35), 0 0 12px rgba(193, 116, 255, 0.6);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .volume-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 0;
+    border-radius: 50%;
+    background: #f3f0fc;
+    box-shadow: 0 0 0 3px rgba(193, 116, 255, 0.35), 0 0 12px rgba(193, 116, 255, 0.6);
+  }
+
+  [data-theme='light'] .volume-slider::-webkit-slider-runnable-track {
+    background: var(--rd-primary-grad) 0 0 / var(--volume, 80%) 100% no-repeat, rgba(122, 45, 255, 0.14);
+  }
+
+  [data-theme='light'] .volume-slider::-moz-range-track {
+    background: var(--rd-primary-grad) 0 0 / var(--volume, 80%) 100% no-repeat, rgba(122, 45, 255, 0.14);
+  }
+
+  [data-theme='light'] .volume-slider::-webkit-slider-thumb {
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(122, 45, 255, 0.3), 0 2px 6px rgba(70, 30, 140, 0.25);
+  }
+
+  [data-theme='light'] .volume-slider::-moz-range-thumb {
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(122, 45, 255, 0.3), 0 2px 6px rgba(70, 30, 140, 0.25);
+  }
+
+  .volume-slider:focus-visible {
+    outline: none;
+  }
+
+  .volume-slider:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px #d59bff, 0 0 14px rgba(193, 116, 255, 0.8);
+  }
+
+  .volume-slider:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 3px #d59bff, 0 0 14px rgba(193, 116, 255, 0.8);
+  }
+
+  /* Muted: the fill dims, the level is kept for unmuting */
+  .volume-control.is-muted .volume-slider {
+    opacity: 0.45;
+  }
+
+  .volume-value {
+    flex: none;
+    min-width: 5ch;
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: #cdbcf0;
+  }
+
+  [data-theme='light'] .volume-value {
+    color: #5b4d78;
+  }
+
+  /* The bar sits on the footer: only the copyright text fades out under it,
+     the footer itself (background, top line) stays */
+  .site-footer > p {
+    transition: opacity 0.25s ease, visibility 0.25s;
+  }
+
+  .has-now-playing .site-footer > p {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (min-width: 1025px) and (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .now-playing:not([hidden]),
+  .now-playing-toggle,
+  .site-footer > p {
+    animation: none;
+    transition: none;
+  }
+
+  .now-playing-toggle:hover {
+    transform: none;
+  }
+}

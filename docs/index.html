@@ -73,7 +73,7 @@
       />
     </noscript>
     <link rel="stylesheet" href="./assets/css/main.css?v=dark-loader-default-20261005" />
-    <link rel="stylesheet" href="./assets/css/redesign.css?v=3000-20261027g" />
+    <link rel="stylesheet" href="./assets/css/redesign.css?v=3000-20261028d" />
     <noscript>
       <style>
         body {
@@ -1604,6 +1604,35 @@
       </p>
     </footer>
 
+    <!-- Now playing (desktop): what played last (a set, the live radio,
+         SoundCloud or YouTube) with play/pause and one volume for every player.
+         Shown by script.js while something plays; phones use their own buttons. -->
+    <div class="now-playing" role="region" aria-label="Now playing" data-now-playing hidden>
+      <button class="now-playing-toggle" type="button" aria-label="Pause" data-now-playing-toggle>
+        <i class="fa-solid fa-pause" aria-hidden="true"></i>
+      </button>
+      <span class="now-playing-text">
+        <span class="now-playing-source" data-now-playing-source></span>
+        <span class="now-playing-title" data-now-playing-title></span>
+      </span>
+      <div class="volume-control" data-volume-control>
+        <button class="volume-mute" type="button" aria-label="Mute" aria-pressed="false" data-volume-mute>
+          <i class="fa-solid fa-volume-high" aria-hidden="true" data-volume-icon></i>
+        </button>
+        <input
+          class="volume-slider"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value="80"
+          aria-label="Volume for everything playing on this page"
+          data-volume-slider
+        />
+        <span class="volume-value" aria-hidden="true" data-volume-value>80%</span>
+      </div>
+    </div>
+
     <div class="live-popup is-collapsed" data-live-banner data-desktop-radio-popup>
       <button
         class="live-popup-toggle"
@@ -1893,7 +1922,7 @@
     </dialog>
 
     <script src="https://w.soundcloud.com/player/api.js" defer></script>
-    <script src="./assets/js/script.js?v=fix-20261028c" defer></script>
+    <script src="./assets/js/script.js?v=fix-20261028g" defer></script>
     <script
       src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onloadTurnstile"
       defer
