@@ -257,6 +257,10 @@ const serveSessionAudio = async (request, sessionId, corsHeaders) => {
       const startByte = Math.min(size - 1, Math.floor((Math.min(startSeconds, meta.duration) / meta.duration) * size));
       // A partial body: no Accept-Ranges/ETag that would describe the whole file
       headers.set('Content-Length', String(size - startByte));
+      // Streamed straight through, never stored by the Workers cache: every
+      // seek is a new ?t URL, and filling the cache first (tens of MB) kept
+      // phones waiting for the first byte until they gave up
+      headers.set('Cache-Control', 'no-store');
       headers.set('X-Audio-Start', String(startSeconds));
       if (isHead) return new Response(null, { status: 200, headers });
 
