@@ -5418,8 +5418,12 @@ function createPodcastControls(track, opts = {}) {
     const widget = card?._podcastWidget;
     const duration = Number(card?.dataset.durationMs || 0);
     if (!widget || !duration) return;
+    // Stop the muted preload first, or its pause would undo this seek
+    if (card._podcastPriming) finishPodcastPriming(card, widget);
     widget.seekTo(Math.max(0, Math.min(1, ratio)) * duration);
-    widget.isPaused((paused) => { if (paused) widget.play(); });
+    // play() right inside the tap (iOS blocks it later on), so use our own
+    // playing state rather than asking the widget (isPaused answers async)
+    if (!card.classList.contains('is-playing-episode')) widget.play();
   };
   seek.addEventListener('click', (event) => {
     event.stopPropagation();
