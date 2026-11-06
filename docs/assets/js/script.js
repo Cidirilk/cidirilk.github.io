@@ -4964,13 +4964,6 @@ document.querySelector('.card-tabs .tab-button[data-tab="subscribe"]')?.addEvent
 
       const meta = document.createElement('span');
       meta.className = 'podcast-episode-meta';
-      // Original-colour cover under the brand duotone; shown while playing
-      if (artwork) {
-        const original = document.createElement('span');
-        original.className = 'chacha-cover-original';
-        original.setAttribute('aria-hidden', 'true');
-        meta.appendChild(original);
-      }
       const number = document.createElement('span');
       number.className = 'podcast-episode-number';
       number.textContent = label;
