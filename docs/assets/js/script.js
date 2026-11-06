@@ -5393,7 +5393,11 @@ function createPodcastControls(track, opts = {}) {
     event.stopPropagation();
     const card = ui.closest('.podcast-episode');
     const widget = card?._podcastWidget;
-    if (widget && card.dataset.widgetReady === 'true') {
+    if (widget && card._podcastPriming) {
+      // Tapped while the stream is still being preloaded (muted): keep it
+      // playing and turn the sound on
+      finishPodcastPriming(card, widget, true);
+    } else if (widget && card.dataset.widgetReady === 'true') {
       widget.toggle();
     } else if (card) {
       card.dataset.playWhenReady = 'true';
@@ -5455,6 +5459,8 @@ function setPodcastPlaying(card, playing) {
 }
 
 function resetPodcastControls(card) {
+  card._podcastPriming = false;
+  clearTimeout(card._podcastPrimeTimer);
   delete card._podcastWidget;
   card.dataset.widgetReady = 'false';
   setPodcastPlaying(card, false);
@@ -5478,9 +5484,11 @@ function bindPodcastWidget(card) {
     if (card.dataset.playWhenReady === 'true') {
       delete card.dataset.playWhenReady;
       widget.play();
+    } else if (!pageVolumeSupported) {
+      primePodcastWidget(card, widget);
     }
   });
-  widget.bind(Events.PLAY, () => {
+  card._podcastOnPlay = () => {
     setPodcastPlaying(card, true);
     // One player at a time: pause the other SoundCloud cards and any audio
     document.querySelectorAll('.podcast-episode').forEach((other) => {
@@ -5488,11 +5496,53 @@ function bindPodcastWidget(card) {
     });
     pauseAllAudio();
     pauseYoutubePlayers();
+  };
+  widget.bind(Events.PLAY, () => {
+    if (!card._podcastPriming) card._podcastOnPlay();
   });
   widget.bind(Events.PAUSE, () => setPodcastPlaying(card, false));
   widget.bind(Events.FINISH, () => setPodcastPlaying(card, false));
-  widget.bind(Events.PLAY_PROGRESS, (event) => updatePodcastControls(card, event?.currentPosition));
-  widget.bind(Events.SEEK, (event) => updatePodcastControls(card, event?.currentPosition));
+  widget.bind(Events.PLAY_PROGRESS, (event) => {
+    if (card._podcastPriming) {
+      finishPodcastPriming(card, widget);
+      return;
+    }
+    updatePodcastControls(card, event?.currentPosition);
+  });
+  widget.bind(Events.SEEK, (event) => {
+    if (!card._podcastPriming) updatePodcastControls(card, event?.currentPosition);
+  });
+}
+
+// Phones and tablets: the widget fetches a track's stream only when it is
+// first played, and on iOS its play() then comes too late to count as part
+// of the tap, so the first Play press did nothing and a second was needed.
+// Once the card's widget is ready, start it muted so the stream loads, then
+// pause it again; the first Play press then starts at once. (Where the
+// browser blocks this unprompted play() no sound comes out either way.)
+const PODCAST_PRIME_TIMEOUT_MS = 6000;
+
+function primePodcastWidget(card, widget) {
+  card._podcastPriming = true;
+  widget.setVolume(0);
+  widget.play();
+  card._podcastPrimeTimer = setTimeout(() => finishPodcastPriming(card, widget), PODCAST_PRIME_TIMEOUT_MS);
+}
+
+function finishPodcastPriming(card, widget, keepPlaying = false) {
+  if (!card._podcastPriming) return;
+  card._podcastPriming = false;
+  clearTimeout(card._podcastPrimeTimer);
+  if (keepPlaying) {
+    widget.setVolume(100);
+    widget.play(); // inside the tap: starts it if the muted start was blocked
+    // The muted start's PLAY event was skipped, so mark it playing here
+    card._podcastOnPlay?.();
+    return;
+  }
+  widget.pause();
+  widget.seekTo(0);
+  widget.setVolume(100);
 }
 
 // Leaving the YouTube tab on the desktop console stops the playing video
