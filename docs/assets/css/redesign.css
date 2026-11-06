@@ -6196,9 +6196,10 @@ html[data-theme='light'] .profile-cards .tab-panel [data-guides-track] .guide-ca
 }
 
 /* --------------------------------------------------------------------------
-   ChaCha covers: the festival posters are drawn in the brand duotone
-   (#brand-duotone in index.html) so the row reads as one series, also
-   while a card plays. YouTube embeds get a matching tint below.
+   ChaCha covers: the festival posters are drawn in the Your Monthly Dose
+   artwork's colours (#monthly-dose-tone in index.html) so both rows read as
+   one series, also while a card plays. YouTube keeps #brand-duotone and the
+   matching tint below.
    -------------------------------------------------------------------------- */
 .svg-filters {
   position: absolute;
@@ -6209,11 +6210,11 @@ html[data-theme='light'] .profile-cards .tab-panel [data-guides-track] .guide-ca
 }
 
 .profile-cards .tab-panel[data-panel='podcast'] [data-chacha-episodes] .podcast-episode.has-artwork .podcast-episode-meta::before {
-  filter: url(#brand-duotone) blur(14px) brightness(0.62);
+  filter: url(#monthly-dose-tone) blur(14px) brightness(0.62);
 }
 
 .profile-cards .tab-panel[data-panel='podcast'] [data-chacha-episodes] .podcast-episode.has-artwork .podcast-episode-meta::after {
-  filter: url(#brand-duotone);
+  filter: url(#monthly-dose-tone);
 }
 
 /* YouTube embeds keep the brand tint while loading and playing. SVG url()
