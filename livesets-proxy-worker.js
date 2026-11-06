@@ -38,8 +38,8 @@
  *                        OGG); 503 JSON {connected:false} while offline
  *   anything else        404
  *
- * Session routes serve CIDIRILK's own sets only (LiveSets page under
- * /cidirilk/), so the worker can't be used to stream other users' audio.
+ * Session routes serve CIDIRILK's own sets only (files under LiveSets'
+ * /pub/42069/), so the worker can't be used to stream other users' audio.
  * Errors are never cached for long (see cacheFor).
  */
 
@@ -135,9 +135,11 @@ const normalizeSessionMeta = (meta) => ({
 // ---------------------------------------------------------------------------
 const AUDIO_CACHE_TTL = 60 * 60 * 24 * 7; // a week; sets don't change
 const WAVEFORM_POINTS = 240;
-// Only CIDIRILK's own sets are proxied (LiveSets page URLs are /<user>/...),
-// so the worker cannot be used to stream or mirror anyone else's audio.
-const OWNER_PATH_PREFIX = '/cidirilk/';
+// Only CIDIRILK's own sets are proxied (their files live under the channel's
+// /pub/42069/ folder), so the worker cannot be used to stream or mirror
+// anyone else's audio. Page URLs can't be used for this: LiveSets moved them
+// from /cidirilk/session/<id> to /session/<id> (Nov 2026).
+const OWNER_PUB_PREFIX = '/pub/42069/';
 
 // Cloudflare cache settings: cache successes, never keep errors around for
 // long (a passing LiveSets hiccup must not break a set for a week).
@@ -146,13 +148,17 @@ const cacheFor = (seconds) => ({
   cacheTtlByStatus: { '200-299': seconds, '404': 60, '500-599': 0 },
 });
 
-const isOwnSession = (meta) => {
+const isLiveSetsPubUrl = (value) => {
   try {
-    return new URL(meta?.urlPage || '').pathname.startsWith(OWNER_PATH_PREFIX);
+    const parsed = new URL(value);
+    return parsed.hostname === 'livesets.com' && parsed.pathname.startsWith(OWNER_PUB_PREFIX);
   } catch {
     return false;
   }
 };
+
+const isOwnSession = (meta) =>
+  meta.urlAudio.length > 0 && meta.urlAudio.every((audio) => isLiveSetsPubUrl(audio.url));
 
 const fetchSessionMeta = async (sessionId) => {
   const upstream = await fetch(`${SESSION_META_UPSTREAM}${sessionId}`, {
@@ -162,15 +168,6 @@ const fetchSessionMeta = async (sessionId) => {
   if (!upstream.ok) return null;
   const meta = normalizeSessionMeta(await upstream.json().catch(() => null));
   return isOwnSession(meta) ? meta : null;
-};
-
-const isLiveSetsPubUrl = (value) => {
-  try {
-    const parsed = new URL(value);
-    return parsed.hostname === 'livesets.com' && parsed.pathname.startsWith('/pub/');
-  } catch {
-    return false;
-  }
 };
 
 const parseRange = (header, size) => {

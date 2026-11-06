@@ -1689,92 +1689,92 @@ const LIVESETS_FALLBACK_ARTWORK =
 const LIVESETS_FALLBACK_SESSIONS = [
   {
     index: 1,
+    title: 'mood_rec( *six.7)',
+    url: 'https://livesets.com/session/72304',
+    age: '1 month ago',
+    genre: 'Techno',
+    duration: '58:57',
+    artwork: LIVESETS_FALLBACK_ARTWORK,
+  },
+  {
+    index: 2,
     title: 'mood_rec( *six.6)',
-    url: 'https://livesets.com/cidirilk/session/72255',
-    age: '2 days ago',
+    url: 'https://livesets.com/session/72255',
+    age: '1 month ago',
     genre: 'Techno',
     duration: '58:20',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
   {
-    index: 2,
+    index: 3,
     title: 'mood_rec( *six.5)',
-    url: 'https://livesets.com/cidirilk/session/71461',
+    url: 'https://livesets.com/session/71461',
     age: '4 days ago',
     genre: 'Techno',
     duration: '59:55',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
   {
-    index: 3,
+    index: 4,
     title: 'mood_rec( *six.4)',
-    url: 'https://livesets.com/cidirilk/session/71442',
+    url: 'https://livesets.com/session/71442',
     age: '3 months ago',
     genre: 'Techno',
     duration: '1:00:07',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
   {
-    index: 4,
+    index: 5,
     title: 'mood_rec( *six.3)',
-    url: 'https://livesets.com/cidirilk/session/71430',
+    url: 'https://livesets.com/session/71430',
     age: '3 months ago',
     genre: 'Techno',
     duration: '1:00:16',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
   {
-    index: 5,
+    index: 6,
     title: 'mood_rec( *six.2)',
-    url: 'https://livesets.com/cidirilk/session/71426',
+    url: 'https://livesets.com/session/71426',
     age: '3 months ago',
     genre: 'Techno',
     duration: '59:45',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
   {
-    index: 6,
+    index: 7,
     title: 'mood_rec( *six.1)',
-    url: 'https://livesets.com/cidirilk/session/71424',
+    url: 'https://livesets.com/session/71424',
     age: '3 months ago',
     genre: 'Techno',
     duration: '1:01:47',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
   {
-    index: 7,
+    index: 8,
     title: 'mood_rec( *six.0)',
-    url: 'https://livesets.com/cidirilk/session/71412',
+    url: 'https://livesets.com/session/71412',
     age: '3 months ago',
     genre: 'Techno',
     duration: '2:00:04',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
   {
-    index: 8,
+    index: 9,
     title: 'mood_rec( *five.9)',
-    url: 'https://livesets.com/cidirilk/session/71307',
+    url: 'https://livesets.com/session/71307',
     age: '3 months ago',
     genre: 'Techno',
     duration: '44:42',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
   {
-    index: 9,
+    index: 10,
     title: 'mood_rec( *five.8)',
-    url: 'https://livesets.com/cidirilk/session/70834',
+    url: 'https://livesets.com/session/70834',
     age: '3 months ago',
     genre: 'Techno',
     duration: '1:46:04',
-    artwork: LIVESETS_FALLBACK_ARTWORK,
-  },
-  {
-    index: 10,
-    title: 'mood_rec( *five.7)',
-    url: 'https://livesets.com/cidirilk/session/70539',
-    age: '6 months ago',
-    genre: 'Techno',
-    duration: '1:00:18',
     artwork: LIVESETS_FALLBACK_ARTWORK,
   },
 ];
@@ -1803,11 +1803,13 @@ const isTrustedLiveSetsUrl = (value) => {
   }
 };
 
-// A session is shown only if it points at CIDIRILK's LiveSets pages; text is
-// capped so a bad payload can't blow up the layout or storage
+// A session is shown only if it points at a LiveSets session page (the list
+// comes from our worker, which only serves CIDIRILK's sets; LiveSets moved
+// pages from /cidirilk/session/<id> to /session/<id>); text is capped so a
+// bad payload can't blow up the layout or storage
 const isTrustedLiveSetsSession = (session) => {
   if (!session || typeof session !== 'object') return false;
-  if (!isTrustedLiveSetsUrl(session.url) || !new URL(session.url).pathname.startsWith('/cidirilk/')) return false;
+  if (!isTrustedLiveSetsUrl(session.url) || !/\/session\/\d+\/?$/.test(new URL(session.url).pathname)) return false;
   if (session.artwork && !isTrustedLiveSetsUrl(session.artwork)) session.artwork = '';
   ['title', 'genre', 'age', 'duration'].forEach((key) => {
     session[key] = String(session[key] || '').slice(0, key === 'title' ? 160 : 60);
@@ -2512,13 +2514,76 @@ const setLiveSetsCardPlayerState = (card, state, message = '') => {
   if (status) status.textContent = message;
 };
 
-const loadLiveSetsCardPlayer = async (card) => {
+const appendLiveSetsSources = (audio, sources) => {
+  sources.forEach((sourceData) => {
+    const source = document.createElement('source');
+    source.src = sourceData.url;
+    if (sourceData.type) source.type = sourceData.type;
+    audio.appendChild(source);
+  });
+};
+
+// Returns the audio element, or a promise of it when the set's LiveSets
+// files have to be looked up first (worker unavailable).
+const loadLiveSetsCardPlayer = (card) => {
   const audio = card?.querySelector('[data-livesets-audio]');
   if (!audio) return null;
   // Already has a stream (sources, or a ?t= stream started by a seek)
   if (audio.querySelector('source') || audio.getAttribute('src')) return audio;
 
   const sessionId = card.dataset.livesetsSessionId || '';
+  const proxyBase = getLiveSetsProxyBase();
+  if (proxyBase) {
+    // The worker's /audio route (seekable byte ranges) needs no meta, so the
+    // stream starts right away: iOS only allows play() straight from the tap,
+    // not after waiting for a request. The meta (exact length, LiveSets' own
+    // files) is fetched alongside.
+    audio.replaceChildren();
+    appendLiveSetsSources(audio, [{ url: `${proxyBase}audio/${encodeURIComponent(sessionId)}`, type: 'audio/mpeg' }]);
+    const proxySource = audio.querySelector('source');
+    audio.load();
+    setLiveSetsCardPlayerState(card, 'is-ready');
+    let proxyFailed = false;
+    let fallbackSources = null; // null until the meta lookup ends
+    // Worker stream failed: switch to LiveSets' own files. Browsers don't
+    // pick up <source>s added after the others failed, so reload explicitly
+    // (play() is allowed again: this element already played from the tap).
+    const useFallback = () => {
+      // Skip if the set was left (sources cleared) or a ?t= seek took over
+      if (!proxyFailed || fallbackSources === null) return;
+      if (proxySource.parentNode !== audio || audio.getAttribute('src')) return;
+      if (!fallbackSources.length) {
+        audio.pause();
+        card.classList.remove('is-playing-session', 'is-buffering');
+        setLiveSetsCardPlayerState(card, 'has-error', 'Player could not load right now.');
+        return;
+      }
+      const wasPlaying = !audio.paused;
+      audio.replaceChildren();
+      appendLiveSetsSources(audio, fallbackSources);
+      audio.load();
+      if (wasPlaying) {
+        audio.play().catch((error) => {
+          if (error.name === 'AbortError') return;
+          setLiveSetsCardPlayerState(card, 'has-error', 'Playback could not start. Try Play session again.');
+        });
+      }
+    };
+    proxySource.addEventListener('error', () => {
+      proxyFailed = true;
+      useFallback();
+    }, { once: true });
+    fetchLiveSetsSessionMeta(sessionId).then((meta) => {
+      if (meta?.duration) card.dataset.totalDuration = String(meta.duration);
+      fallbackSources = meta?.urlAudio || [];
+      useFallback();
+    });
+    return audio;
+  }
+  return loadLiveSetsCardPlayerFromMeta(card, audio, sessionId);
+};
+
+const loadLiveSetsCardPlayerFromMeta = async (card, audio, sessionId) => {
   setLiveSetsCardPlayerState(card, 'is-loading', 'Loading session...');
   const meta = await fetchLiveSetsSessionMeta(sessionId);
 
@@ -2529,19 +2594,7 @@ const loadLiveSetsCardPlayer = async (card) => {
 
   if (meta.duration) card.dataset.totalDuration = String(meta.duration);
   audio.replaceChildren();
-  // Prefer the proxy worker's /audio route (seekable byte ranges); the
-  // browser falls back to LiveSets' own files if it is unavailable.
-  const proxyBase = getLiveSetsProxyBase();
-  const sources = [
-    ...(proxyBase ? [{ url: `${proxyBase}audio/${encodeURIComponent(sessionId)}`, type: 'audio/mpeg' }] : []),
-    ...meta.urlAudio,
-  ];
-  sources.forEach((sourceData) => {
-    const source = document.createElement('source');
-    source.src = sourceData.url;
-    if (sourceData.type) source.type = sourceData.type;
-    audio.appendChild(source);
-  });
+  appendLiveSetsSources(audio, meta.urlAudio);
   audio.load();
   setLiveSetsCardPlayerState(card, 'is-ready');
   return audio;
@@ -2549,7 +2602,10 @@ const loadLiveSetsCardPlayer = async (card) => {
 
 const playLiveSetsCard = async (card) => {
   if (!card || !card.classList.contains('active') || card.classList.contains('is-loading-session')) return;
-  const audio = await loadLiveSetsCardPlayer(card);
+  // No await when the stream is ready at once, so play() below still runs
+  // inside the tap (iOS)
+  const loaded = loadLiveSetsCardPlayer(card);
+  const audio = loaded instanceof Promise ? await loaded : loaded;
   // The card may have been redrawn (removed) while its meta loaded
   if (!audio || !card.isConnected || !card.classList.contains('active')) return;
 
